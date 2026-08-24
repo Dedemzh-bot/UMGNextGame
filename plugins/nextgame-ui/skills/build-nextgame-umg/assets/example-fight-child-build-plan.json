@@ -8,12 +8,12 @@
     "name": "uw_fight_stamina",
     "integrationAsset": "/Game/UI/UMG/Fight/umg_fight"
   },
-  "designSizeMode": "Desired",
+  "designSizeMode": "FillScreen",
   "designSizeModeResolution": {
-    "mode": "Desired",
-    "source": "explicit-analysis",
+    "mode": "FillScreen",
+    "source": "umg-target-hard-rule",
     "fallbackApplied": false,
-    "reason": "Executed from the explicit profile.designSizeMode analysis decision."
+    "reason": "Target umg_ai_fight_stamina is an umg_* Widget Blueprint; it must use FillScreen."
   },
   "selectedRuleIds": [
     "layout.designer-size-mode",
@@ -87,7 +87,7 @@
       "fallback": "nxue manage-property only when the official route does not expose the protected CDO field",
       "cdoObjectPath": "/Game/UI/AIPrototype/umg_ai_fight_stamina.Default__umg_ai_fight_stamina_C",
       "propertyPath": "DesignSizeMode",
-      "expectedValue": "Desired",
+      "expectedValue": "FillScreen",
       "requiresPostSaveReadback": true
     }
   },
@@ -403,7 +403,7 @@
           "refPath": "${blueprintDefaultObject.returnValue.refPath}"
         },
         "values": {
-          "designSizeMode": "Desired"
+          "designSizeMode": "FillScreen"
         }
       },
       "instruction": "Serialize values as a compact JSON string. Set the generated UUserWidget CDO after the final compile and before save; never write this property on the WidgetBlueprint asset object.",
@@ -447,7 +447,7 @@
           "designSizeMode"
         ]
       },
-      "assertion": "Saved generated-class CDO designSizeMode must equal Desired."
+      "assertion": "Saved generated-class CDO designSizeMode must equal FillScreen."
     },
     {
       "stepId": "verify-tree",

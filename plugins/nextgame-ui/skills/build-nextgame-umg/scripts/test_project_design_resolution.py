@@ -30,6 +30,7 @@ def screen_spec() -> dict[str, Any]:
             "containsRepeatedElements": False,
             "regionGrouping": False,
             "assetKind": "screen",
+            "designSizeMode": "FillScreen",
             "system": "role",
             "systemFolder": "Role",
             "subsystem": None,

@@ -18,35 +18,64 @@ DEFAULT_RULES = SKILL_ROOT / "references" / "rule-index.json"
 DEFAULT_PARENT_CLASS = "/Script/UMG.UserWidget"
 
 
-def effective_design_size_mode(spec: dict[str, Any]) -> str:
-    """Return the explicit analyzed mode, or the fault-tolerant FillScreen fallback."""
+def target_widget_basename(spec: dict[str, Any]) -> str | None:
+    """Resolve the basename of the Widget Blueprint that this plan will mutate."""
 
-    explicit = spec.get("profile", {}).get("designSizeMode")
-    if explicit in {"FillScreen", "Desired"}:
-        return explicit
-    # A legacy/standalone spec may predate the explicit analysis decision. Its
-    # asset kind and asset-name prefix are not sufficient evidence for Desired.
-    return "FillScreen"
+    asset = spec.get("asset")
+    if spec.get("mode") == "prototype":
+        return asset.get("name") if isinstance(asset, dict) and isinstance(asset.get("name"), str) else None
+    profile = spec.get("profile", {})
+    target = profile.get("targetAsset") if isinstance(profile, dict) else None
+    if isinstance(target, dict) and isinstance(target.get("name"), str):
+        return target["name"]
+    if isinstance(asset, dict) and isinstance(asset.get("name"), str):
+        return asset["name"]
+    return None
+
+
+def effective_design_size_mode(spec: dict[str, Any]) -> str:
+    """Return the target-safe analyzed mode or conservative FillScreen fallback."""
+
+    return str(design_size_mode_resolution(spec)["mode"])
 
 
 def design_size_mode_resolution(spec: dict[str, Any]) -> dict[str, Any]:
     """Describe the provenance of the executable Designer mode."""
 
     explicit = spec.get("profile", {}).get("designSizeMode")
-    if explicit in {"FillScreen", "Desired"}:
+    target_name = target_widget_basename(spec)
+    if isinstance(target_name, str) and target_name.startswith("umg_"):
+        missing_explicit_mode = explicit is None
+        return {
+            "mode": "FillScreen",
+            "source": "umg-target-hard-rule",
+            "fallbackApplied": missing_explicit_mode,
+            "reason": (
+                f"Target {target_name} is an umg_* Widget Blueprint; "
+                + ("its archived mode is missing, so resolve it to hard-rule FillScreen." if missing_explicit_mode else "it must use FillScreen.")
+            ),
+        }
+    if isinstance(target_name, str) and target_name.startswith("uw_") and explicit in {"FillScreen", "Desired"}:
         return {
             "mode": explicit,
             "source": "explicit-analysis",
             "fallbackApplied": False,
-            "reason": "Executed from the explicit profile.designSizeMode analysis decision.",
+            "reason": f"Executed the explicit profile.designSizeMode analysis decision for uw_* target {target_name}.",
+        }
+    if isinstance(target_name, str) and target_name.startswith("uw_"):
+        return {
+            "mode": "FillScreen",
+            "source": "fallback-unclear",
+            "fallbackApplied": True,
+            "reason": f"Target {target_name} has no explicit analyzed Designer mode; use FillScreen.",
         }
     return {
         "mode": "FillScreen",
-        "source": "fallback-unclear",
+        "source": "fallback-unknown-target",
         "fallbackApplied": True,
         "reason": (
-            "No explicit analyzed Designer mode is available; use the fault-tolerant FillScreen default. "
-            "Neither profile.assetKind nor the asset-name prefix was used to infer the mode."
+            "The formal target basename is unknown or does not use a recognized umg_/uw_ contract; "
+            "use the conservative FillScreen default."
         ),
     }
 
@@ -187,10 +216,7 @@ def build_plan(spec_path: Path, spec: dict[str, Any], catalog: dict[str, Any], r
     design_size_mode_result = design_size_mode_resolution(spec)
     design_size_mode = design_size_mode_result["mode"]
     if design_size_mode_result["fallbackApplied"]:
-        warnings.append(
-            "fallback-unclear: profile.designSizeMode is missing, so the plan uses the fault-tolerant FillScreen default. "
-            "This fallback does not use profile.assetKind or an umg_/uw_ asset-name prefix as evidence."
-        )
+        warnings.append(f"{design_size_mode_result['source']}: {design_size_mode_result['reason']}")
 
     steps.append(tool_step(
         "check-destination",

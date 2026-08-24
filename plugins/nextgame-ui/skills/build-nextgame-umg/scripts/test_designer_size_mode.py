@@ -102,21 +102,63 @@ class DesignerSizeModeTests(unittest.TestCase):
         self.assertEqual(effective_design_size_mode(screen_spec()), "FillScreen")
         self.assertEqual(effective_design_size_mode(child_spec()), "Desired")
 
-    def test_explicit_modes_are_not_inferred_from_asset_kind_or_name_prefix(self) -> None:
+    def test_umg_target_hard_requires_fill_screen_and_uw_allows_analysis(self) -> None:
         screen = screen_spec()
         screen["profile"]["designSizeMode"] = "Desired"
         add_fixed_root_content(screen, 2560, 1440)
-        self.assertTrue(validate_spec(screen, CATALOG)["valid"])
-        self.assertEqual(effective_design_size_mode(screen), "Desired")
+        self.assertIn("profile.design_size_mode.umg_target", error_codes(screen))
+        self.assertEqual(effective_design_size_mode(screen), "FillScreen")
+        with self.assertRaisesRegex(ValueError, "umg_target"):
+            build_plan(Path("invalid-umg-desired.json"), screen, CATALOG, RULES)
 
         child = child_spec()
         child["profile"]["designSizeMode"] = "FillScreen"
         self.assertTrue(validate_spec(child, CATALOG)["valid"])
         self.assertEqual(effective_design_size_mode(child), "FillScreen")
 
+        missing_umg_mode = screen_spec()
+        del missing_umg_mode["profile"]["designSizeMode"]
+        missing_umg_report = validate_spec(missing_umg_mode, CATALOG)
+        self.assertTrue(missing_umg_report["valid"], missing_umg_report["errors"])
+        self.assertIn(
+            "profile.design_size_mode_missing",
+            {entry["code"] for entry in missing_umg_report["warnings"]},
+        )
+        missing_umg_plan = build_plan(Path("archived-umg-missing.json"), missing_umg_mode, CATALOG, RULES)
+        self.assertEqual(missing_umg_plan["designSizeMode"], "FillScreen")
+        self.assertEqual(missing_umg_plan["designSizeModeResolution"]["source"], "umg-target-hard-rule")
+        self.assertTrue(missing_umg_plan["designSizeModeResolution"]["fallbackApplied"])
+
+        unknown_desired = child_spec()
+        unknown_desired["profile"].pop("targetAsset")
+        unknown_desired["mode"] = "prototype"
+        unknown_desired["asset"] = {"folder": "/Game/UI/AIPrototype", "name": "legacy_local"}
+        self.assertIn("profile.design_size_mode.desired_target", error_codes(unknown_desired))
+        self.assertEqual(effective_design_size_mode(unknown_desired), "FillScreen")
+
+    def test_prototype_uses_actual_umg_ai_basename_not_stale_uw_metadata(self) -> None:
+        prototype = child_spec()
+        prototype["mode"] = "prototype"
+        prototype["asset"] = {"folder": "/Game/UI/AIPrototype", "name": "umg_ai_local"}
+        self.assertEqual(prototype["profile"]["targetAsset"]["name"], "uw_role_item")
+        self.assertIn("profile.design_size_mode.umg_target", error_codes(prototype))
+        self.assertEqual(effective_design_size_mode(prototype), "FillScreen")
+        with self.assertRaisesRegex(ValueError, "umg_target"):
+            build_plan(Path("prototype-stale-uw-target.json"), prototype, CATALOG, RULES)
+
+        prototype["profile"]["designSizeMode"] = "FillScreen"
+        self.assertTrue(validate_spec(prototype, CATALOG)["valid"])
+        plan = build_plan(Path("prototype-corrected-fill.json"), prototype, CATALOG, RULES)
+        self.assertEqual(plan["designSizeMode"], "FillScreen")
+        self.assertEqual(plan["designSizeModeResolution"]["source"], "umg-target-hard-rule")
+        self.assertEqual(
+            next(step for step in plan["steps"] if step["stepId"] == "set-design-size-mode")["arguments"]["values"],
+            {"designSizeMode": "FillScreen"},
+        )
+
     def test_desired_rejects_empty_root_and_zero_offset_full_stretch(self) -> None:
-        empty = screen_spec()
-        empty["profile"]["designSizeMode"] = "Desired"
+        empty = child_spec()
+        empty["nodes"] = empty["nodes"][:1]
         self.assertIn("profile.design_size_mode.desired_root_size", error_codes(empty))
         with self.assertRaisesRegex(ValueError, "desired_root_size"):
             build_plan(Path("invalid-empty-desired.json"), empty, CATALOG, RULES)
@@ -141,15 +183,13 @@ class DesignerSizeModeTests(unittest.TestCase):
         )
         self.assertIn("profile.design_size_mode.desired_root_size", error_codes(full_stretch))
 
-        auto_sized_fixed = screen_spec()
-        auto_sized_fixed["profile"]["designSizeMode"] = "Desired"
-        add_fixed_root_content(auto_sized_fixed, 2560, 1440)
+        auto_sized_fixed = child_spec()
         auto_sized_fixed["nodes"][1]["slotLayout"]["autoSize"] = True
         self.assertIn("profile.design_size_mode.desired_root_size", error_codes(auto_sized_fixed))
 
     def test_desired_accepts_verified_content_driven_root_child(self) -> None:
-        spec = screen_spec()
-        spec["profile"]["designSizeMode"] = "Desired"
+        spec = child_spec()
+        spec["nodes"] = spec["nodes"][:1]
         spec["nodes"].append(
             {
                 "id": "content",
@@ -169,8 +209,8 @@ class DesignerSizeModeTests(unittest.TestCase):
         self.assertTrue(validate_spec(spec, CATALOG)["valid"])
 
     def test_desired_rejects_unmeasured_or_malformed_content_driven_claims(self) -> None:
-        verified_only = screen_spec()
-        verified_only["profile"]["designSizeMode"] = "Desired"
+        verified_only = child_spec()
+        verified_only["nodes"] = verified_only["nodes"][:1]
         verified_only["nodes"].append(
             {
                 "id": "content",
@@ -207,6 +247,41 @@ class DesignerSizeModeTests(unittest.TestCase):
             {"verified", "measuredDesiredSize", "evidenceId"},
         )
 
+        umg_guard = next(
+            rule
+            for rule in SCHEMA["allOf"]
+            if rule.get("if", {})
+            .get("properties", {})
+            .get("profile", {})
+            .get("properties", {})
+            .get("targetAsset", {})
+            .get("properties", {})
+            .get("name", {})
+            .get("pattern")
+            == "^umg_"
+        )
+        guarded_profile = umg_guard["then"]["properties"]["profile"]
+        self.assertNotIn("designSizeMode", guarded_profile.get("required", []))
+        self.assertEqual(
+            guarded_profile["properties"]["designSizeMode"],
+            {"const": "FillScreen"},
+        )
+        asset_umg_guard = next(
+            rule
+            for rule in SCHEMA["allOf"]
+            if rule.get("if", {})
+            .get("properties", {})
+            .get("asset", {})
+            .get("properties", {})
+            .get("name", {})
+            .get("pattern")
+            == "^umg_"
+        )
+        self.assertEqual(
+            asset_umg_guard["then"]["properties"]["profile"]["properties"]["designSizeMode"],
+            {"const": "FillScreen"},
+        )
+
     def test_on_screen_and_custom_modes_are_rejected(self) -> None:
         for invalid in ("DesiredOnScreen", "Custom", "CustomOnScreen"):
             spec = child_spec()
@@ -231,10 +306,7 @@ class DesignerSizeModeTests(unittest.TestCase):
                 "mode": "FillScreen",
                 "source": "fallback-unclear",
                 "fallbackApplied": True,
-                "reason": (
-                    "No explicit analyzed Designer mode is available; use the fault-tolerant FillScreen default. "
-                    "Neither profile.assetKind nor the asset-name prefix was used to infer the mode."
-                ),
+                "reason": "Target uw_role_item has no explicit analyzed Designer mode; use FillScreen.",
             },
         )
         self.assertTrue(any("fallback-unclear" in item for item in plan["warnings"]))
@@ -245,13 +317,15 @@ class DesignerSizeModeTests(unittest.TestCase):
         spec["mode"] = "prototype"
         spec["asset"] = {"folder": "/Game/UI/AIPrototype", "name": "umg_ai_preview"}
         spec["profile"]["assetKind"] = "prototype"
+        spec["profile"].pop("targetAsset")
         del spec["profile"]["designSizeMode"]
         self.assertEqual(effective_design_size_mode(spec), "FillScreen")
         plan = build_plan(Path("legacy-prototype.json"), spec, CATALOG, RULES)
         self.assertEqual(plan["designSizeMode"], "FillScreen")
         self.assertIn("set-design-size-mode", [step["stepId"] for step in plan["steps"]])
         self.assertTrue(plan["designSizeModeResolution"]["fallbackApplied"])
-        self.assertTrue(any("fallback-unclear" in item for item in plan["warnings"]))
+        self.assertEqual(plan["designSizeModeResolution"]["source"], "umg-target-hard-rule")
+        self.assertTrue(any("umg-target-hard-rule" in item for item in plan["warnings"]))
 
     def test_plan_sets_generated_cdo_after_compile_and_verifies_after_save(self) -> None:
         for spec, expected in ((screen_spec(), "FillScreen"), (child_spec(), "Desired")):
@@ -270,7 +344,8 @@ class DesignerSizeModeTests(unittest.TestCase):
                 "${blueprintDefaultObject.returnValue.refPath}",
             )
             self.assertEqual(plan["designSizeMode"], expected)
-            self.assertEqual(plan["designSizeModeResolution"]["source"], "explicit-analysis")
+            expected_source = "umg-target-hard-rule" if expected == "FillScreen" else "explicit-analysis"
+            self.assertEqual(plan["designSizeModeResolution"]["source"], expected_source)
             self.assertFalse(plan["designSizeModeResolution"]["fallbackApplied"])
             self.assertIn("layout.designer-size-mode", plan["selectedRuleIds"])
 

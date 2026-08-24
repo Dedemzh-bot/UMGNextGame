@@ -28,6 +28,7 @@ def split_header_spec() -> dict[str, Any]:
             "containsRepeatedElements": False,
             "regionGrouping": True,
             "assetKind": "screen",
+            "designSizeMode": "FillScreen",
             "system": "map",
             "systemFolder": "Map",
             "subsystem": None,

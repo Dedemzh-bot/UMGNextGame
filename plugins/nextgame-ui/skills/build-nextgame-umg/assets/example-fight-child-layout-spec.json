@@ -11,7 +11,7 @@
     "containsRepeatedElements": false,
     "regionGrouping": false,
     "assetKind": "child-widget",
-    "designSizeMode": "Desired",
+    "designSizeMode": "FillScreen",
     "system": "fight",
     "systemFolder": "Fight",
     "subsystem": null,

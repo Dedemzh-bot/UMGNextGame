@@ -49,6 +49,7 @@ def ratio_screen_spec() -> dict[str, Any]:
             "containsRepeatedElements": False,
             "regionGrouping": True,
             "assetKind": "screen",
+            "designSizeMode": "FillScreen",
             "system": "ratio",
             "systemFolder": "Ratio",
             "targetAsset": {"folder": "/Game/UI/UMG/Ratio", "name": "umg_ratio"},

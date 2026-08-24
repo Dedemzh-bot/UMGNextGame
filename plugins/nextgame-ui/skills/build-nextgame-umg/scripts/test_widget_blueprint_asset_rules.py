@@ -31,6 +31,7 @@ def base_spec() -> dict[str, Any]:
             "containsRepeatedElements": False,
             "regionGrouping": False,
             "assetKind": "screen",
+            "designSizeMode": "FillScreen",
             "system": "map",
             "systemFolder": "Map",
             "subsystem": None,

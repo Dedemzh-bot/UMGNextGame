@@ -159,10 +159,11 @@ def required_design_size_modes(
     """Return each in-scope asset's reviewed Designer size-mode decision.
 
     New requirements opt into this executable/readback gate with
-    ``analysisPolicy.designSizeModeRequired`` and persist the analysis result in
-    ``assetPlan[].designSizeModeDecision``.  Asset kind and asset-name prefixes
-    deliberately do not participate. Archived requirements without the policy
-    retain their historical behavior.
+    ``analysisPolicy.designSizeModeRequired`` and persist the result in
+    ``assetPlan[].designSizeModeDecision``. The ``umg_`` basename is a hard
+    project FillScreen rule; ``uw_`` assets are analyzed; legacy names fall back
+    conservatively. Asset kind never selects the mode. Archived requirements
+    without the policy retain their historical behavior.
     """
 
     analysis_policy = spec.get("analysisPolicy") if isinstance(spec.get("analysisPolicy"), dict) else {}
@@ -1705,7 +1706,7 @@ def validate_requirement_spec(
                 issue(
                     "asset.design_size_mode.required",
                     decision_path,
-                    "Every policy-enabled in-scope asset requires an evidence-driven designSizeModeDecision.",
+                    "Every policy-enabled in-scope asset requires an explicit designSizeModeDecision.",
                 )
             )
         if isinstance(decision, dict):
@@ -1775,6 +1776,38 @@ def validate_requirement_spec(
                                 "A fallback claim must explicitly record both canonical tokens fallback-unclear and FillScreen.",
                             )
                         )
+                if basis == "project-umg-rule":
+                    statement = decision_claim.get("statement")
+                    if not isinstance(statement, str) or "project-umg-rule" not in statement or "FillScreen" not in statement:
+                        errors.append(
+                            issue(
+                                "asset.design_size_mode.umg_claim",
+                                f"{decision_path}.claimId",
+                                "The umg project-rule claim must explicitly record both canonical tokens project-umg-rule and FillScreen.",
+                            )
+                        )
+                    evidence_by_id = by_kind.get("evidence", {})
+                    sources_by_id = by_kind.get("source", {})
+                    claim_evidence_ids = (
+                        decision_claim.get("evidenceIds", [])
+                        if isinstance(decision_claim.get("evidenceIds"), list)
+                        else []
+                    )
+                    has_project_rule_source = any(
+                        isinstance(evidence_by_id.get(evidence_id), dict)
+                        and isinstance(sources_by_id.get(evidence_by_id[evidence_id].get("sourceId")), dict)
+                        and sources_by_id[evidence_by_id[evidence_id]["sourceId"]].get("kind") == "project-rule"
+                        for evidence_id in claim_evidence_ids
+                        if isinstance(evidence_id, str)
+                    )
+                    if not has_project_rule_source:
+                        errors.append(
+                            issue(
+                                "asset.design_size_mode.umg_rule_evidence",
+                                f"{decision_path}.claimId",
+                                "project-umg-rule requires the proving claim to cite evidence from a project-rule source.",
+                            )
+                        )
             if isinstance(decision_evidence, list):
                 asset_evidence = set(asset.get("evidenceIds", [])) if isinstance(asset.get("evidenceIds"), list) else set()
                 detached_evidence = {
@@ -1791,12 +1824,12 @@ def validate_requirement_spec(
                         )
                     )
             evidence_is_empty = not isinstance(decision_evidence, list) or not decision_evidence
-            if basis != "fallback-unclear" and evidence_is_empty:
+            if basis not in {"fallback-unclear", "project-umg-rule"} and evidence_is_empty:
                 errors.append(
                     issue(
                         "asset.design_size_mode.evidence_required",
                         f"{decision_path}.evidenceIds",
-                        "An analyzed Design Size mode requires positive evidence; only fallback-unclear may have no evidence.",
+                        "An analyzed Design Size mode requires positive evidence; fallback-unclear and project-umg-rule do not.",
                     )
                 )
             if mode == "Desired" and evidence_is_empty:
@@ -1830,6 +1863,7 @@ def validate_requirement_spec(
             required_mode_by_basis = {
                 "viewport-filling": "FillScreen",
                 "content-sized-local": "Desired",
+                "project-umg-rule": "FillScreen",
                 "fallback-unclear": "FillScreen",
             }
             required_mode = required_mode_by_basis.get(basis)
@@ -1839,6 +1873,42 @@ def validate_requirement_spec(
                         "asset.design_size_mode.basis_mode",
                         decision_path,
                         f"Basis {basis!r} requires mode {required_mode!r}; found {mode!r}.",
+                    )
+                )
+            asset_path = asset.get("assetPath")
+            asset_basename = asset_path.rstrip("/").rsplit("/", 1)[-1] if isinstance(asset_path, str) else ""
+            if asset_basename.startswith("umg_"):
+                if basis != "project-umg-rule" or mode != "FillScreen":
+                    errors.append(
+                        issue(
+                            "asset.design_size_mode.umg_rule",
+                            decision_path,
+                            "An umg_* Blueprint must use mode FillScreen with basis project-umg-rule; it is not evidence-analyzed.",
+                        )
+                    )
+                if isinstance(decision_evidence, list) and decision_evidence:
+                    errors.append(
+                        issue(
+                            "asset.design_size_mode.umg_decision_evidence",
+                            f"{decision_path}.evidenceIds",
+                            "An umg_* project rule decision must keep decision evidenceIds empty.",
+                        )
+                    )
+            elif asset_basename.startswith("uw_"):
+                if basis == "project-umg-rule":
+                    errors.append(
+                        issue(
+                            "asset.design_size_mode.uw_analysis_required",
+                            decision_path,
+                            "A uw_* Blueprint must be analyzed and cannot use project-umg-rule.",
+                        )
+                    )
+            elif basis != "fallback-unclear" or mode != "FillScreen":
+                errors.append(
+                    issue(
+                        "asset.design_size_mode.legacy_name_fallback",
+                        decision_path,
+                        "A non-umg/non-uw legacy Blueprint name must conservatively use fallback-unclear with FillScreen.",
                     )
                 )
         if asset.get("id") in asset.get("dependsOnAssetIds", []):

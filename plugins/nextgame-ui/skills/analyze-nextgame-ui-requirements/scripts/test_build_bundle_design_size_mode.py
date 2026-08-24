@@ -34,8 +34,9 @@ def entity_by_id(values: list[dict], entity_id: str) -> dict:
 def prepare_design_size_claim(requirement: dict) -> dict:
     claim = entity_by_id(requirement["claims"], "claim-asset-decomposition")
     claim["statement"] = (
-        "Reviewed Design Size analysis: viewport-filling uses FillScreen; content-sized-local uses Desired; "
-        "verified-reference follows Editor readback; fallback-unclear explicitly falls back to FillScreen."
+        "Reviewed Design Size contract: project-umg-rule forces umg assets to FillScreen; "
+        "viewport-filling uses FillScreen; content-sized-local uses Desired; verified-reference follows Editor readback; "
+        "fallback-unclear explicitly falls back to FillScreen."
     )
     if "evidence-project-resolution" not in claim["evidenceIds"]:
         claim["evidenceIds"].append("evidence-project-resolution")
@@ -113,9 +114,9 @@ class RequirementDesignSizeModeTests(unittest.TestCase):
         }
         requirement["assetPlan"][1]["designSizeModeDecision"] = {
             "mode": "FillScreen",
-            "basis": "viewport-filling",
-            "reason": "The root is analyzed as filling the viewport.",
-            "evidenceIds": ["evidence-project-resolution"],
+            "basis": "project-umg-rule",
+            "reason": "The umg_* project rule fixes the Designer mode without evidence analysis.",
+            "evidenceIds": [],
             "claimId": "claim-asset-decomposition",
         }
         requirement["reviewGate"]["approvedContentSha256"] = compute_approved_content_sha256(requirement)
@@ -129,7 +130,6 @@ class RequirementDesignSizeModeTests(unittest.TestCase):
             "designSizeModeRequired": True,
         }
         prepare_design_size_claim(requirement)
-        add_verified_local_widget_evidence(requirement, "asset-screen-role")
         requirement["assetPlan"][0]["designSizeModeDecision"] = {
             "mode": "FillScreen",
             "basis": "fallback-unclear",
@@ -138,10 +138,10 @@ class RequirementDesignSizeModeTests(unittest.TestCase):
             "claimId": "claim-asset-decomposition",
         }
         requirement["assetPlan"][1]["designSizeModeDecision"] = {
-            "mode": "Desired",
-            "basis": "verified-reference",
-            "reason": "The designated reference is verified as a locally hosted content-sized Widget.",
-            "evidenceIds": ["evidence-verified-local-widget"],
+            "mode": "FillScreen",
+            "basis": "project-umg-rule",
+            "reason": "The umg_* project rule fixes FillScreen without analyzing evidence.",
+            "evidenceIds": [],
             "claimId": "claim-asset-decomposition",
         }
         requirement["assetPlan"].append(
@@ -168,7 +168,7 @@ class RequirementDesignSizeModeTests(unittest.TestCase):
             required_design_size_modes(requirement),
             {
                 "asset-child-navigation-tab": "FillScreen",
-                "asset-screen-role": "Desired",
+                "asset-screen-role": "FillScreen",
                 "asset-entry-navigation-tab": "Desired",
             },
         )
@@ -187,6 +187,77 @@ class RequirementDesignSizeModeTests(unittest.TestCase):
     def test_policy_accepts_claim_bound_decisions(self) -> None:
         validation = validate_requirement_spec(self.make_valid_policy_requirement(), self.schema)
         self.assertTrue(validation["valid"], validation)
+
+    def test_umg_name_forces_project_rule_fill_without_decision_evidence(self) -> None:
+        requirement = self.make_valid_policy_requirement()
+        screen_decision = requirement["assetPlan"][1]["designSizeModeDecision"]
+        self.assertEqual(screen_decision["basis"], "project-umg-rule")
+        self.assertEqual(screen_decision["mode"], "FillScreen")
+        self.assertEqual(screen_decision["evidenceIds"], [])
+
+        screen_decision.update(
+            {
+                "basis": "viewport-filling",
+                "evidenceIds": ["evidence-project-resolution"],
+            }
+        )
+        validation = validate_requirement_spec(requirement, self.schema)
+        self.assertIn("asset.design_size_mode.umg_rule", error_codes(validation))
+
+    def test_umg_project_rule_rejects_decision_evidence(self) -> None:
+        requirement = self.make_valid_policy_requirement()
+        requirement["assetPlan"][1]["designSizeModeDecision"]["evidenceIds"] = ["evidence-project-resolution"]
+        validation = validate_requirement_spec(requirement, self.schema)
+        self.assertIn("asset.design_size_mode.umg_decision_evidence", error_codes(validation))
+
+    def test_umg_project_rule_claim_requires_project_rule_source(self) -> None:
+        requirement = self.make_valid_policy_requirement()
+        claim = entity_by_id(requirement["claims"], "claim-asset-decomposition")
+        claim["evidenceIds"] = ["evidence-selected-tab", "evidence-unselected-tabs"]
+        validation = validate_requirement_spec(requirement, self.schema)
+        self.assertIn("asset.design_size_mode.umg_rule_evidence", error_codes(validation))
+
+    def test_uw_name_forbids_project_umg_rule(self) -> None:
+        requirement = self.make_valid_policy_requirement()
+        requirement["assetPlan"][0]["designSizeModeDecision"] = {
+            "mode": "FillScreen",
+            "basis": "project-umg-rule",
+            "reason": "The umg-only rule cannot be reused for a uw asset.",
+            "evidenceIds": [],
+            "claimId": "claim-asset-decomposition",
+        }
+        validation = validate_requirement_spec(requirement, self.schema)
+        self.assertIn("asset.design_size_mode.uw_analysis_required", error_codes(validation))
+
+    def test_nonstandard_legacy_name_requires_fill_screen_fallback(self) -> None:
+        requirement = self.make_valid_policy_requirement()
+        child = requirement["assetPlan"][0]
+        old_path = child["assetPath"]
+        child["assetPath"] = "/Game/UI/UMG/Role/Widgets/legacy_navigation_tab"
+        requirement["target"]["targetAssetPaths"] = [
+            child["assetPath"] if path == old_path else path
+            for path in requirement["target"]["targetAssetPaths"]
+        ]
+        child["designSizeModeDecision"] = {
+            "mode": "FillScreen",
+            "basis": "fallback-unclear",
+            "reason": "A nonstandard legacy name uses the conservative fallback.",
+            "evidenceIds": [],
+            "claimId": "claim-asset-decomposition",
+        }
+        requirement["reviewGate"]["approvedContentSha256"] = compute_approved_content_sha256(requirement)
+        validation = validate_requirement_spec(requirement, self.schema)
+        self.assertTrue(validation["valid"], validation)
+
+        child["designSizeModeDecision"] = {
+            "mode": "Desired",
+            "basis": "content-sized-local",
+            "reason": "Legacy names cannot opt into Desired analysis.",
+            "evidenceIds": ["evidence-selected-tab"],
+            "claimId": "claim-asset-decomposition",
+        }
+        validation = validate_requirement_spec(requirement, self.schema)
+        self.assertIn("asset.design_size_mode.legacy_name_fallback", error_codes(validation))
 
     def test_decision_requires_single_claim_id(self) -> None:
         requirement = self.make_valid_policy_requirement()
@@ -250,7 +321,7 @@ class RequirementDesignSizeModeTests(unittest.TestCase):
 
     def test_verified_reference_rejects_project_rule_or_image_evidence(self) -> None:
         requirement = self.make_valid_policy_requirement()
-        requirement["assetPlan"][1]["designSizeModeDecision"] = {
+        requirement["assetPlan"][0]["designSizeModeDecision"] = {
             "mode": "Desired",
             "basis": "verified-reference",
             "reason": "An ordinary project rule is incorrectly presented as Widget readback.",
@@ -264,8 +335,8 @@ class RequirementDesignSizeModeTests(unittest.TestCase):
 
     def test_verified_reference_accepts_project_asset_editor_readback(self) -> None:
         requirement = self.make_valid_policy_requirement()
-        add_verified_local_widget_evidence(requirement, "asset-screen-role")
-        requirement["assetPlan"][1]["designSizeModeDecision"] = {
+        add_verified_local_widget_evidence(requirement, "asset-child-navigation-tab")
+        requirement["assetPlan"][0]["designSizeModeDecision"] = {
             "mode": "Desired",
             "basis": "verified-reference",
             "reason": "The designated Widget readback proves local Desired-size hosting.",
@@ -278,10 +349,10 @@ class RequirementDesignSizeModeTests(unittest.TestCase):
 
     def test_verified_reference_rejects_inline_project_asset_source(self) -> None:
         requirement = self.make_valid_policy_requirement()
-        add_verified_local_widget_evidence(requirement, "asset-screen-role")
+        add_verified_local_widget_evidence(requirement, "asset-child-navigation-tab")
         source = entity_by_id(requirement["sources"], "source-verified-local-widget")
         source["locatorKind"] = "inline"
-        requirement["assetPlan"][1]["designSizeModeDecision"] = {
+        requirement["assetPlan"][0]["designSizeModeDecision"] = {
             "mode": "Desired",
             "basis": "verified-reference",
             "reason": "Inline metadata cannot prove an Unreal Widget readback.",
@@ -387,9 +458,9 @@ class BuildBundleDesignSizeModeTests(unittest.TestCase):
         }
         requirement["assetPlan"][1]["designSizeModeDecision"] = {
             "mode": "FillScreen",
-            "basis": "viewport-filling",
-            "reason": "The accepted screen root fills the 2560 by 1440 viewport.",
-            "evidenceIds": ["evidence-project-resolution"],
+            "basis": "project-umg-rule",
+            "reason": "The umg_* project rule fixes FillScreen without evidence analysis.",
+            "evidenceIds": [],
             "claimId": "claim-asset-decomposition",
         }
         requirement["reviewGate"]["approvedContentSha256"] = compute_approved_content_sha256(requirement)
@@ -553,14 +624,12 @@ class BuildBundleDesignSizeModeTests(unittest.TestCase):
     def test_policy_rejects_layout_mode_that_disagrees_with_decision(self) -> None:
         requirement, bundle, child_layout, screen_layout = self.make_policy_fixture()
         screen_layout["profile"]["designSizeMode"] = "Desired"
-        self.assertIn(
-            "layout.design_size_mode",
-            error_codes(self.validate(requirement, bundle, child_layout, screen_layout)),
-        )
+        codes = error_codes(self.validate(requirement, bundle, child_layout, screen_layout))
+        self.assertIn("layout.design_size_mode", codes)
+        self.assertIn("layout.umg_design_size_mode", codes)
 
-    def test_asset_kind_does_not_override_analyzed_modes(self) -> None:
+    def test_uw_analysis_can_choose_fill_without_asset_kind_mapping(self) -> None:
         requirement, bundle, child_layout, screen_layout = self.make_policy_fixture()
-        add_verified_local_widget_evidence(requirement, "asset-screen-role")
         requirement["assetPlan"][0]["designSizeModeDecision"] = {
             "mode": "FillScreen",
             "basis": "fallback-unclear",
@@ -568,23 +637,9 @@ class BuildBundleDesignSizeModeTests(unittest.TestCase):
             "evidenceIds": [],
             "claimId": "claim-asset-decomposition",
         }
-        requirement["assetPlan"][1]["designSizeModeDecision"] = {
-            "mode": "Desired",
-            "basis": "verified-reference",
-            "reason": "The designated reference confirms content-sized local hosting despite the semantic screen inventory kind.",
-            "evidenceIds": ["evidence-verified-local-widget"],
-            "claimId": "claim-asset-decomposition",
-        }
         requirement["reviewGate"]["approvedContentSha256"] = compute_approved_content_sha256(requirement)
         bundle["requirement"]["approvedContentSha256"] = requirement["reviewGate"]["approvedContentSha256"]
         child_layout["profile"]["designSizeMode"] = "FillScreen"
-        screen_layout["profile"]["designSizeMode"] = "Desired"
-        _, screen_direct = root_and_direct_node(screen_layout)
-        screen_direct["contentDrivenSize"] = {
-            "verified": True,
-            "measuredDesiredSize": [2560.0, 1440.0],
-            "evidenceId": "evidence-verified-local-widget",
-        }
         validation = self.validate(requirement, bundle, child_layout, screen_layout)
         self.assertTrue(validation["valid"], validation)
 

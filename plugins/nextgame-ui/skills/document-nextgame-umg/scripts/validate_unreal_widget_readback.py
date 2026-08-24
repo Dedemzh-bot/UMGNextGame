@@ -88,7 +88,8 @@ def _validate_design_size_modes(
     Archived requirements remain valid without this newly recorded Editor-only
     property. Once the policy is enabled, every Bundle asset must carry actual
     readback and must bind to the accepted per-asset Requirement decision. Asset
-    kind and Blueprint name are intentionally not used to infer the mode.
+    kind never infers the mode. The project naming contract independently fixes
+    every ``umg_*`` Blueprint to FillScreen; ``uw_*`` remains analysis-driven.
     """
 
     analysis_policy = requirement.get("analysisPolicy") if isinstance(requirement.get("analysisPolicy"), dict) else {}
@@ -151,6 +152,17 @@ def _validate_design_size_modes(
                     "design_size_mode.invalid",
                     path,
                     f"Bundle asset {asset_id} has unsupported DesignSizeMode {actual_mode!r}; expected FillScreen or Desired.",
+                )
+            )
+            continue
+        asset_path = bundle_asset.get("assetPath")
+        blueprint_name = asset_path.rsplit("/", 1)[-1] if isinstance(asset_path, str) else ""
+        if blueprint_name.startswith("umg_") and actual_mode != "FillScreen":
+            errors.append(
+                issue(
+                    "design_size_mode.umg_requires_fillscreen",
+                    path,
+                    f"Bundle asset {asset_id} Blueprint {blueprint_name!r} must use DesignSizeMode FillScreen, got {actual_mode!r}.",
                 )
             )
             continue

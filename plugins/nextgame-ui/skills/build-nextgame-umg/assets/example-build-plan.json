@@ -10,9 +10,9 @@
   "designSizeMode": "FillScreen",
   "designSizeModeResolution": {
     "mode": "FillScreen",
-    "source": "explicit-analysis",
+    "source": "umg-target-hard-rule",
     "fallbackApplied": false,
-    "reason": "Executed from the explicit profile.designSizeMode analysis decision."
+    "reason": "Target umg_ai_reference_demo is an umg_* Widget Blueprint; it must use FillScreen."
   },
   "selectedRuleIds": [
     "layout.project-design-resolution",

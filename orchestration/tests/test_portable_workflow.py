@@ -69,10 +69,12 @@ class PortableWorkflowContractTests(unittest.TestCase):
             "evidenceIds",
             "claimId",
             "asset-decomposition claim",
+            "project-umg-rule",
+            "umg_* always",
+            "Only uw_*",
             "fallback-unclear",
             "FillScreen",
             "Desired",
-            "umg_/uw_",
             "assetKind",
         ):
             self.assertIn(token, instruction)

@@ -31,6 +31,7 @@ def adaptive_screen_spec() -> dict[str, Any]:
             "containsRepeatedElements": False,
             "regionGrouping": True,
             "assetKind": "screen",
+            "designSizeMode": "FillScreen",
             "system": "adapt",
             "systemFolder": "Adapt",
             "targetAsset": {"folder": "/Game/UI/UMG/Adapt", "name": "umg_adapt"},

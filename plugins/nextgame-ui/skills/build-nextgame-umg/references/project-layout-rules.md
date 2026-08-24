@@ -4,10 +4,11 @@ These rules were explicitly supplied and refined by the project owner on 2026-07
 
 ## Designer mode analysis contract
 
-- Decide `profile.designSizeMode` from interface evidence, not from `profile.assetKind`, target folder, or an `umg_`/`uw_` asset-name prefix.
-- Use `FillScreen` when the interface is intended to occupy the viewport or screen environment.
-- Use `Desired` only when positive evidence shows that the Widget is a local/content-sized control, its root content produces a non-zero Desired Size, and a parent/host is responsible for placement or constraints. In UILayoutSpec, prove the executable root size with at least one root-direct child that has either a point-anchored Canvas Slot with `autoSize: false` and positive `right`/`bottom` sizes, or `contentDrivenSize` containing `verified: true`, positive `[width, height]` `measuredDesiredSize`, and a valid `evidenceId`. An empty root, auto-sized fixed Slot, verified-only record, and zero-offset full-stretch-only content are invalid. A list entry must additionally satisfy its stricter unique first-Panel size rule.
-- When evidence is incomplete or contradictory, record `fallback-unclear` and use `FillScreen`. The fallback is an explicit tolerance policy, not evidence that the asset is a full-screen interface.
+- Resolve the basename from the asset actually mutated: prototype uses `asset.name` and ignores future `profile.targetAsset` metadata for this guard; production/formal lowering prefers `profile.targetAsset.name` and falls back to `asset.name`.
+- Require every resolved `umg_*` basename to use `FillScreen`. Explicit `Desired` is invalid; an archived missing value remains readable and resolves to hard-rule `FillScreen`.
+- Only formal `uw_*` targets may use interface analysis to select `Desired` or `FillScreen`. Missing or unclear `uw_*` decisions use `fallback-unclear -> FillScreen`; unknown or legacy target basenames use `fallback-unknown-target -> FillScreen`.
+- `profile.assetKind` and target folder alone never select the mode.
+- For a `uw_*` `Desired` decision, require positive evidence that the Widget is a local/content-sized control, its root content produces a non-zero Desired Size, and a parent/host is responsible for placement or constraints. In UILayoutSpec, prove the executable root size with at least one root-direct child that has either a point-anchored Canvas Slot with `autoSize: false` and positive `right`/`bottom` sizes, or `contentDrivenSize` containing `verified: true`, positive `[width, height]` `measuredDesiredSize`, and a valid `evidenceId`. An empty root, auto-sized fixed Slot, verified-only record, and zero-offset full-stretch-only content are invalid. A list entry must additionally satisfy its stricter unique first-Panel size rule.
 - `FillScreen` and `Desired` are the only supported execution values. Reject `DesiredOnScreen`, `Custom`, and `CustomOnScreen`.
 
 ## Complete-screen design canvas
@@ -27,7 +28,7 @@ These rules were explicitly supplied and refined by the project owner on 2026-07
 - When analysis has the positive local/content-sized evidence described above, set the generated child CDO `DesignSizeMode` to `Desired` and record `profile.designSizeMode: "Desired"`. This commonly applies to reusable controls and collection entries, but their `child-widget` classification or `uw_` name does not prove it. Verify that the root content produces a non-zero Desired Size; do not change the mode to `Custom` or write `DesignTimeSize` merely to imitate `referenceSize`.
 - When a screen-local collection changes size, update both its viewport geometry and the entry asset's local desired size where required.
 
-The old `profile.assetKind: prototype` cannot identify a complete screen versus a local control by itself. Preserve archived inputs, but classify every new asset as `screen` or `child-widget` for the independent asset-structure contract and still make the Designer mode decision from interface evidence. A legacy/standalone layout without an explicit decision is executable through the `fallback-unclear -> FillScreen` policy and must emit that fallback in its build plan.
+The old `profile.assetKind: prototype` cannot identify a complete screen versus a local control by itself. Preserve archived inputs, but classify every new asset as `screen` or `child-widget` for the independent asset-structure contract. A missing legacy/standalone value resolves to `umg-target-hard-rule -> FillScreen` for an actual `umg_*` asset, `fallback-unclear -> FillScreen` for `uw_*`, or `fallback-unknown-target -> FillScreen` otherwise.
 
 ## Per-axis responsive intent
 

@@ -1672,6 +1672,16 @@ def validate_build_bundle(
             asset_kind = asset.get("assetKind")
             if design_size_mode_policy:
                 expected_design_size_mode = design_size_modes_by_plan.get(asset.get("assetPlanId"))
+                asset_path = asset.get("assetPath")
+                asset_basename = asset_path.rstrip("/").rsplit("/", 1)[-1] if isinstance(asset_path, str) else ""
+                if asset_basename.startswith("umg_") and profile.get("designSizeMode") != "FillScreen":
+                    errors.append(
+                        issue(
+                            "layout.umg_design_size_mode",
+                            f"$.assets[{asset_id}].layoutSpecPath",
+                            "An umg_* linked layout must use profile.designSizeMode FillScreen by project rule.",
+                        )
+                    )
                 if isinstance(expected_design_size_mode, str) and profile.get("designSizeMode") != expected_design_size_mode:
                     errors.append(
                         issue(

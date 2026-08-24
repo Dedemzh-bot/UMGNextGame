@@ -113,6 +113,19 @@ def load_json(path: Path) -> Any:
         return json.load(handle)
 
 
+def target_widget_basename(spec: dict[str, Any]) -> str | None:
+    asset = spec.get("asset")
+    if spec.get("mode") == "prototype":
+        return asset.get("name") if isinstance(asset, dict) and isinstance(asset.get("name"), str) else None
+    profile = spec.get("profile", {})
+    target = profile.get("targetAsset") if isinstance(profile, dict) else None
+    if isinstance(target, dict) and isinstance(target.get("name"), str):
+        return target["name"]
+    if isinstance(asset, dict) and isinstance(asset.get("name"), str):
+        return asset["name"]
+    return None
+
+
 def invalid_text_characters(text: str) -> list[str]:
     invalid: list[str] = []
     for character in text:
@@ -348,12 +361,34 @@ def validate_spec(spec: Any, catalog: Any) -> dict[str, Any]:
                 "$.profile.designSizeMode",
                 "designSizeMode must be FillScreen or Desired; Custom and on-screen variants are not permitted.",
             )
+        target_name = target_widget_basename(spec)
+        if isinstance(target_name, str) and target_name.startswith("umg_"):
+            if design_size_mode == "Desired":
+                issue(
+                    errors,
+                    "profile.design_size_mode.umg_target",
+                    "$.profile.designSizeMode",
+                    f"Target Widget Blueprint {target_name} uses the umg_* basename contract and cannot set designSizeMode to Desired; use FillScreen.",
+                )
+        elif design_size_mode == "Desired" and not (
+            isinstance(target_name, str) and target_name.startswith("uw_")
+        ):
+            issue(
+                errors,
+                "profile.design_size_mode.desired_target",
+                "$.profile.designSizeMode",
+                "Desired is permitted only for a formal uw_* target Widget Blueprint; unknown and legacy target names use FillScreen conservatively.",
+            )
         if design_size_mode is None:
             issue(
                 warnings,
                 "profile.design_size_mode_missing",
                 "$.profile.designSizeMode",
-                "The analyzed Designer mode is missing. Legacy/standalone planning remains readable and uses the explicit fallback-unclear policy: FillScreen without inferring from assetKind or the asset-name prefix. New layouts must record the analyzed FillScreen or Desired decision explicitly.",
+                (
+                    f"The archived Designer mode is missing for {target_name}; the umg_* hard rule resolves it to FillScreen."
+                    if isinstance(target_name, str) and target_name.startswith("umg_")
+                    else "The analyzed Designer mode is missing. uw_* targets and unknown/legacy targets use the conservative FillScreen fallback; new uw_* layouts should record the analyzed FillScreen or Desired decision explicitly."
+                ),
             )
         asset_scope = profile.get("assetScope", "system")
         if asset_scope not in {"system", "project-common"}:

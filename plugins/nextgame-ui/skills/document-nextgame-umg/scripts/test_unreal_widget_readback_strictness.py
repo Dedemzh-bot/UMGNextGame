@@ -19,27 +19,39 @@ class DesignerSizeModeReadbackTest(unittest.TestCase):
         self.bundle_assets = {
             "build.screen": {
                 "id": "build.screen",
+                "assetPath": "/Game/UI/UMG/Test/uw_embedded_screen",
                 "assetKind": "screen",
                 "representationKind": "layout-spec",
                 "assetPlanId": "plan.screen",
             },
             "build.child": {
                 "id": "build.child",
+                "assetPath": "/Game/UI/UMG/Test/Widgets/uw_test_child",
                 "assetKind": "child-widget",
                 "representationKind": "layout-spec",
                 "assetPlanId": "plan.child",
             },
             "build.entry": {
                 "id": "build.entry",
+                "assetPath": "/Game/UI/UMG/Test/Widgets/uw_test_entry",
                 "assetKind": "list-entry",
                 "representationKind": "layout-spec",
                 "assetPlanId": "plan.entry",
             },
             "build.reuse": {
                 "id": "build.reuse",
+                "assetPath": "/Game/UI/UMG/Test/Widgets/uw_test_reuse",
                 "assetKind": "child-widget",
                 "representationKind": "reuse-only",
                 "assetPlanId": "plan.reuse",
+            },
+            # Naming is authoritative even when semantic classification says child-widget.
+            "build.umg": {
+                "id": "build.umg",
+                "assetPath": "/Game/UI/UMG/Test/umg_test",
+                "assetKind": "child-widget",
+                "representationKind": "layout-spec",
+                "assetPlanId": "plan.umg",
             },
         }
         self.requirement = {
@@ -50,6 +62,7 @@ class DesignerSizeModeReadbackTest(unittest.TestCase):
                 {"id": "plan.child", "designSizeModeDecision": {"mode": "FillScreen"}},
                 {"id": "plan.entry", "designSizeModeDecision": {"mode": "Desired"}},
                 {"id": "plan.reuse", "designSizeModeDecision": {"mode": "Desired"}},
+                {"id": "plan.umg", "designSizeModeDecision": {"mode": "FillScreen"}},
             ],
         }
         self.assets = [
@@ -57,6 +70,7 @@ class DesignerSizeModeReadbackTest(unittest.TestCase):
             {"assetId": "build.child", "designSizeMode": "FillScreen"},
             {"assetId": "build.entry", "designSizeMode": "Desired"},
             {"assetId": "build.reuse", "designSizeMode": "Desired"},
+            {"assetId": "build.umg", "designSizeMode": "FillScreen"},
         ]
 
     def _errors(
@@ -83,7 +97,7 @@ class DesignerSizeModeReadbackTest(unittest.TestCase):
         )
         return errors
 
-    def test_required_policy_accepts_each_bound_decision_including_child_fallback_and_reuse_only(self) -> None:
+    def test_required_policy_accepts_each_bound_decision_including_umg_and_reuse_only(self) -> None:
         self.assertEqual([], self._errors(required=True))
 
     def test_required_policy_rejects_missing_mode_for_every_bundle_asset_kind(self) -> None:
@@ -101,10 +115,12 @@ class DesignerSizeModeReadbackTest(unittest.TestCase):
                 assets = [dict(asset) for asset in self.assets]
                 target = next(asset for asset in assets if asset["assetId"] == asset_id)
                 target["designSizeMode"] = "Desired" if target["designSizeMode"] == "FillScreen" else "FillScreen"
-                self.assertEqual(
-                    ["design_size_mode.mismatch"],
-                    error_codes(self._errors(required=True, assets=assets)),
+                expected_code = (
+                    "design_size_mode.umg_requires_fillscreen"
+                    if asset_id == "build.umg"
+                    else "design_size_mode.mismatch"
                 )
+                self.assertEqual([expected_code], error_codes(self._errors(required=True, assets=assets)))
 
     def test_required_policy_fails_closed_when_bound_requirement_decision_is_missing(self) -> None:
         requirement = {
@@ -126,6 +142,27 @@ class DesignerSizeModeReadbackTest(unittest.TestCase):
         assets[0]["designSizeMode"] = "Desired"
         requirement = {"assetPlan": []}
         self.assertEqual([], self._errors(required=False, assets=assets, requirement=requirement))
+
+    def test_legacy_umg_desired_is_rejected_even_without_policy(self) -> None:
+        assets = [dict(asset) for asset in self.assets]
+        next(asset for asset in assets if asset["assetId"] == "build.umg")["designSizeMode"] = "Desired"
+        requirement = {"assetPlan": []}
+        errors = self._errors(required=False, assets=assets, requirement=requirement)
+        self.assertEqual(["design_size_mode.umg_requires_fillscreen"], error_codes(errors))
+        self.assertIn("umg_test", errors[0]["message"])
+
+    def test_policy_umg_fill_still_must_match_bound_decision(self) -> None:
+        requirement = {
+            "analysisPolicy": {"designSizeModeRequired": True},
+            "assetPlan": [dict(item) for item in self.requirement["assetPlan"]],
+        }
+        next(
+            item for item in requirement["assetPlan"] if item["id"] == "plan.umg"
+        )["designSizeModeDecision"] = {"mode": "Desired"}
+        self.assertEqual(
+            ["design_size_mode.mismatch"],
+            error_codes(self._errors(required=True, requirement=requirement)),
+        )
 
     def test_legacy_requirement_optional_mode_matches_decision_when_bindable(self) -> None:
         assets = [dict(asset) for asset in self.assets]

@@ -741,6 +741,7 @@
             "viewport-filling",
             "content-sized-local",
             "verified-reference",
+            "project-umg-rule",
             "fallback-unclear"
           ]
         },

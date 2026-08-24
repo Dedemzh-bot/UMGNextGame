@@ -304,6 +304,53 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "profile": {
+            "required": ["targetAsset"],
+            "properties": {
+              "targetAsset": {
+                "required": ["name"],
+                "properties": {
+                  "name": {"type": "string", "pattern": "^umg_"}
+                }
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "profile": {
+            "properties": {
+              "designSizeMode": {"const": "FillScreen"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "asset": {
+            "required": ["name"],
+            "properties": {
+              "name": {"type": "string", "pattern": "^umg_"}
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "profile": {
+            "properties": {
+              "designSizeMode": {"const": "FillScreen"}
+            }
+          }
+        }
+      }
     }
   ]
 }

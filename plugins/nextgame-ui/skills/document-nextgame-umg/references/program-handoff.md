@@ -17,7 +17,7 @@ Any asset mutation or re-save, Bundle change, preview replacement or re-verifica
 
 Each `assets[]` entry records the actual asset and contains:
 
-- optional actual generated-class CDO `designSizeMode`, restricted to `FillScreen` or `Desired`; when the Requirement enables `analysisPolicy.designSizeModeRequired`, every Bundle asset must report it and it must equal the accepted corresponding `assetPlan[].designSizeModeDecision.mode`, without any inference from `assetKind` or Blueprint naming;
+- optional actual generated-class CDO `designSizeMode`, restricted to `FillScreen` or `Desired`; every reported Bundle asset whose Blueprint basename is `umg_*` must use `FillScreen` regardless of `assetKind`, representation, or legacy policy, while an archived readback may still omit this newly introduced field when the current policy does not require it. When the Requirement enables `analysisPolicy.designSizeModeRequired`, every Bundle asset must report the field and it must equal the accepted corresponding `assetPlan[].designSizeModeDecision.mode`; this decision binding also applies to `umg_*`, and only `uw_*` mode selection remains analysis-driven;
 - `widgets[]`: `widgetName`, actual `classPath`, `parentWidgetName`, `isVariable`, optional actual `entryWidgetClass`, and optional actual `visibility`;
 - `nodeMappings[]`: exact `nodeMappingId`, `layoutNodeId`, and the actual `widgetName` it resolved to.
 
