@@ -1,6 +1,6 @@
 {
   "version": "0.2",
-  "sourceSpec": "Tools\\CodexMarketplace\\plugins\\nextgame-ui\\skills\\build-nextgame-umg\\assets\\example-fight-child-layout-spec.json",
+  "sourceSpec": "assets\\example-fight-child-layout-spec.json",
   "assetPath": "/Game/UI/AIPrototype/umg_ai_fight_stamina",
   "objectPath": "/Game/UI/AIPrototype/umg_ai_fight_stamina.umg_ai_fight_stamina",
   "intendedTarget": {
@@ -9,6 +9,12 @@
     "integrationAsset": "/Game/UI/UMG/Fight/umg_fight"
   },
   "designSizeMode": "Desired",
+  "designSizeModeResolution": {
+    "mode": "Desired",
+    "source": "explicit-analysis",
+    "fallbackApplied": false,
+    "reason": "Executed from the explicit profile.designSizeMode analysis decision."
+  },
   "selectedRuleIds": [
     "layout.designer-size-mode",
     "layout.adaptive-anchors",
@@ -309,23 +315,23 @@
         "values": {
           "layoutData": {
             "offsets": {
-              "left": 192.0,
-              "top": -1.199988000000034,
-              "right": 50.000064,
-              "bottom": 300.000024
+              "left": 192,
+              "top": -1.2,
+              "right": 50,
+              "bottom": 300
             },
             "anchors": {
               "minimum": {
-                "x": 0.0,
+                "x": 0,
                 "y": 0.5
               },
               "maximum": {
-                "x": 0.0,
+                "x": 0,
                 "y": 0.5
               }
             },
             "alignment": {
-              "x": 0.0,
+              "x": 0,
               "y": 0.5
             }
           },

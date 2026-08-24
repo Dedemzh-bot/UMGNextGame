@@ -41,7 +41,8 @@ The collection module is normally a `UserWidget` containing a mapped collection 
 The entry's local `referenceSize` must be materialized in UMG. Its root may be
 the required structural Canvas, but the first internal structural Panel must
 have an explicit fixed Slot width and height equal to `referenceSize` (or an
-accepted, separately verified content-driven desired size). A root Canvas with
+accepted content-driven record with `verified: true`, positive two-axis
+`measuredDesiredSize`, and a valid `evidenceId`). A root Canvas with
 dual-axis stretch and zero offsets is not a size contract and fails validation.
 Internals may fill that first Panel. Do not insert a `SizeBox` solely to give
 the entry root its size; `SizeBox` remains reserved for an independently

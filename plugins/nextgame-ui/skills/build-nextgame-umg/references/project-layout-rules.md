@@ -1,12 +1,20 @@
 # NextGame project screen layout rules
 
-These rules were explicitly supplied and refined by the project owner on 2026-07-31 and 2026-08-20. They define the target design coordinate space and per-axis adaptation behavior for complete NextGame system screens. Child-widget assets continue to use local functional dimensions.
+These rules were explicitly supplied and refined by the project owner on 2026-07-31, 2026-08-20, and 2026-08-24. They define the target design coordinate space, analysis-selected Designer mode, and per-axis adaptation behavior. `profile.assetKind` and asset naming remain independent from the Designer mode decision.
+
+## Designer mode analysis contract
+
+- Decide `profile.designSizeMode` from interface evidence, not from `profile.assetKind`, target folder, or an `umg_`/`uw_` asset-name prefix.
+- Use `FillScreen` when the interface is intended to occupy the viewport or screen environment.
+- Use `Desired` only when positive evidence shows that the Widget is a local/content-sized control, its root content produces a non-zero Desired Size, and a parent/host is responsible for placement or constraints. In UILayoutSpec, prove the executable root size with at least one root-direct child that has either a point-anchored Canvas Slot with `autoSize: false` and positive `right`/`bottom` sizes, or `contentDrivenSize` containing `verified: true`, positive `[width, height]` `measuredDesiredSize`, and a valid `evidenceId`. An empty root, auto-sized fixed Slot, verified-only record, and zero-offset full-stretch-only content are invalid. A list entry must additionally satisfy its stricter unique first-Panel size rule.
+- When evidence is incomplete or contradictory, record `fallback-unclear` and use `FillScreen`. The fallback is an explicit tolerance policy, not evidence that the asset is a full-screen interface.
+- `FillScreen` and `Desired` are the only supported execution values. Reject `DesiredOnScreen`, `Custom`, and `CustomOnScreen`.
 
 ## Complete-screen design canvas
 
 - Use `2560 × 1440` as the unified design canvas for every complete NextGame system screen.
 - Every UILayoutSpec with `profile.assetKind: "screen"` must use `referenceSize: [2560, 1440]`, in both prototype and production modes.
-- Set the generated Widget Blueprint CDO `DesignSizeMode` to `FillScreen` and record `profile.designSizeMode: "FillScreen"`. This is the Designer `Screen Size` dropdown, not the numeric design canvas.
+- When interface analysis establishes this as a complete viewport-filling screen, set the generated Widget Blueprint CDO `DesignSizeMode` to `FillScreen` and record `profile.designSizeMode: "FillScreen"`. This is the Designer `Screen Size` dropdown, not the numeric design canvas.
 - Treat the source image's pixel size as measurement evidence only. Convert its geometry into normalized rectangles, then author those rectangles against the `2560 × 1440` project canvas.
 - Do not preserve a `1920 × 1080`, `2580 × 1440`, or other source-size rectangle as a centered or top-left fixed inner canvas.
 - Keep the root node at `[0, 0, 1, 1]`. Stretch global backgrounds and full-screen overlays across the complete root canvas.
@@ -16,10 +24,10 @@ These rules were explicitly supplied and refined by the project owner on 2026-07
 
 - `profile.assetKind: "child-widget"` assets use the dimensions required by their own feature, list entry, tile, or reusable module.
 - Do not force a child widget or a `ListViewItem` entry to `2560 × 1440`.
-- Set the generated child CDO `DesignSizeMode` to `Desired` and record `profile.designSizeMode: "Desired"`, including reusable controls and collection entries. Verify that the root content produces a non-zero Desired Size; do not change the mode to `Custom` or write `DesignTimeSize` merely to imitate `referenceSize`.
+- When analysis has the positive local/content-sized evidence described above, set the generated child CDO `DesignSizeMode` to `Desired` and record `profile.designSizeMode: "Desired"`. This commonly applies to reusable controls and collection entries, but their `child-widget` classification or `uw_` name does not prove it. Verify that the root content produces a non-zero Desired Size; do not change the mode to `Custom` or write `DesignTimeSize` merely to imitate `referenceSize`.
 - When a screen-local collection changes size, update both its viewport geometry and the entry asset's local desired size where required.
 
-`FillScreen` and `Desired` are the only production choices. Reject `DesiredOnScreen`, `Custom`, and `CustomOnScreen`. The old `profile.assetKind: prototype` cannot identify a complete screen versus a local control by itself; preserve archived inputs, but classify every new asset as `screen` or `child-widget` before building.
+The old `profile.assetKind: prototype` cannot identify a complete screen versus a local control by itself. Preserve archived inputs, but classify every new asset as `screen` or `child-widget` for the independent asset-structure contract and still make the Designer mode decision from interface evidence. A legacy/standalone layout without an explicit decision is executable through the `fallback-unclear -> FillScreen` policy and must emit that fallback in its build plan.
 
 ## Per-axis responsive intent
 

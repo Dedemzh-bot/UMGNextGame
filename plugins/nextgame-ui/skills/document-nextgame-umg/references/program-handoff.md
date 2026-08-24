@@ -17,10 +17,13 @@ Any asset mutation or re-save, Bundle change, preview replacement or re-verifica
 
 Each `assets[]` entry records the actual asset and contains:
 
+- optional actual generated-class CDO `designSizeMode`, restricted to `FillScreen` or `Desired`; when the Requirement enables `analysisPolicy.designSizeModeRequired`, every Bundle asset must report it and it must equal the accepted corresponding `assetPlan[].designSizeModeDecision.mode`, without any inference from `assetKind` or Blueprint naming;
 - `widgets[]`: `widgetName`, actual `classPath`, `parentWidgetName`, `isVariable`, optional actual `entryWidgetClass`, and optional actual `visibility`;
 - `nodeMappings[]`: exact `nodeMappingId`, `layoutNodeId`, and the actual `widgetName` it resolved to.
 
 Collection containers must report actual `entryWidgetClass`. Accepted state-branch nodes must report actual `visibility` and must be variables in both UILayoutSpec and the actual Unreal WidgetTree. The validator checks Bundle asset/mapping coverage, identities, hashes, collection properties, state variables, and runtime-variable agreement with linked layouts. Linked UILayoutSpec paths are relative and must remain inside the Bundle request directory.
+
+`acquisition.fieldFallbacks` is an exhaustive field-level list for `mixed` acquisition. Any DesignSizeMode obtained through NxUE must be bound to the concrete readback location `$.assets[i].designSizeMode`; wildcard or aggregate paths are not evidence. A full `nxue-agent` acquisition must provide one such concrete fallback row for every reported DesignSizeMode. Historical readbacks without DesignSizeMode remain valid while the Requirement policy is absent or false.
 
 ## UIProgramHandoff projection
 

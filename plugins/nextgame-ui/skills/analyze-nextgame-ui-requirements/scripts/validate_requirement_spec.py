@@ -156,12 +156,13 @@ def required_design_size_modes(
     spec: dict[str, Any],
     requirement_index: dict[str, Any] | None = None,
 ) -> dict[str, str]:
-    """Return the Designer size mode implied by each in-scope planned asset.
+    """Return each in-scope asset's reviewed Designer size-mode decision.
 
-    ``assetPlan[].assetKind`` is the only semantic source for this decision. New
-    requirements opt into the executable/readback gate with
-    ``analysisPolicy.designSizeModeRequired``; archived requirements without the
-    policy retain their historical behavior.
+    New requirements opt into this executable/readback gate with
+    ``analysisPolicy.designSizeModeRequired`` and persist the analysis result in
+    ``assetPlan[].designSizeModeDecision``.  Asset kind and asset-name prefixes
+    deliberately do not participate. Archived requirements without the policy
+    retain their historical behavior.
     """
 
     analysis_policy = spec.get("analysisPolicy") if isinstance(spec.get("analysisPolicy"), dict) else {}
@@ -169,15 +170,12 @@ def required_design_size_modes(
         return {}
 
     index = requirement_index or build_requirement_index(spec)
-    modes_by_asset_kind = {
-        "screen": "FillScreen",
-        "child-widget": "Desired",
-        "list-entry": "Desired",
-    }
     return {
-        asset_id: modes_by_asset_kind[asset["assetKind"]]
+        asset_id: decision["mode"]
         for asset_id, asset in index.get("byKind", {}).get("asset", {}).items()
-        if asset.get("inBuildScope") is True and asset.get("assetKind") in modes_by_asset_kind
+        if asset.get("inBuildScope") is True
+        and isinstance((decision := asset.get("designSizeModeDecision")), dict)
+        and decision.get("mode") in {"FillScreen", "Desired"}
     }
 
 
@@ -219,6 +217,7 @@ def validate_requirement_spec(
     static_visual_coverage_required = analysis_policy.get("staticVisualCoverageRequired") is True
     explicit_panel_slots_required = analysis_policy.get("explicitPanelSlotsRequired") is True
     explicit_image_owner_intent_required = analysis_policy.get("explicitImageOwnerIntentRequired") is True
+    design_size_mode_required = analysis_policy.get("designSizeModeRequired") is True
     all_ids: set[str] = set()
     for kind, path, entity in index["entities"]:
         entity_id = entity.get("id")
@@ -1699,6 +1698,149 @@ def validate_requirement_spec(
         _check_refs(errors, asset.get("coversElementIds"), element_ids, f"$.assetPlan[{asset_id}].coversElementIds", "element")
         _check_refs(errors, asset.get("coversCollectionIds"), collection_ids, f"$.assetPlan[{asset_id}].coversCollectionIds", "collection")
         _check_refs(errors, asset.get("coversStateModelIds"), state_model_ids, f"$.assetPlan[{asset_id}].coversStateModelIds", "state-model")
+        decision = asset.get("designSizeModeDecision")
+        decision_path = f"$.assetPlan[{asset_id}].designSizeModeDecision"
+        if design_size_mode_required and asset.get("inBuildScope") is True and not isinstance(decision, dict):
+            errors.append(
+                issue(
+                    "asset.design_size_mode.required",
+                    decision_path,
+                    "Every policy-enabled in-scope asset requires an evidence-driven designSizeModeDecision.",
+                )
+            )
+        if isinstance(decision, dict):
+            mode = decision.get("mode")
+            basis = decision.get("basis")
+            decision_evidence = decision.get("evidenceIds")
+            decision_claim_id = decision.get("claimId")
+            decision_claim = claims.get(decision_claim_id) if isinstance(decision_claim_id, str) else None
+            _check_refs(errors, decision_evidence, evidence_ids, f"{decision_path}.evidenceIds", "evidence")
+            if not isinstance(decision_claim, dict):
+                errors.append(
+                    issue(
+                        "ref.claim",
+                        f"{decision_path}.claimId",
+                        f"Unknown Design Size decision claim id: {decision_claim_id}",
+                    )
+                )
+            else:
+                asset_claim_ids = set(asset.get("claimIds", [])) if isinstance(asset.get("claimIds"), list) else set()
+                if decision_claim_id not in asset_claim_ids:
+                    errors.append(
+                        issue(
+                            "asset.design_size_mode.claim_scope",
+                            f"{decision_path}.claimId",
+                            "The decision claim must also belong to the enclosing assetPlan.claimIds.",
+                        )
+                    )
+                if decision_claim.get("type") != "asset-decomposition":
+                    errors.append(
+                        issue(
+                            "asset.design_size_mode.claim_type",
+                            f"{decision_path}.claimId",
+                            "A Design Size decision must be proved by an asset-decomposition claim.",
+                        )
+                    )
+                claim_subjects = set(decision_claim.get("subjectRefs", [])) if isinstance(decision_claim.get("subjectRefs"), list) else set()
+                if asset_id not in claim_subjects:
+                    errors.append(
+                        issue(
+                            "asset.design_size_mode.claim_subject",
+                            f"{decision_path}.claimId",
+                            "The decision claim subjectRefs must include the enclosing asset id.",
+                        )
+                    )
+                if isinstance(decision_evidence, list):
+                    claim_evidence = set(decision_claim.get("evidenceIds", [])) if isinstance(decision_claim.get("evidenceIds"), list) else set()
+                    uncovered_evidence = {
+                        evidence_id
+                        for evidence_id in decision_evidence
+                        if isinstance(evidence_id, str) and evidence_id not in claim_evidence
+                    }
+                    if uncovered_evidence:
+                        errors.append(
+                            issue(
+                                "asset.design_size_mode.claim_evidence",
+                                f"{decision_path}.evidenceIds",
+                                f"The proving claim must cover every decision evidence id: {sorted(uncovered_evidence)}.",
+                            )
+                        )
+                if basis == "fallback-unclear":
+                    statement = decision_claim.get("statement")
+                    if not isinstance(statement, str) or "fallback-unclear" not in statement or "FillScreen" not in statement:
+                        errors.append(
+                            issue(
+                                "asset.design_size_mode.fallback_claim",
+                                f"{decision_path}.claimId",
+                                "A fallback claim must explicitly record both canonical tokens fallback-unclear and FillScreen.",
+                            )
+                        )
+            if isinstance(decision_evidence, list):
+                asset_evidence = set(asset.get("evidenceIds", [])) if isinstance(asset.get("evidenceIds"), list) else set()
+                detached_evidence = {
+                    evidence_id
+                    for evidence_id in decision_evidence
+                    if isinstance(evidence_id, str) and evidence_id not in asset_evidence
+                }
+                if detached_evidence:
+                    errors.append(
+                        issue(
+                            "asset.design_size_mode.evidence_scope",
+                            f"{decision_path}.evidenceIds",
+                            f"Decision evidence must also belong to the planned asset evidenceIds: {sorted(detached_evidence)}.",
+                        )
+                    )
+            evidence_is_empty = not isinstance(decision_evidence, list) or not decision_evidence
+            if basis != "fallback-unclear" and evidence_is_empty:
+                errors.append(
+                    issue(
+                        "asset.design_size_mode.evidence_required",
+                        f"{decision_path}.evidenceIds",
+                        "An analyzed Design Size mode requires positive evidence; only fallback-unclear may have no evidence.",
+                    )
+                )
+            if mode == "Desired" and evidence_is_empty:
+                errors.append(
+                    issue(
+                        "asset.design_size_mode.desired_evidence",
+                        f"{decision_path}.evidenceIds",
+                        "Desired requires positive evidence that the Widget is locally/content sized or a verified local reference uses it.",
+                    )
+                )
+            if basis == "verified-reference" and isinstance(decision_evidence, list):
+                evidence_by_id = by_kind.get("evidence", {})
+                sources_by_id = by_kind.get("source", {})
+                has_verified_asset_readback = any(
+                    isinstance(evidence_by_id.get(evidence_id), dict)
+                    and evidence_by_id[evidence_id].get("measurementMethod") == "editor-readback"
+                    and isinstance(sources_by_id.get(evidence_by_id[evidence_id].get("sourceId")), dict)
+                    and sources_by_id[evidence_by_id[evidence_id]["sourceId"]].get("kind") == "project-asset"
+                    and sources_by_id[evidence_by_id[evidence_id]["sourceId"]].get("locatorKind") == "unreal-object"
+                    for evidence_id in decision_evidence
+                    if isinstance(evidence_id, str)
+                )
+                if not has_verified_asset_readback:
+                    errors.append(
+                        issue(
+                            "asset.design_size_mode.verified_reference_evidence",
+                            f"{decision_path}.evidenceIds",
+                            "verified-reference requires editor-readback evidence from a project-asset source using locatorKind unreal-object.",
+                        )
+                    )
+            required_mode_by_basis = {
+                "viewport-filling": "FillScreen",
+                "content-sized-local": "Desired",
+                "fallback-unclear": "FillScreen",
+            }
+            required_mode = required_mode_by_basis.get(basis)
+            if isinstance(required_mode, str) and mode != required_mode:
+                errors.append(
+                    issue(
+                        "asset.design_size_mode.basis_mode",
+                        decision_path,
+                        f"Basis {basis!r} requires mode {required_mode!r}; found {mode!r}.",
+                    )
+                )
         if asset.get("id") in asset.get("dependsOnAssetIds", []):
             errors.append(issue("asset.self_dependency", f"$.assetPlan[{asset_id}].dependsOnAssetIds", "An asset cannot depend on itself."))
         order = asset.get("buildOrder")

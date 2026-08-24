@@ -715,6 +715,7 @@
         "coversStateModelIds": {"$ref": "#/$defs/optionalIdRefs"},
         "evidenceIds": {"$ref": "#/$defs/idRefs"},
         "claimIds": {"$ref": "#/$defs/idRefs"},
+        "designSizeModeDecision": {"$ref": "#/$defs/designSizeModeDecision"},
         "boundaryClassification": {
           "enum": [
             "screen-root",
@@ -727,6 +728,25 @@
         },
         "boundaryEvidenceIds": {"$ref": "#/$defs/idRefs"},
         "staleAuthorization": {"type": "string", "minLength": 1}
+      }
+    },
+    "designSizeModeDecision": {
+      "type": "object",
+      "required": ["mode", "basis", "reason", "evidenceIds", "claimId"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"enum": ["FillScreen", "Desired"]},
+        "basis": {
+          "enum": [
+            "viewport-filling",
+            "content-sized-local",
+            "verified-reference",
+            "fallback-unclear"
+          ]
+        },
+        "reason": {"type": "string", "minLength": 1},
+        "evidenceIds": {"$ref": "#/$defs/optionalIdRefs"},
+        "claimId": {"$ref": "#/$defs/id"}
       }
     },
     "assumption": {

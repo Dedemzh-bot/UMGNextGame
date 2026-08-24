@@ -26,6 +26,6 @@
   "notes": ["Prototype representation of the intended fight stamina child widget."],
   "nodes": [
     {"id": "root", "name": "PanelRoot", "role": "screen.root", "parent": null, "rect": [0, 0, 1, 1], "anchor": "left-top", "properties": {}},
-    {"id": "stamina", "name": "BarStamina", "role": "progress.linear", "isVariable": true, "parent": "root", "rect": [0.1, 0.36, 0.0260417, 0.2777778], "anchor": "left-center", "properties": {"percent": 0.75, "fillDirection": "BottomToTop", "color": {"r": 0.25, "g": 0.85, "b": 0.45, "a": 1}}}
+    {"id": "stamina", "name": "BarStamina", "role": "progress.linear", "isVariable": true, "parent": "root", "rect": [0.1, 0.36, 0.0260417, 0.2777778], "anchor": "left-center", "slotLayout": {"anchors": {"minimum": [0, 0.5], "maximum": [0, 0.5]}, "offsets": {"left": 192, "top": -1.2, "right": 50, "bottom": 300}, "alignment": [0, 0.5], "autoSize": false}, "properties": {"percent": 0.75, "fillDirection": "BottomToTop", "color": {"r": 0.25, "g": 0.85, "b": 0.45, "a": 1}}}
   ]
 }

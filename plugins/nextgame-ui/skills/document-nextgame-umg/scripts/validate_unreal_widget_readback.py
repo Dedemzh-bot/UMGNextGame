@@ -54,11 +54,7 @@ V03_SLOT_PARENT_CLASS_PATHS = {
     "WrapBox": "/Script/UMG.WrapBox",
     "ScaleBox": "/Script/UMG.ScaleBox",
 }
-DESIGN_SIZE_MODE_BY_ASSET_KIND = {
-    "screen": "FillScreen",
-    "child-widget": "Desired",
-    "list-entry": "Desired",
-}
+VALID_DESIGN_SIZE_MODES = {"FillScreen", "Desired"}
 
 
 def _numeric_sequence_delta(left: Any, right: Any) -> float | None:
@@ -91,13 +87,22 @@ def _validate_design_size_modes(
 
     Archived requirements remain valid without this newly recorded Editor-only
     property. Once the policy is enabled, every Bundle asset must carry actual
-    readback. If an older workflow elects to provide the optional field anyway,
-    its value must still agree with the asset kind rather than becoming trusted
-    but contradictory evidence.
+    readback and must bind to the accepted per-asset Requirement decision. Asset
+    kind and Blueprint name are intentionally not used to infer the mode.
     """
 
     analysis_policy = requirement.get("analysisPolicy") if isinstance(requirement.get("analysisPolicy"), dict) else {}
     required = analysis_policy.get("designSizeModeRequired") is True
+    requirement_plans = {
+        item.get("id"): item
+        for item in requirement.get("assetPlan", [])
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
+    requirement_plan_positions = {
+        item.get("id"): index
+        for index, item in enumerate(requirement.get("assetPlan", []))
+        if isinstance(item, dict) and isinstance(item.get("id"), str)
+    }
     readback_positions = {
         asset.get("assetId"): index
         for index, asset in enumerate(readback.get("assets", []))
@@ -107,9 +112,26 @@ def _validate_design_size_modes(
         actual_asset = indexes.get("assets", {}).get(asset_id)
         if not isinstance(actual_asset, dict):
             continue
-        expected_mode = DESIGN_SIZE_MODE_BY_ASSET_KIND.get(bundle_asset.get("assetKind"))
-        if expected_mode is None:
-            continue
+        asset_plan_id = bundle_asset.get("assetPlanId")
+        requirement_plan = requirement_plans.get(asset_plan_id)
+        decision = (
+            requirement_plan.get("designSizeModeDecision")
+            if isinstance(requirement_plan, dict)
+            and isinstance(requirement_plan.get("designSizeModeDecision"), dict)
+            else None
+        )
+        expected_mode = decision.get("mode") if isinstance(decision, dict) else None
+        expected_mode_is_valid = expected_mode in VALID_DESIGN_SIZE_MODES
+        plan_index = requirement_plan_positions.get(asset_plan_id, "*")
+        decision_path = f"$.assetPlan[{plan_index}].designSizeModeDecision.mode"
+        if required and not expected_mode_is_valid:
+            errors.append(
+                issue(
+                    "design_size_mode.decision_missing",
+                    decision_path,
+                    f"Bundle asset {asset_id} must bind through assetPlanId to an accepted per-asset designSizeModeDecision.mode.",
+                )
+            )
         asset_index = readback_positions.get(asset_id, "*")
         path = f"$.assets[{asset_index}].designSizeMode"
         actual_mode = actual_asset.get("designSizeMode")
@@ -119,18 +141,94 @@ def _validate_design_size_modes(
                     issue(
                         "design_size_mode.missing",
                         path,
-                        f"Bundle asset {asset_id} requires generated-class CDO DesignSizeMode {expected_mode}.",
+                        f"Bundle asset {asset_id} requires actual generated-class CDO DesignSizeMode readback.",
                     )
                 )
             continue
-        if actual_mode != expected_mode:
+        if actual_mode not in VALID_DESIGN_SIZE_MODES:
+            errors.append(
+                issue(
+                    "design_size_mode.invalid",
+                    path,
+                    f"Bundle asset {asset_id} has unsupported DesignSizeMode {actual_mode!r}; expected FillScreen or Desired.",
+                )
+            )
+            continue
+        if expected_mode_is_valid and actual_mode != expected_mode:
             errors.append(
                 issue(
                     "design_size_mode.mismatch",
                     path,
-                    f"Bundle asset {asset_id} with assetKind {bundle_asset.get('assetKind')!r} requires DesignSizeMode {expected_mode}, got {actual_mode!r}.",
+                    f"Bundle asset {asset_id} must match Requirement asset plan {asset_plan_id!r} DesignSizeMode decision {expected_mode}, got {actual_mode!r}.",
                 )
             )
+
+    _validate_design_size_mode_acquisition(
+        readback,
+        errors=errors,
+    )
+
+
+def _validate_design_size_mode_acquisition(
+    readback: dict[str, Any],
+    *,
+    errors: list[dict[str, str]],
+) -> None:
+    """Bind any NxUE DesignSizeMode fallback to its exact readback JSON field.
+
+    ``mixed.fieldFallbacks`` is the exhaustive list of fields acquired through
+    NxUE rather than official Unreal MCP. Absence from that list therefore means
+    the field came from official MCP. A full ``nxue-agent`` read has no official
+    fields, so each recorded DesignSizeMode needs its own exact fallback row.
+    """
+
+    acquisition = readback.get("acquisition") if isinstance(readback.get("acquisition"), dict) else {}
+    method = acquisition.get("method")
+    if method not in {"nxue-agent", "mixed"}:
+        return
+    fallbacks = acquisition.get("fieldFallbacks") if isinstance(acquisition.get("fieldFallbacks"), list) else []
+    fallback_records: list[tuple[int, str]] = [
+        (index, item["jsonPath"])
+        for index, item in enumerate(fallbacks)
+        if isinstance(item, dict) and isinstance(item.get("jsonPath"), str)
+    ]
+    seen: set[str] = set()
+    for index, fallback_path in fallback_records:
+        if fallback_path in seen:
+            errors.append(
+                issue(
+                    "acquisition.field_fallback_duplicate",
+                    f"$.acquisition.fieldFallbacks[{index}].jsonPath",
+                    f"Fallback JSON path {fallback_path!r} is duplicated.",
+                )
+            )
+        seen.add(fallback_path)
+
+    actual_mode_paths = {
+        f"$.assets[{index}].designSizeMode"
+        for index, asset in enumerate(readback.get("assets", []))
+        if isinstance(asset, dict) and asset.get("designSizeMode") is not None
+    }
+    for index, fallback_path in fallback_records:
+        if "designSizeMode" in fallback_path and fallback_path not in actual_mode_paths:
+            errors.append(
+                issue(
+                    "acquisition.design_size_mode_path",
+                    f"$.acquisition.fieldFallbacks[{index}].jsonPath",
+                    "A DesignSizeMode fallback must bind one exact existing $.assets[i].designSizeMode field; wildcards and aggregate paths are not evidence.",
+                )
+            )
+
+    if method == "nxue-agent":
+        for mode_path in sorted(actual_mode_paths):
+            if mode_path not in seen:
+                errors.append(
+                    issue(
+                        "acquisition.design_size_mode_path_missing",
+                        "$.acquisition.fieldFallbacks",
+                        f"Full NxUE acquisition requires exact fallback evidence for {mode_path}.",
+                    )
+                )
 
 
 def validate_readback_verification_checks(

@@ -16,7 +16,7 @@ Treat documentation as a gated stage after requirement acceptance, verified UMG 
    python scripts/validate_unreal_widget_readback.py <readback.json> --requirement <requirement.json> --bundle <bundle.json>
    ```
 
-   When `analysisPolicy.designSizeModeRequired` is enabled, require the readback to contain the actual post-save generated-class CDO `DesignSizeMode`: `screen` assets use `FillScreen`, while `child-widget` and `list-entry` assets use `Desired`, including `reuse-only` assets. Treat this as static verification evidence only; do not expose it as a programmer-facing runtime interface.
+   When `analysisPolicy.designSizeModeRequired` is enabled, require every Bundle asset, including `reuse-only`, to contain the actual post-save generated-class CDO `DesignSizeMode` and match the accepted Requirement asset plan's `designSizeModeDecision.mode`. Never derive this value from `assetKind`, `umg_`/`uw_` naming, or Bundle representation. Archived Requirements with the policy absent or false may omit the readback field; if they provide it, accept only `FillScreen` or `Desired` and compare it with a valid bound Requirement decision when one exists. For NxUE-only reads, record an exact `acquisition.fieldFallbacks[].jsonPath` for every reported DesignSizeMode. For mixed reads, treat `fieldFallbacks` as the exhaustive list of NxUE-acquired fields and use only concrete `$.assets[i].designSizeMode` paths, never wildcard or aggregate evidence. Treat this as static verification evidence only; do not expose it as a programmer-facing runtime interface.
 
 3. Validate the post-build acceptance against those exact files:
 

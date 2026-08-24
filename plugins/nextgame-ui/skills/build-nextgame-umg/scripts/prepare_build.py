@@ -18,19 +18,37 @@ DEFAULT_RULES = SKILL_ROOT / "references" / "rule-index.json"
 DEFAULT_PARENT_CLASS = "/Script/UMG.UserWidget"
 
 
-def effective_design_size_mode(spec: dict[str, Any]) -> str | None:
-    """Return the reviewed Designer mode without guessing an ambiguous legacy prototype."""
+def effective_design_size_mode(spec: dict[str, Any]) -> str:
+    """Return the explicit analyzed mode, or the fault-tolerant FillScreen fallback."""
 
-    profile = spec.get("profile", {})
-    explicit = profile.get("designSizeMode")
+    explicit = spec.get("profile", {}).get("designSizeMode")
     if explicit in {"FillScreen", "Desired"}:
         return explicit
-    asset_kind = profile.get("assetKind", "prototype")
-    if asset_kind == "screen":
-        return "FillScreen"
-    if asset_kind == "child-widget":
-        return "Desired"
-    return None
+    # A legacy/standalone spec may predate the explicit analysis decision. Its
+    # asset kind and asset-name prefix are not sufficient evidence for Desired.
+    return "FillScreen"
+
+
+def design_size_mode_resolution(spec: dict[str, Any]) -> dict[str, Any]:
+    """Describe the provenance of the executable Designer mode."""
+
+    explicit = spec.get("profile", {}).get("designSizeMode")
+    if explicit in {"FillScreen", "Desired"}:
+        return {
+            "mode": explicit,
+            "source": "explicit-analysis",
+            "fallbackApplied": False,
+            "reason": "Executed from the explicit profile.designSizeMode analysis decision.",
+        }
+    return {
+        "mode": "FillScreen",
+        "source": "fallback-unclear",
+        "fallbackApplied": True,
+        "reason": (
+            "No explicit analyzed Designer mode is available; use the fault-tolerant FillScreen default. "
+            "Neither profile.assetKind nor the asset-name prefix was used to infer the mode."
+        ),
+    }
 
 ANCHOR_POINTS = {
     "left-top": (0.0, 0.0),
@@ -143,6 +161,14 @@ def tool_step(step_id: str, toolset: str, tool: str, arguments: dict[str, Any], 
 
 
 def build_plan(spec_path: Path, spec: dict[str, Any], catalog: dict[str, Any], rules: dict[str, Any]) -> dict[str, Any]:
+    validation = validate_spec(spec, catalog)
+    if not validation["valid"]:
+        error_codes = ", ".join(
+            str(entry.get("code", "unknown"))
+            for entry in validation.get("errors", [])
+            if isinstance(entry, dict)
+        )
+        raise ValueError(f"UILayoutSpec validation failed before planning: {error_codes or 'unknown error'}")
     component_by_role = {item["role"]: item for item in catalog["components"]}
     common_property_map = catalog.get("commonPropertyMap", {})
     nodes = ordered_nodes(spec["nodes"])
@@ -158,11 +184,12 @@ def build_plan(spec_path: Path, spec: dict[str, Any], catalog: dict[str, Any], r
     selected = select_rules(spec, rules)
     warnings = list(spec.get("notes", []))
     steps: list[dict[str, Any]] = []
-    design_size_mode = effective_design_size_mode(spec)
-    if design_size_mode is None:
+    design_size_mode_result = design_size_mode_resolution(spec)
+    design_size_mode = design_size_mode_result["mode"]
+    if design_size_mode_result["fallbackApplied"]:
         warnings.append(
-            "Ambiguous archived prototype has no profile.designSizeMode; the plan preserves its existing/default Designer mode. "
-            "New AI-authored prototypes must explicitly choose FillScreen or Desired from interface analysis."
+            "fallback-unclear: profile.designSizeMode is missing, so the plan uses the fault-tolerant FillScreen default. "
+            "This fallback does not use profile.assetKind or an umg_/uw_ asset-name prefix as evidence."
         )
 
     steps.append(tool_step(
@@ -466,6 +493,7 @@ def build_plan(spec_path: Path, spec: dict[str, Any], catalog: dict[str, Any], r
         "objectPath": object_path,
         "intendedTarget": spec.get("profile", {}).get("targetAsset"),
         "designSizeMode": design_size_mode,
+        "designSizeModeResolution": design_size_mode_result,
         "selectedRuleIds": [rule.get("id") for rule in selected],
         "selectedRuleIdsBySourceType": selected_by_source,
         "warnings": warnings,

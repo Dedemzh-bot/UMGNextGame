@@ -394,6 +394,70 @@ def _supports_stretch_axis(node: dict[str, Any], axis: str) -> bool:
     return _has_slot_stretch(node, axis) or _has_adaptive_stretch(node, axis)
 
 
+def _positive_pair(value: Any) -> bool:
+    return (
+        isinstance(value, list)
+        and len(value) == 2
+        and all(
+            isinstance(item, (int, float))
+            and not isinstance(item, bool)
+            and float(item) > 0
+            for item in value
+        )
+    )
+
+
+def _root_direct_nodes(layout: dict[str, Any]) -> list[dict[str, Any]]:
+    nodes = [node for node in layout.get("nodes", []) if isinstance(node, dict)]
+    root_ids = {
+        node.get("id")
+        for node in nodes
+        if node.get("parent") is None and isinstance(node.get("id"), str)
+    }
+    return [node for node in nodes if node.get("parent") in root_ids]
+
+
+def _has_fixed_root_direct_desired_size(layout: dict[str, Any]) -> bool:
+    """Prove non-zero Desired Size through one fixed Canvas-style root child Slot."""
+
+    for node in _root_direct_nodes(layout):
+        slot = node.get("slotLayout") if isinstance(node.get("slotLayout"), dict) else {}
+        anchors = slot.get("anchors") if isinstance(slot.get("anchors"), dict) else {}
+        minimum = anchors.get("minimum")
+        maximum = anchors.get("maximum")
+        offsets = slot.get("offsets") if isinstance(slot.get("offsets"), dict) else {}
+        point_anchors = (
+            isinstance(minimum, list)
+            and isinstance(maximum, list)
+            and len(minimum) == len(maximum) == 2
+            and all(
+                isinstance(value, (int, float)) and not isinstance(value, bool)
+                for value in minimum + maximum
+            )
+            and minimum == maximum
+        )
+        positive_size = all(
+            isinstance(offsets.get(key), (int, float))
+            and not isinstance(offsets.get(key), bool)
+            and float(offsets[key]) > 0
+            for key in ("right", "bottom")
+        )
+        if slot.get("autoSize") is False and point_anchors and positive_size:
+            return True
+    return False
+
+
+def _root_direct_content_driven_size_proofs(layout: dict[str, Any]) -> list[dict[str, Any]]:
+    return [
+        proof
+        for node in _root_direct_nodes(layout)
+        if isinstance((proof := node.get("contentDrivenSize")), dict)
+        and proof.get("verified") is True
+        and _positive_pair(proof.get("measuredDesiredSize"))
+        and isinstance(proof.get("evidenceId"), str)
+    ]
+
+
 SUPPORTED_BUNDLE_VERSIONS = {"0.1", "0.2", "0.3"}
 REUSE_BUNDLE_VERSIONS = {"0.2", "0.3"}
 SUPPORTED_SEMANTIC_PANEL_CLASSES = {
@@ -1613,10 +1677,44 @@ def validate_build_bundle(
                         issue(
                             "layout.design_size_mode",
                             f"$.assets[{asset_id}].layoutSpecPath",
-                            f"Bundle assetKind {asset_kind!r} requires profile.designSizeMode {expected_design_size_mode!r}; "
+                            f"The accepted assetPlan designSizeModeDecision requires profile.designSizeMode {expected_design_size_mode!r}; "
                             f"found {profile.get('designSizeMode')!r}.",
                         )
                     )
+                if expected_design_size_mode == "Desired":
+                    fixed_root_proof = _has_fixed_root_direct_desired_size(layout)
+                    content_proofs = _root_direct_content_driven_size_proofs(layout)
+                    decision = plan.get("designSizeModeDecision") if isinstance(plan, dict) else {}
+                    decision_evidence_ids = (
+                        set(decision.get("evidenceIds", []))
+                        if isinstance(decision, dict) and isinstance(decision.get("evidenceIds"), list)
+                        else set()
+                    )
+                    content_proof = next(
+                        (
+                            proof
+                            for proof in content_proofs
+                            if proof.get("evidenceId") in decision_evidence_ids
+                        ),
+                        None,
+                    )
+                    if not fixed_root_proof and content_proof is None:
+                        errors.append(
+                            issue(
+                                "layout.desired_root_size_proof",
+                                f"$.assets[{asset_id}].layoutSpecPath",
+                                "Desired requires a root-direct fixed Slot proof (autoSize false, point anchors, positive right/bottom) "
+                                "or a verified positive root-direct contentDrivenSize proof bound to decision evidence.",
+                            )
+                        )
+                        if content_proofs:
+                            errors.append(
+                                issue(
+                                    "layout.desired_root_size_evidence",
+                                    f"$.assets[{asset_id}].layoutSpecPath",
+                                    "The root-direct contentDrivenSize.evidenceId must belong to the linked assetPlan designSizeModeDecision.evidenceIds.",
+                                )
+                            )
                 if asset_kind == "screen" and profile.get("assetKind") != "screen":
                     errors.append(issue("layout.asset_kind", f"$.assets[{asset_id}].assetKind", "Screen bundle assets require a screen UILayoutSpec profile."))
                 elif asset_kind == "child-widget":

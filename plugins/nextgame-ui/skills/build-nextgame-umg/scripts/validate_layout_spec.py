@@ -16,6 +16,7 @@ DEFAULT_CATALOG = SKILL_ROOT / "references" / "component-catalog.json"
 ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]*$")
 NAME_PATTERN = re.compile(r"^[A-Za-z][A-Za-z0-9_]*$")
 REGION_PURPOSE_PATTERN = re.compile(r"^[a-z][a-z0-9-]*$")
+EVIDENCE_ID_PATTERN = re.compile(r"^[a-z][a-z0-9.-]{2,95}$")
 ROOT_LAYERS = {"background", "overlay"}
 MODES = {"prototype", "production"}
 PROJECT_SCREEN_REFERENCE_SIZE = [2560, 1440]
@@ -86,6 +87,24 @@ def normalized_rects_equal(left: Any, right: Any, tolerance: float = 0.000001) -
             for value in left + right
         )
         and max(abs(float(a) - float(b)) for a, b in zip(left, right)) <= tolerance
+    )
+
+
+def has_measured_content_driven_size(node: dict[str, Any]) -> bool:
+    content_driven = node.get("contentDrivenSize")
+    if not isinstance(content_driven, dict) or content_driven.get("verified") is not True:
+        return False
+    measured = content_driven.get("measuredDesiredSize")
+    evidence_id = content_driven.get("evidenceId")
+    return (
+        isinstance(measured, list)
+        and len(measured) == 2
+        and all(
+            isinstance(value, (int, float)) and not isinstance(value, bool) and value > 0
+            for value in measured
+        )
+        and isinstance(evidence_id, str)
+        and EVIDENCE_ID_PATTERN.fullmatch(evidence_id) is not None
     )
 
 
@@ -264,6 +283,7 @@ def validate_spec(spec: Any, catalog: Any) -> dict[str, Any]:
     list_role: str | None = None
     collection_sizing: str | None = None
     asset_kind: str | None = "prototype"
+    design_size_mode: str | None = None
     explicit_panel_slots = False
     if not isinstance(profile, dict):
         issue(errors, "profile.type", "$.profile", "profile must be an object.")
@@ -328,26 +348,12 @@ def validate_spec(spec: Any, catalog: Any) -> dict[str, Any]:
                 "$.profile.designSizeMode",
                 "designSizeMode must be FillScreen or Desired; Custom and on-screen variants are not permitted.",
             )
-        expected_design_size_mode = (
-            "FillScreen"
-            if asset_kind == "screen"
-            else "Desired"
-            if asset_kind == "child-widget"
-            else None
-        )
-        if expected_design_size_mode is not None and design_size_mode not in {None, expected_design_size_mode}:
-            issue(
-                errors,
-                "profile.design_size_mode_asset_kind",
-                "$.profile.designSizeMode",
-                f"{asset_kind} assets must use Designer DesignSizeMode {expected_design_size_mode}.",
-            )
         if design_size_mode is None:
             issue(
                 warnings,
                 "profile.design_size_mode_missing",
                 "$.profile.designSizeMode",
-                "New AI-authored layouts must record Designer DesignSizeMode explicitly: screen uses FillScreen; child-widget uses Desired. Archived layouts remain readable.",
+                "The analyzed Designer mode is missing. Legacy/standalone planning remains readable and uses the explicit fallback-unclear policy: FillScreen without inferring from assetKind or the asset-name prefix. New layouts must record the analyzed FillScreen or Desired decision explicitly.",
             )
         asset_scope = profile.get("assetScope", "system")
         if asset_scope not in {"system", "project-common"}:
@@ -730,6 +736,56 @@ def validate_spec(spec: Any, catalog: Any) -> dict[str, Any]:
                         "autoSize must be a boolean.",
                     )
 
+        if "contentDrivenSize" in node:
+            content_driven = node.get("contentDrivenSize")
+            content_path = f"{path}.contentDrivenSize"
+            if not isinstance(content_driven, dict):
+                issue(errors, "content_driven_size.type", content_path, "contentDrivenSize must be an object.")
+            else:
+                allowed_fields = {"verified", "measuredDesiredSize", "evidenceId"}
+                extra_fields = sorted(set(content_driven) - allowed_fields)
+                if extra_fields:
+                    issue(
+                        errors,
+                        "content_driven_size.fields",
+                        content_path,
+                        f"contentDrivenSize has unsupported fields: {', '.join(extra_fields)}.",
+                    )
+                if not isinstance(content_driven.get("verified"), bool):
+                    issue(
+                        errors,
+                        "content_driven_size.verified",
+                        f"{content_path}.verified",
+                        "contentDrivenSize.verified is required and must be a boolean.",
+                    )
+                if "measuredDesiredSize" in content_driven:
+                    measured = content_driven.get("measuredDesiredSize")
+                    if not (
+                        isinstance(measured, list)
+                        and len(measured) == 2
+                        and all(
+                            isinstance(value, (int, float))
+                            and not isinstance(value, bool)
+                            and value > 0
+                            for value in measured
+                        )
+                    ):
+                        issue(
+                            errors,
+                            "content_driven_size.measured_desired_size",
+                            f"{content_path}.measuredDesiredSize",
+                            "measuredDesiredSize must contain exactly two positive numbers.",
+                        )
+                if "evidenceId" in content_driven:
+                    evidence_id = content_driven.get("evidenceId")
+                    if not isinstance(evidence_id, str) or EVIDENCE_ID_PATTERN.fullmatch(evidence_id) is None:
+                        issue(
+                            errors,
+                            "content_driven_size.evidence_id",
+                            f"{content_path}.evidenceId",
+                            "evidenceId must match ^[a-z][a-z0-9.-]{2,95}$.",
+                        )
+
         adaptive_layout = node.get("adaptiveLayout")
         if adaptive_layout is not None:
             if not isinstance(adaptive_layout, dict):
@@ -1110,9 +1166,9 @@ def validate_spec(spec: Any, catalog: Any) -> dict[str, Any]:
                 and anchors.get("maximum") == [0, 0]
                 and slot.get("autoSize") is False
             )
-            content_driven = isinstance(first.get("contentDrivenSize"), dict) and first.get("contentDrivenSize", {}).get("verified") is True
+            content_driven = has_measured_content_driven_size(first)
             if not fixed and not content_driven:
-                issue(errors, "list.entry.root_size", first_path, "First entry Panel Slot must explicitly match referenceSize width/height or declare a verified content-driven desired size; zero-offset full stretch is invalid.")
+                issue(errors, "list.entry.root_size", first_path, "First entry Panel Slot must explicitly match referenceSize width/height or declare verified content-driven size with positive measuredDesiredSize and a valid evidenceId; zero-offset full stretch is invalid.")
 
     if len(roots) != 1:
         issue(errors, "tree.root.count", "$.nodes", f"Exactly one root is required; found {len(roots)}.")
@@ -1122,6 +1178,55 @@ def validate_spec(spec: Any, catalog: Any) -> dict[str, Any]:
             issue(errors, "tree.root.role", "$.nodes", "The root node role must be screen.root.")
         if root.get("rect") != [0, 0, 1, 1]:
             issue(errors, "tree.root.rect", "$.nodes", "The root node rect must be [0, 0, 1, 1].")
+
+    if design_size_mode == "Desired":
+        root_id = roots[0] if len(roots) == 1 else None
+        direct_children = [
+            node
+            for node in node_by_id.values()
+            if root_id is not None and node.get("parent") == root_id
+        ]
+
+        def has_nonzero_desired_size_evidence(node: dict[str, Any]) -> bool:
+            if has_measured_content_driven_size(node):
+                return True
+            slot = node.get("slotLayout")
+            if not isinstance(slot, dict):
+                return False
+            anchors = slot.get("anchors")
+            offsets = slot.get("offsets")
+            if not isinstance(anchors, dict) or not isinstance(offsets, dict):
+                return False
+            minimum = anchors.get("minimum")
+            maximum = anchors.get("maximum")
+            point_anchored = (
+                isinstance(minimum, list)
+                and isinstance(maximum, list)
+                and len(minimum) == len(maximum) == 2
+                and all(
+                    isinstance(value, (int, float)) and not isinstance(value, bool)
+                    for value in minimum + maximum
+                )
+                and all(abs(float(low) - float(high)) <= 0.000001 for low, high in zip(minimum, maximum))
+            )
+            return (
+                point_anchored
+                and slot.get("autoSize") is False
+                and isinstance(offsets.get("right"), (int, float))
+                and not isinstance(offsets.get("right"), bool)
+                and offsets["right"] > 0
+                and isinstance(offsets.get("bottom"), (int, float))
+                and not isinstance(offsets.get("bottom"), bool)
+                and offsets["bottom"] > 0
+            )
+
+        if not any(has_nonzero_desired_size_evidence(node) for node in direct_children):
+            issue(
+                errors,
+                "profile.design_size_mode.desired_root_size",
+                "$.profile.designSizeMode",
+                "Desired requires at least one root-direct child with a point-anchored Canvas slot whose autoSize is false and right/bottom size is positive, or verified contentDrivenSize with positive measuredDesiredSize and a valid evidenceId. Empty roots, auto-sized fixed slots, verified-only claims, and zero-offset full-stretch content cannot establish non-zero Desired Size.",
+            )
 
     child_counts: dict[str, int] = {}
     children_by_parent: dict[str, list[str]] = {}

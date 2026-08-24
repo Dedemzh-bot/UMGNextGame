@@ -372,6 +372,28 @@ def main() -> int:
         "list.entry.root_size",
     )
 
+    measured_content_entry = deepcopy(full_stretch_entry)
+    measured_content_entry["nodes"][1]["contentDrivenSize"] = {
+        "verified": True,
+        "measuredDesiredSize": [400, 112],
+        "evidenceId": "evidence-entry-measurement",
+    }
+    measured_content_report = validate_spec(measured_content_entry, catalog)
+    if not measured_content_report["valid"]:
+        failures.append(
+            f"measured content-driven entry rejected: {measured_content_report['errors']}"
+        )
+
+    verified_only_entry = deepcopy(full_stretch_entry)
+    verified_only_entry["nodes"][1]["contentDrivenSize"] = {"verified": True}
+    expect_error(
+        failures,
+        "entry verified-only desired size",
+        verified_only_entry,
+        catalog,
+        "list.entry.root_size",
+    )
+
     nested_collection_entry = entry_spec()
     nested_collection_entry["nodes"].append(
         {
@@ -503,8 +525,8 @@ def main() -> int:
         json.dumps(
             {
                 "ok": not failures,
-                "checkedValidLayouts": 4,
-                "checkedFailureModes": 13,
+                "checkedValidLayouts": 5,
+                "checkedFailureModes": 14,
                 "checkedMappedProperties": len(expected_properties),
                 "checkedTileMappedProperties": len(expected_tile_values),
                 "checkedVariablePlan": True,

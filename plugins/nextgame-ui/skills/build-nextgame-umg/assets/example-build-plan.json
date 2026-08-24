@@ -1,6 +1,6 @@
 {
   "version": "0.2",
-  "sourceSpec": "Tools\\CodexMarketplace\\plugins\\nextgame-ui\\skills\\build-nextgame-umg\\assets\\example-layout-spec.json",
+  "sourceSpec": "assets\\example-layout-spec.json",
   "assetPath": "/Game/UI/AIPrototype/umg_ai_reference_demo",
   "objectPath": "/Game/UI/AIPrototype/umg_ai_reference_demo.umg_ai_reference_demo",
   "intendedTarget": {
@@ -8,6 +8,12 @@
     "name": "umg_demo"
   },
   "designSizeMode": "FillScreen",
+  "designSizeModeResolution": {
+    "mode": "FillScreen",
+    "source": "explicit-analysis",
+    "fallbackApplied": false,
+    "reason": "Executed from the explicit profile.designSizeMode analysis decision."
+  },
   "selectedRuleIds": [
     "layout.project-design-resolution",
     "layout.designer-size-mode",

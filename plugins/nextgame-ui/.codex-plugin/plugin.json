@@ -1,6 +1,6 @@
 {
   "name": "nextgame-ui",
-  "version": "0.1.0+codex.20260824083828",
+  "version": "0.1.0+codex.20260824100716",
   "description": "Analyze and review UI requirements, build and verify Unreal UMG, pause for user acceptance of the actual result, then deliver standardized program-facing handoff documents.",
   "homepage": "https://github.com/Dedemzh-bot/UMGNextGame",
   "repository": "https://github.com/Dedemzh-bot/UMGNextGame",
