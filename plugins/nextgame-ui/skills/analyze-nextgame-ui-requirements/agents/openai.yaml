@@ -1,0 +1,15 @@
+interface:
+  display_name: "Analyze NextGame UI Requirements"
+  short_description: "Infer reviewable UI structure and hidden visual states"
+  default_prompt: "Use $analyze-nextgame-ui-requirements to analyze these UI references and written requirements, then present the first user gate before UMG construction. Keep this requirement approval separate from the later post-build result acceptance required before documentation."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "unreal-editor"
+      description: "Local Unreal Editor MCP server for read-only inspection of designated reference UMG assets"
+      transport: "streamable_http"
+      url: "http://127.0.0.1:8000/mcp"
+
+policy:
+  allow_implicit_invocation: true

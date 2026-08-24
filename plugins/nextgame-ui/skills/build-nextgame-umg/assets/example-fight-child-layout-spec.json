@@ -1,0 +1,31 @@
+{
+  "version": "0.2",
+  "mode": "prototype",
+  "asset": {"folder": "/Game/UI/AIPrototype", "name": "umg_ai_fight_stamina"},
+  "referenceSize": [1920, 1080],
+  "profile": {
+    "screenType": "hud-module",
+    "adaptive": true,
+    "interactive": false,
+    "hasText": false,
+    "containsRepeatedElements": false,
+    "regionGrouping": false,
+    "assetKind": "child-widget",
+    "designSizeMode": "Desired",
+    "system": "fight",
+    "systemFolder": "Fight",
+    "subsystem": null,
+    "function": "stamina",
+    "secondaryFunction": null,
+    "targetAsset": {
+      "folder": "/Game/UI/UMG/Fight/Widgets",
+      "name": "uw_fight_stamina",
+      "integrationAsset": "/Game/UI/UMG/Fight/umg_fight"
+    }
+  },
+  "notes": ["Prototype representation of the intended fight stamina child widget."],
+  "nodes": [
+    {"id": "root", "name": "PanelRoot", "role": "screen.root", "parent": null, "rect": [0, 0, 1, 1], "anchor": "left-top", "properties": {}},
+    {"id": "stamina", "name": "BarStamina", "role": "progress.linear", "isVariable": true, "parent": "root", "rect": [0.1, 0.36, 0.0260417, 0.2777778], "anchor": "left-center", "properties": {"percent": 0.75, "fillDirection": "BottomToTop", "color": {"r": 0.25, "g": 0.85, "b": 0.45, "a": 1}}}
+  ]
+}

@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NextGame UI Program Handoff",
+  "type": "object",
+  "required": ["version", "handoffId", "generatedAt", "target", "sources", "output", "contentPolicy", "assets", "deviations", "gaps"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "0.3"},
+    "handoffId": {"$ref": "#/$defs/id"},
+    "generatedAt": {"type": "string", "minLength": 1},
+    "target": {"$ref": "#/$defs/target"},
+    "sources": {"$ref": "#/$defs/sources"},
+    "output": {"$ref": "#/$defs/output"},
+    "contentPolicy": {"$ref": "#/$defs/contentPolicy"},
+    "assets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/asset"}},
+    "deviations": {"type": "array", "items": {"$ref": "#/$defs/deviation"}},
+    "gaps": {"type": "array", "items": {"$ref": "#/$defs/gap"}}
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "visibility": {"enum": ["Visible", "Collapsed", "Hidden", "HitTestInvisible", "SelfHitTestInvisible"]},
+    "idRefs": {"type": "array", "items": {"$ref": "#/$defs/id"}},
+    "assetPath": {"type": "string", "pattern": "^/Game/UI/UMG/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)+$"},
+    "target": {
+      "type": "object",
+      "required": ["systemFolder", "mode", "assetPaths"],
+      "additionalProperties": false,
+      "properties": {
+        "systemFolder": {"type": "string", "pattern": "^[A-Za-z0-9_]+$"},
+        "mode": {"const": "production"},
+        "assetPaths": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/assetPath"}}
+      }
+    },
+    "requirementSource": {
+      "type": "object",
+      "required": ["requestId", "revision", "approvedContentSha256", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {"type": "string", "minLength": 1},
+        "revision": {"type": "integer", "minimum": 1},
+        "approvedContentSha256": {"$ref": "#/$defs/sha256"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "bundleSource": {
+      "type": "object",
+      "required": ["bundleId", "sha256"],
+      "additionalProperties": false,
+      "properties": {"bundleId": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "readbackSource": {
+      "type": "object",
+      "required": ["readbackId", "sha256"],
+      "additionalProperties": false,
+      "properties": {"readbackId": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "buildAcceptanceSource": {
+      "type": "object",
+      "required": ["acceptanceId", "sha256"],
+      "additionalProperties": false,
+      "properties": {"acceptanceId": {"type": "string", "minLength": 1}, "sha256": {"$ref": "#/$defs/sha256"}}
+    },
+    "sources": {
+      "type": "object",
+      "required": ["requirement", "bundle", "unrealReadback", "buildAcceptance"],
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {"$ref": "#/$defs/requirementSource"},
+        "bundle": {"$ref": "#/$defs/bundleSource"},
+        "unrealReadback": {"$ref": "#/$defs/readbackSource"},
+        "buildAcceptance": {"$ref": "#/$defs/buildAcceptanceSource"}
+      }
+    },
+    "output": {
+      "type": "object",
+      "required": ["rootEnvironmentVariable", "fileName"],
+      "additionalProperties": false,
+      "properties": {
+        "rootEnvironmentVariable": {"const": "NEXTGAME_UI_PROGRAM_DOCS_ROOT"},
+        "fileName": {"type": "string", "pattern": "^[0-9]{8}_UGame[A-Za-z0-9_]+界面说明\\.docx$"}
+      }
+    },
+    "contentPolicy": {
+      "type": "object",
+      "required": ["staticDesignerConfiguration", "generatedContentLifecycleDetails", "runtimeParameterContractDetails", "eventCallbackContractDetails", "collectionItemSchemaDetails"],
+      "additionalProperties": false,
+      "properties": {
+        "staticDesignerConfiguration": {"const": "excluded"},
+        "generatedContentLifecycleDetails": {"const": "forbidden"},
+        "runtimeParameterContractDetails": {"const": "forbidden"},
+        "eventCallbackContractDetails": {"const": "forbidden"},
+        "collectionItemSchemaDetails": {"const": "forbidden"}
+      }
+    },
+    "trace": {
+      "type": "object",
+      "required": ["nodeMappingId", "layoutNodeId", "acceptedClaimIds"],
+      "additionalProperties": false,
+      "properties": {
+        "nodeMappingId": {"$ref": "#/$defs/id"},
+        "layoutNodeId": {"type": "string", "minLength": 1},
+        "acceptedClaimIds": {"$ref": "#/$defs/idRefs"}
+      }
+    },
+    "variableTrace": {
+      "type": "object",
+      "required": ["runtimeFieldId", "elementId", "nodeMappingId", "layoutNodeId", "acceptedClaimIds"],
+      "additionalProperties": false,
+      "properties": {
+        "runtimeFieldId": {"$ref": "#/$defs/id"},
+        "elementId": {"$ref": "#/$defs/id"},
+        "nodeMappingId": {"$ref": "#/$defs/id"},
+        "layoutNodeId": {"type": "string", "minLength": 1},
+        "acceptedClaimIds": {"$ref": "#/$defs/idRefs"}
+      }
+    },
+    "programVariable": {
+      "type": "object",
+      "required": ["id", "widgetName", "widgetClass", "purpose", "trace"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "widgetName": {"type": "string", "minLength": 1},
+        "widgetClass": {"type": "string", "minLength": 1},
+        "purpose": {
+          "enum": [
+            "程序控制文本内容",
+            "程序控制图像内容",
+            "程序控制可见状态",
+            "程序控制进度显示",
+            "程序控制界面状态",
+            "程序控制集合内容",
+            "程序控制动态内容"
+          ]
+        },
+        "trace": {"$ref": "#/$defs/variableTrace"}
+      }
+    },
+    "collection": {
+      "type": "object",
+      "required": ["id", "widgetName", "widgetClass", "entryWidgetClass", "purpose", "overflowStrategy", "trace"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "widgetName": {"type": "string", "minLength": 1},
+        "widgetClass": {"type": "string", "minLength": 1},
+        "entryWidgetClass": {"type": "string", "minLength": 1},
+        "purpose": {"const": "由程序填充"},
+        "overflowStrategy": {"enum": ["show-all", "scroll", "page", "fixed"]},
+        "trace": {"$ref": "#/$defs/trace"}
+      }
+    },
+    "visibilityBinding": {
+      "type": "object",
+      "required": ["assetId", "widgetName", "visibility", "nodeMappingId", "layoutNodeId"],
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {"$ref": "#/$defs/id"},
+        "widgetName": {"type": "string", "minLength": 1},
+        "visibility": {"$ref": "#/$defs/visibility"},
+        "nodeMappingId": {"$ref": "#/$defs/id"},
+        "layoutNodeId": {"type": "string", "minLength": 1}
+      }
+    },
+    "state": {
+      "type": "object",
+      "required": ["id", "name", "isDefault", "actualSavedVisibilityBindings", "runtimeVisibilityOutcomes"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "name": {"type": "string", "minLength": 1},
+        "isDefault": {"type": "boolean"},
+        "actualSavedVisibilityBindings": {"type": "array", "items": {"$ref": "#/$defs/visibilityBinding"}},
+        "runtimeVisibilityOutcomes": {"type": "array", "items": {"$ref": "#/$defs/visibilityBinding"}}
+      }
+    },
+    "stateAxis": {
+      "type": "object",
+      "required": ["id", "states"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "states": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/state"}}
+      }
+    },
+    "exclusiveStateAxis": {
+      "type": "object",
+      "required": ["id", "states"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "states": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "allOf": [
+              {"$ref": "#/$defs/state"},
+              {
+                "properties": {
+                  "actualSavedVisibilityBindings": {"minItems": 1, "maxItems": 1},
+                  "runtimeVisibilityOutcomes": {"maxItems": 0}
+                }
+              }
+            ]
+          }
+        }
+      }
+    },
+    "controlInput": {
+      "type": "object",
+      "required": ["id", "axisId", "kind", "description", "targetStateIds", "acceptedClaimIds"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "axisId": {"$ref": "#/$defs/id"},
+        "kind": {"enum": ["user-interaction", "data-condition", "program-state", "external-state"]},
+        "description": {
+          "enum": [
+            "根据用户交互选择目标状态",
+            "根据数据条件选择目标状态",
+            "根据程序状态选择目标状态",
+            "根据外部状态选择目标状态"
+          ]
+        },
+        "targetStateIds": {"$ref": "#/$defs/idRefs"},
+        "acceptedClaimIds": {"$ref": "#/$defs/idRefs"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"kind": {"const": "user-interaction"}}, "required": ["kind"]},
+          "then": {"properties": {"description": {"const": "根据用户交互选择目标状态"}}}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "data-condition"}}, "required": ["kind"]},
+          "then": {"properties": {"description": {"const": "根据数据条件选择目标状态"}}}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "program-state"}}, "required": ["kind"]},
+          "then": {"properties": {"description": {"const": "根据程序状态选择目标状态"}}}
+        },
+        {
+          "if": {"properties": {"kind": {"const": "external-state"}}, "required": ["kind"]},
+          "then": {"properties": {"description": {"const": "根据外部状态选择目标状态"}}}
+        }
+      ]
+    },
+    "stateModel": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["id", "implementationStrategy", "controlInputs", "axes", "acceptedClaimIds"],
+          "additionalProperties": false,
+          "properties": {
+            "id": {"$ref": "#/$defs/id"},
+            "implementationStrategy": {"const": "exclusive-panel-branches"},
+            "controlInputs": {"type": "array", "items": {"$ref": "#/$defs/controlInput"}},
+            "axes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/exclusiveStateAxis"}},
+            "acceptedClaimIds": {"$ref": "#/$defs/idRefs"}
+          }
+        },
+        {
+          "type": "object",
+          "required": ["id", "implementationStrategy", "controlInputs", "axes", "acceptedClaimIds"],
+          "additionalProperties": false,
+          "properties": {
+            "id": {"$ref": "#/$defs/id"},
+            "implementationStrategy": {"const": "shared-tree-properties"},
+            "controlInputs": {"type": "array", "items": {"$ref": "#/$defs/controlInput"}},
+            "axes": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/stateAxis"}},
+            "acceptedClaimIds": {"$ref": "#/$defs/idRefs"}
+          }
+        }
+      ]
+    },
+    "asset": {
+      "type": "object",
+      "required": ["assetId", "assetPath", "programVariables", "collections", "states"],
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {"$ref": "#/$defs/id"},
+        "assetPath": {"$ref": "#/$defs/assetPath"},
+        "programVariables": {"type": "array", "items": {"$ref": "#/$defs/programVariable"}},
+        "collections": {"type": "array", "items": {"$ref": "#/$defs/collection"}},
+        "states": {"type": "array", "items": {"$ref": "#/$defs/stateModel"}}
+      }
+    },
+    "deviation": {
+      "type": "object",
+      "required": ["id", "status", "impact", "affectedAssetIds", "affectedRequirementRefs"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "status": {"enum": ["pending", "accepted", "rejected"]},
+        "impact": {"enum": ["low", "medium", "high"]},
+        "affectedAssetIds": {"$ref": "#/$defs/idRefs"},
+        "affectedRequirementRefs": {"$ref": "#/$defs/idRefs"}
+      }
+    },
+    "gap": {
+      "type": "object",
+      "required": ["code", "stateModelId", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {"enum": ["state-control-input-missing", "state-control-input-unspecified"]},
+        "stateModelId": {"$ref": "#/$defs/id"},
+        "controlInputId": {"$ref": "#/$defs/id"},
+        "description": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

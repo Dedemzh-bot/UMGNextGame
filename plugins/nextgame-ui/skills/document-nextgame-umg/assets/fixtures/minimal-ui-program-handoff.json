@@ -1,0 +1,131 @@
+{
+  "version": "0.3",
+  "handoffId": "handoff:fixture-bundle",
+  "generatedAt": "2026-08-10T12:05:00+08:00",
+  "target": {
+    "systemFolder": "Role",
+    "mode": "production",
+    "assetPaths": ["/Game/UI/UMG/Role/umg_role"]
+  },
+  "sources": {
+    "requirement": {
+      "requestId": "fixture-request",
+      "revision": 1,
+      "approvedContentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+    },
+    "bundle": {
+      "bundleId": "fixture-bundle",
+      "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    "unrealReadback": {
+      "readbackId": "readback:fixture",
+      "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "buildAcceptance": {
+      "acceptanceId": "acceptance:fixture",
+      "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+    }
+  },
+  "output": {
+    "rootEnvironmentVariable": "NEXTGAME_UI_PROGRAM_DOCS_ROOT",
+    "fileName": "20260810_UGameRole界面说明.docx"
+  },
+  "contentPolicy": {
+    "staticDesignerConfiguration": "excluded",
+    "generatedContentLifecycleDetails": "forbidden",
+    "runtimeParameterContractDetails": "forbidden",
+    "eventCallbackContractDetails": "forbidden",
+    "collectionItemSchemaDetails": "forbidden"
+  },
+  "assets": [
+    {
+      "assetId": "build-screen-role",
+      "assetPath": "/Game/UI/UMG/Role/umg_role",
+      "programVariables": [
+        {
+          "id": "variable:build-screen-role:ListRole",
+          "widgetName": "ListRole",
+          "widgetClass": "/Script/UIFramework.LuaListView",
+          "purpose": "程序控制集合内容",
+          "trace": {
+            "runtimeFieldId": "runtime-role-list",
+            "elementId": "element-role-list",
+            "nodeMappingId": "mapping-role-list",
+            "layoutNodeId": "node-role-list",
+            "acceptedClaimIds": ["claim-role-list"]
+          }
+        }
+      ],
+      "collections": [
+        {
+          "id": "collection-role-list",
+          "widgetName": "ListRole",
+          "widgetClass": "/Script/UIFramework.LuaListView",
+          "entryWidgetClass": "/Game/UI/UMG/Role/Widgets/uw_role_item.uw_role_item_C",
+          "purpose": "由程序填充",
+          "overflowStrategy": "scroll",
+          "trace": {
+            "nodeMappingId": "mapping-role-list",
+            "layoutNodeId": "node-role-list",
+            "acceptedClaimIds": ["claim-role-list"]
+          }
+        }
+      ],
+      "states": [
+        {
+          "id": "state-model-role-selection",
+          "implementationStrategy": "shared-tree-properties",
+          "controlInputs": [],
+          "axes": [
+            {
+              "id": "axis-role-selection",
+              "states": [
+                {
+                  "id": "state-role-selected",
+                  "name": "selected",
+                  "isDefault": true,
+                  "actualSavedVisibilityBindings": [
+                    {
+                      "assetId": "build-screen-role",
+                      "widgetName": "ListRole",
+                      "visibility": "Visible",
+                      "nodeMappingId": "mapping-role-list",
+                      "layoutNodeId": "node-role-list"
+                    }
+                  ],
+                  "runtimeVisibilityOutcomes": [
+                    {
+                      "assetId": "build-screen-role",
+                      "widgetName": "ListRole",
+                      "visibility": "SelfHitTestInvisible",
+                      "nodeMappingId": "mapping-role-list",
+                      "layoutNodeId": "node-role-list"
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "acceptedClaimIds": ["claim-role-state"]
+        }
+      ]
+    }
+  ],
+  "deviations": [
+    {
+      "id": "deviation-role-preview",
+      "status": "accepted",
+      "impact": "low",
+      "affectedAssetIds": ["build-screen-role"],
+      "affectedRequirementRefs": ["state-role-selected"]
+    }
+  ],
+  "gaps": [
+    {
+      "code": "state-control-input-missing",
+      "stateModelId": "state-model-role-selection",
+      "description": "Requirement does not specify a control input for this accepted state model."
+    }
+  ]
+}

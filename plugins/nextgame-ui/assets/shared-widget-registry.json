@@ -1,0 +1,1797 @@
+{
+  "version": "0.4",
+  "registryId": "nextgame-shared-widgets",
+  "registryRevision": 11,
+  "entries": [
+    {
+      "id": "shared.common.bag-item",
+      "status": "candidate",
+      "assetPath": "/Game/UI/UMG/Widgets/uw_common_bag_item",
+      "objectPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item",
+      "generatedClassPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item_C",
+      "assetKind": "list-entry",
+      "scope": "project-common",
+      "ownerSystemFolder": null,
+      "purpose": "方形道具图标基础共用控件",
+      "notes": "150×150 的方形道具内容基础共用控件，核心 ImgIcon 为 110×110；WBP 提供 ImgIcon、ImgQuality、TxtNum、Lock 等视觉/变量接口。用户已指定它为此职责的基础控件。新的双层扩展合同要求 SlotDown 位于共享根直接子级最前且 ZOrder 严格最低，SlotUp 位于共享根直接子级最后且 ZOrder 严格最高；两槽均关闭 Auto Size、IsVariable、SelfHitTestInvisible、默认全适配，从而不由槽本身截获输入且不禁用子级交互。系统专用 Parent Class 子控件可按增量内容层级分别把 SlotDown、SlotUp 保持 empty 或各放一个直接语义 Panel，并允许同时使用；特殊适配必须由需求另行声明。历史 NamedSlot Slot1 及其绑定必须保留。当前已保存资产仍是 Registry 0.3 的单槽 SlotContent 接口，因此本条目暂降为 candidate；只有完成 SlotContent→SlotUp、补建 SlotDown、编译保存、post-save 实际读回、接口与复用哈希刷新后才能重新 active。精确名称 Slot 与 /Script/UMG.Widget:Slot 反射属性冲突，不得用作 NamedSlot 名称。uw_fightbag_item、uw_common_item 和 uw_weapon_material_item 已验证 Parent Class 继承；uw_production_makeitem 与 uw_weapon_material_slot_list 已验证宿主嵌套专用子类。不要把 WBP 继承误判为 Lua 自动继承；Lua 继承、动态加载与 WBP 继承分别记录。既有资产中的历史原生 UMG Image 只是读回事实，不是新拼接规范先例。",
+      "capabilityIds": [
+        "item.square-icon",
+        "item.quality-frame",
+        "item.stack-count",
+        "item.lock-state"
+      ],
+      "similarityContract": {
+        "hardConstraints": [
+          "size",
+          "state-model"
+        ],
+        "contentComparison": "semantic-similarity",
+        "decisionThreshold": "very-similar"
+      },
+      "extensionSlotsContract": {
+        "status": "required-before-activation",
+        "slots": [
+          {
+            "role": "down",
+            "widgetName": "SlotDown",
+            "classPath": "/Script/UMG.NamedSlot",
+            "parentRelation": "shared-root-direct-child",
+            "treeOrder": "first",
+            "zOrderRelation": "strictly-lower-than-all-direct-siblings",
+            "defaultLayout": {
+              "mode": "fill",
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "isVariable": true,
+            "visibility": "SelfHitTestInvisible"
+          },
+          {
+            "role": "up",
+            "widgetName": "SlotUp",
+            "classPath": "/Script/UMG.NamedSlot",
+            "parentRelation": "shared-root-direct-child",
+            "treeOrder": "last",
+            "zOrderRelation": "strictly-higher-than-all-direct-siblings",
+            "defaultLayout": {
+              "mode": "fill",
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "isVariable": true,
+            "visibility": "SelfHitTestInvisible"
+          }
+        ],
+        "legacyPreservedNames": [
+          "Slot1"
+        ],
+        "childContentPolicy": {
+          "contentModes": [
+            "empty",
+            "panel"
+          ],
+          "simultaneousUseAllowed": true,
+          "maxDirectChildrenPerUsedSlot": 1,
+          "directChildRole": "semantic-panel",
+          "unusedSlotsMustBeEmpty": true,
+          "defaultPanelLayout": {
+            "mode": "fill",
+            "anchors": [
+              0,
+              0,
+              1,
+              1
+            ],
+            "offsets": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alignment": [
+              0,
+              0
+            ]
+          },
+          "specialAdaptationRequiresExplicitEvidence": true
+        }
+      },
+      "extensionSlotMigration": {
+        "operation": "migrate-existing-standard-slot",
+        "status": "planned",
+        "fromRegistryVersion": "0.3",
+        "oldStandardName": "SlotContent",
+        "renamedStandardName": "SlotUp",
+        "addedStandardName": "SlotDown",
+        "legacyPreservedNames": [
+          "Slot1"
+        ],
+        "preSaveValidationRequired": true,
+        "reportPath": "Saved/CodexUIRequirements/weapon-upgrade-common-reuse-20260813/slot-layer-migration-report.json"
+      },
+      "generationModes": [
+        {
+          "mode": "class-settings-parent-class",
+          "status": "verified",
+          "classSettingsParentClassPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item_C",
+          "description": "创建系统专用 Widget Blueprint，并在 Class Settings 的 Parent Class 中选择本控件生成类；子蓝图继承其 WidgetTree 与变量接口。",
+          "evidencePaths": [
+            "/Game/UI/UMG/Widgets/uw_common_bag_item",
+            "/Game/UI/UMG/FightBag/Widgets/uw_fightbag_item"
+          ]
+        },
+        {
+          "mode": "widget-tree-instance",
+          "status": "verified",
+          "nestedWidgetClassPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item_C",
+          "parameterContractStatus": "none",
+          "instanceParameters": [],
+          "description": "调用方 WidgetTree 可生成本共用类或其已验证直接子类的具名嵌套实例。现有 uw_production_makeitem 通过节点 Item 嵌套已验证子类 uw_common_item；该实例没有保存的原型参数覆写，因此当前合同是已验证的无 Designer 参数模式。运行时 Lua 方法参数不属于 parameterOverride。",
+          "evidencePaths": [
+            "/Game/UI/UMG/Widgets/uw_common_item",
+            "/Game/UI/UMG/Production/Widgets/uw_production_makeitem"
+          ]
+        }
+      ],
+      "interfaceContract": {
+        "parentClassPath": "/Script/UIFramework.ListViewItem",
+        "nativeParentClassPath": "/Script/UIFramework.ListViewItem",
+        "luaModule": "ui.bag.widgets.uw_bag_item",
+        "referenceSize": null,
+        "effectiveContentSize": [
+          150,
+          150
+        ],
+        "iconContentSize": [
+          110,
+          110
+        ],
+        "rootWidgetClassPath": "/Script/UMG.CanvasPanel",
+        "widgets": [
+          {
+            "name": "CanvasPanel_48",
+            "classPath": "/Script/UMG.CanvasPanel",
+            "parentName": null,
+            "isVariable": false,
+            "isInherited": false
+          },
+          {
+            "name": "PanelItem",
+            "classPath": "/Script/UMG.CanvasPanel",
+            "parentName": "CanvasPanel_48",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 0
+          },
+          {
+            "name": "Image",
+            "classPath": "/Script/UMG.Image",
+            "parentName": "PanelItem",
+            "isVariable": true,
+            "isInherited": false
+          },
+          {
+            "name": "ImgQuality",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelItem",
+            "isVariable": true,
+            "isInherited": false
+          },
+          {
+            "name": "ImgIcon",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelItem",
+            "isVariable": true,
+            "isInherited": false
+          },
+          {
+            "name": "Image_2",
+            "classPath": "/Script/UMG.Image",
+            "parentName": "PanelItem",
+            "isVariable": true,
+            "isInherited": false
+          },
+          {
+            "name": "TxtNum",
+            "classPath": "/Script/UMG.TextBlock",
+            "parentName": "PanelItem",
+            "isVariable": true,
+            "isInherited": false
+          },
+          {
+            "name": "Lock",
+            "classPath": "/Script/UMG.CanvasPanel",
+            "parentName": "PanelItem",
+            "isVariable": true,
+            "isInherited": false
+          },
+          {
+            "name": "Image_1",
+            "classPath": "/Script/UMG.Image",
+            "parentName": "Lock",
+            "isVariable": true,
+            "isInherited": false
+          },
+          {
+            "name": "ImgLock",
+            "classPath": "/Script/UMG.Image",
+            "parentName": "Lock",
+            "isVariable": true,
+            "isInherited": false
+          },
+          {
+            "name": "Slot1",
+            "classPath": "/Script/UMG.NamedSlot",
+            "parentName": "CanvasPanel_48",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 1,
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            }
+          },
+          {
+            "name": "SlotContent",
+            "classPath": "/Script/UMG.NamedSlot",
+            "parentName": "CanvasPanel_48",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 2,
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            }
+          }
+        ]
+      },
+      "interfaceSha256": "b6af0da85733c1ab22d6f6f9dc6ac30b7d33d54181e6d1f9613965d0dfe17ab9",
+      "reuseContractSha256": "0bda018912c3504a6cc0a5bd390357c4eccac7f5ec72c6fd80d5f956f013ba7f",
+      "knownConsumers": [
+        {
+          "assetPath": "/Game/UI/UMG/FightBag/Widgets/uw_fightbag_item",
+          "generatedClassPath": "/Game/UI/UMG/FightBag/Widgets/uw_fightbag_item.uw_fightbag_item_C",
+          "status": "verified",
+          "classSettingsParentClassPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item_C",
+          "nativeParentClassPath": "/Script/UIFramework.ListViewItem",
+          "ownWidgetCount": 0,
+          "relation": "class-settings-parent-class",
+          "luaModule": "ui.fightbag.uw.uw_fightbag_item",
+          "luaSuperModule": "ui.base_widget",
+          "luaInheritance": "independent",
+          "dynamicLoad": {
+            "hostLuaPath": "Content/Scripts/ui/fightbag/uw/uw_fightbag_item_slot.lua",
+            "classPathBinding": "ItemWidgetClassPath",
+            "fallbackClassPath": "/Game/UI/UMG/FightBag/Widgets/uw_fightbag_item.uw_fightbag_item_C",
+            "loader": "UE.LoadUIWidget",
+            "hostWidgetName": "ItemSlot",
+            "initializeMethod": "Init"
+          },
+          "usage": "Class Settings Parent Class 为 uw_common_bag_item_C，自身 WidgetTree 为 0；FightBag item slot 默认动态加载该子类，放入 ItemSlot 后调用其独立 Lua Init。",
+          "evidencePaths": [
+            "/Game/UI/UMG/Widgets/uw_common_bag_item",
+            "/Game/UI/UMG/FightBag/Widgets/uw_fightbag_item",
+            "Content/Scripts/ui/fightbag/uw/uw_fightbag_item.lua",
+            "Content/Scripts/ui/fightbag/uw/uw_fightbag_item_slot.lua"
+          ]
+        },
+        {
+          "assetPath": "/Game/UI/UMG/Widgets/uw_common_item",
+          "generatedClassPath": "/Game/UI/UMG/Widgets/uw_common_item.uw_common_item_C",
+          "status": "verified",
+          "classSettingsParentClassPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item_C",
+          "nativeParentClassPath": "/Script/UIFramework.ListViewItem",
+          "ownWidgetCount": 0,
+          "relation": "class-settings-parent-class",
+          "luaModule": "ui.widgets.uw_common_item",
+          "luaSuperModule": "ui.base_widget",
+          "luaInheritance": "independent",
+          "usage": "Class Settings Parent Class 为 uw_common_bag_item_C；包元数据表明它通过继承的历史 Slot1 绑定 CanvasPanel，并在 Panel 内加入 ImgDate，是 inherited-named-slot-content 的项目结构先例。当前 Slot1 及内容绑定保持不变；此消费者不作为尚未验证的双槽合同证据。",
+          "evidencePaths": [
+            "/Game/UI/UMG/Widgets/uw_common_bag_item",
+            "/Game/UI/UMG/Widgets/uw_common_item",
+            "Content/Scripts/ui/widgets/uw_common_item.lua"
+          ]
+        },
+        {
+          "assetPath": "/Game/UI/UMG/Production/Widgets/uw_production_makeitem",
+          "generatedClassPath": "/Game/UI/UMG/Production/Widgets/uw_production_makeitem.uw_production_makeitem_C",
+          "status": "verified",
+          "relation": "widget-tree-instance",
+          "widgetName": "Item",
+          "widgetTreePath": "/Game/UI/UMG/Production/Widgets/uw_production_makeitem.uw_production_makeitem:WidgetTree.Item",
+          "sharedPrototypeClassPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item_C",
+          "nestedWidgetClassPath": "/Game/UI/UMG/Widgets/uw_common_item.uw_common_item_C",
+          "parameterOverrides": [],
+          "luaModule": "ui.production.widgets.uw_production_makeitem",
+          "luaSuperModule": "ui.base_widget",
+          "luaInheritance": "independent",
+          "usage": "WidgetTree 节点 Item 嵌套已验证直接子类 uw_common_item_C；实例无保存的原型参数覆写，宿主 Lua 在运行时调用子控件 Show，方法参数不计入 Designer parameterOverrides。",
+          "evidencePaths": [
+            "/Game/UI/UMG/Widgets/uw_common_bag_item",
+            "/Game/UI/UMG/Widgets/uw_common_item",
+            "/Game/UI/UMG/Production/Widgets/uw_production_makeitem",
+            "Content/Scripts/ui/production/widgets/uw_production_makeitem.lua"
+          ]
+        },
+        {
+          "assetPath": "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_item",
+          "generatedClassPath": "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_item.uw_weapon_material_item_C",
+          "status": "verified",
+          "relation": "class-settings-parent-class",
+          "classSettingsParentClassPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item_C",
+          "nativeParentClassPath": "/Script/UIFramework.ListViewItem",
+          "ownWidgetCount": 0,
+          "slotExtensions": null,
+          "usage": "Weapon 材料内容专用子控件；Class Settings Parent Class 指向共用基类，当前无额外内容。SlotDown/SlotUp 尚未完成 post-save 验证，因此双槽内容证据暂记为 null；迁移后应读回两槽均 empty。",
+          "evidencePaths": [
+            "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_item"
+          ]
+        },
+        {
+          "assetPath": "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_slot_list",
+          "generatedClassPath": "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_slot_list.uw_weapon_material_slot_list_C",
+          "status": "verified",
+          "relation": "widget-tree-instance",
+          "widgetName": "ItemMaterial",
+          "widgetTreePath": "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_slot_list.uw_weapon_material_slot_list:WidgetTree.ItemMaterial",
+          "sharedPrototypeClassPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item_C",
+          "nestedWidgetClassPath": "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_item.uw_weapon_material_item_C",
+          "parameterOverrides": [],
+          "usage": "材料槽条目保留 empty/+ 与 populated 状态外壳；populated 分支嵌套 Weapon 专用子控件 ItemMaterial，不复制共用内部树。",
+          "evidencePaths": [
+            "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_slot_list"
+          ]
+        }
+      ],
+      "evidence": [
+        {
+          "kind": "unreal-readback",
+          "path": "/Game/UI/UMG/Widgets/uw_common_bag_item",
+          "capturedAt": "2026-08-13T20:35:03+08:00",
+          "acquisitionMethod": "nxue-agent",
+          "assetIdentity": {
+            "generatedClassPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item_C",
+            "parentClassPath": "/Script/UIFramework.ListViewItem"
+          },
+          "widgetInstances": []
+        },
+        {
+          "kind": "unreal-readback",
+          "path": "/Game/UI/UMG/FightBag/Widgets/uw_fightbag_item",
+          "capturedAt": "2026-08-12T21:33:43+08:00",
+          "acquisitionMethod": "official-unreal-mcp",
+          "assetIdentity": {
+            "generatedClassPath": "/Game/UI/UMG/FightBag/Widgets/uw_fightbag_item.uw_fightbag_item_C",
+            "parentClassPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item_C"
+          },
+          "widgetInstances": []
+        },
+        {
+          "kind": "unreal-readback",
+          "path": "/Game/UI/UMG/Widgets/uw_common_item",
+          "capturedAt": "2026-08-13T02:30:00+08:00",
+          "acquisitionMethod": "official-unreal-mcp",
+          "assetIdentity": {
+            "generatedClassPath": "/Game/UI/UMG/Widgets/uw_common_item.uw_common_item_C",
+            "parentClassPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item_C"
+          },
+          "widgetInstances": []
+        },
+        {
+          "kind": "unreal-readback",
+          "path": "/Game/UI/UMG/Production/Widgets/uw_production_makeitem",
+          "capturedAt": "2026-08-13T02:30:00+08:00",
+          "acquisitionMethod": "official-unreal-mcp",
+          "assetIdentity": {
+            "generatedClassPath": "/Game/UI/UMG/Production/Widgets/uw_production_makeitem.uw_production_makeitem_C",
+            "parentClassPath": "/Script/UIFramework.ListViewItem"
+          },
+          "widgetInstances": [
+            {
+              "widgetName": "Item",
+              "widgetTreePath": "/Game/UI/UMG/Production/Widgets/uw_production_makeitem.uw_production_makeitem:WidgetTree.Item",
+              "classPath": "/Game/UI/UMG/Widgets/uw_common_item.uw_common_item_C"
+            }
+          ]
+        },
+        {
+          "kind": "lua-source",
+          "path": "Content/Scripts/ui/bag/widgets/uw_bag_item.lua",
+          "capturedAt": "2026-08-12T21:33:43+08:00",
+          "acquisitionMethod": "filesystem"
+        },
+        {
+          "kind": "lua-source",
+          "path": "Content/Scripts/ui/fightbag/uw/uw_fightbag_item.lua",
+          "capturedAt": "2026-08-12T21:33:43+08:00",
+          "acquisitionMethod": "filesystem"
+        },
+        {
+          "kind": "lua-source",
+          "path": "Content/Scripts/ui/ui.lua",
+          "capturedAt": "2026-08-12T21:33:43+08:00",
+          "acquisitionMethod": "filesystem"
+        },
+        {
+          "kind": "lua-source",
+          "path": "Content/Scripts/misc/lib.lua",
+          "capturedAt": "2026-08-12T21:33:43+08:00",
+          "acquisitionMethod": "filesystem"
+        },
+        {
+          "kind": "lua-source",
+          "path": "Content/Scripts/ui/fightbag/uw/uw_fightbag_item_slot.lua",
+          "capturedAt": "2026-08-12T21:33:43+08:00",
+          "acquisitionMethod": "filesystem"
+        },
+        {
+          "kind": "lua-source",
+          "path": "Content/Scripts/ui/widgets/uw_common_item.lua",
+          "capturedAt": "2026-08-13T02:30:00+08:00",
+          "acquisitionMethod": "filesystem"
+        },
+        {
+          "kind": "lua-source",
+          "path": "Content/Scripts/ui/production/widgets/uw_production_makeitem.lua",
+          "capturedAt": "2026-08-13T02:30:00+08:00",
+          "acquisitionMethod": "filesystem"
+        },
+        {
+          "kind": "asset-package",
+          "path": "Content/UI/UMG/Widgets/uw_common_bag_item.uasset",
+          "capturedAt": "2026-08-13T09:00:00+08:00",
+          "acquisitionMethod": "filesystem"
+        },
+        {
+          "kind": "asset-package",
+          "path": "Content/UI/UMG/Widgets/uw_common_item.uasset",
+          "capturedAt": "2026-08-13T09:00:00+08:00",
+          "acquisitionMethod": "filesystem"
+        },
+        {
+          "kind": "user-confirmation",
+          "path": "shared.common.bag-item",
+          "capturedAt": "2026-08-12T21:33:43+08:00",
+          "acquisitionMethod": "direct-user-message"
+        },
+        {
+          "kind": "user-confirmation",
+          "path": "shared-widget-reuse-modes",
+          "capturedAt": "2026-08-13T01:06:45+08:00",
+          "acquisitionMethod": "direct-user-message"
+        },
+        {
+          "kind": "unreal-readback",
+          "path": "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_item",
+          "capturedAt": "2026-08-13T20:35:03+08:00",
+          "acquisitionMethod": "nxue-agent",
+          "assetIdentity": {
+            "generatedClassPath": "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_item.uw_weapon_material_item_C",
+            "parentClassPath": "/Game/UI/UMG/Widgets/uw_common_bag_item.uw_common_bag_item_C"
+          },
+          "widgetInstances": []
+        },
+        {
+          "kind": "unreal-readback",
+          "path": "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_slot_list",
+          "capturedAt": "2026-08-13T20:35:03+08:00",
+          "acquisitionMethod": "nxue-agent",
+          "assetIdentity": {
+            "generatedClassPath": "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_slot_list.uw_weapon_material_slot_list_C",
+            "parentClassPath": "/Script/UIFramework.ListViewItem"
+          },
+          "widgetInstances": [
+            {
+              "widgetName": "ItemMaterial",
+              "widgetTreePath": "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_slot_list.uw_weapon_material_slot_list:WidgetTree.ItemMaterial",
+              "classPath": "/Game/UI/UMG/Weapon/Widgets/uw_weapon_material_item.uw_weapon_material_item_C"
+            }
+          ]
+        }
+      ],
+      "confirmation": {
+        "actorType": "user",
+        "source": "direct-user-message",
+        "confirmedAt": "2026-08-12T21:33:43+08:00"
+      }
+    },
+    {
+      "id": "shared.common.currency",
+      "status": "active",
+      "assetPath": "/Game/UI/UMG/Widgets/uw_common_currency",
+      "objectPath": "/Game/UI/UMG/Widgets/uw_common_currency.uw_common_currency",
+      "generatedClassPath": "/Game/UI/UMG/Widgets/uw_common_currency.uw_common_currency_C",
+      "assetKind": "child-widget",
+      "scope": "project-common",
+      "ownerSystemFolder": null,
+      "purpose": "资源 ICON 与数值的共用显示控件",
+      "notes": "现有 uw_common_currency 已按用户授权完成 SlotDown/SlotUp 双层扩展、TxtNum 右对齐、编译保存、官方实际读回、NxUE 新鲜重载、包清洁与现有引用闭包字节稳定核查，现作为 active 项目共用控件。",
+      "capabilityIds": [
+        "resource.icon-value",
+        "resource.cash-id"
+      ],
+      "similarityContract": {
+        "hardConstraints": [
+          "size",
+          "state-model"
+        ],
+        "contentComparison": "semantic-similarity",
+        "decisionThreshold": "very-similar"
+      },
+      "extensionSlotsContract": {
+        "status": "verified",
+        "slots": [
+          {
+            "role": "down",
+            "widgetName": "SlotDown",
+            "classPath": "/Script/UMG.NamedSlot",
+            "parentRelation": "shared-root-direct-child",
+            "treeOrder": "first",
+            "zOrderRelation": "strictly-lower-than-all-direct-siblings",
+            "defaultLayout": {
+              "mode": "fill",
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "isVariable": true,
+            "visibility": "SelfHitTestInvisible"
+          },
+          {
+            "role": "up",
+            "widgetName": "SlotUp",
+            "classPath": "/Script/UMG.NamedSlot",
+            "parentRelation": "shared-root-direct-child",
+            "treeOrder": "last",
+            "zOrderRelation": "strictly-higher-than-all-direct-siblings",
+            "defaultLayout": {
+              "mode": "fill",
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "isVariable": true,
+            "visibility": "SelfHitTestInvisible"
+          }
+        ],
+        "legacyPreservedNames": [],
+        "childContentPolicy": {
+          "contentModes": [
+            "empty",
+            "panel"
+          ],
+          "simultaneousUseAllowed": true,
+          "maxDirectChildrenPerUsedSlot": 1,
+          "directChildRole": "semantic-panel",
+          "unusedSlotsMustBeEmpty": true,
+          "defaultPanelLayout": {
+            "mode": "fill",
+            "anchors": [
+              0,
+              0,
+              1,
+              1
+            ],
+            "offsets": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alignment": [
+              0,
+              0
+            ]
+          },
+          "specialAdaptationRequiresExplicitEvidence": true
+        }
+      },
+      "extensionSlotMigration": {
+        "operation": "add-dual-layer-slots",
+        "status": "verified",
+        "addedStandardNames": [
+          "SlotDown",
+          "SlotUp"
+        ],
+        "preSaveValidationRequired": true,
+        "reportPath": "Saved/CodexUIRequirements/weapon-upgrade-20260814/verification/shared-currency-extension-report.json",
+        "evidenceArtifactSha256": "ea8df868afa4b8a8d0fb8aa56489572be622197e62578226887f286961d8ce95",
+        "verifiedAt": "2026-08-15T08:48:28.171332+00:00"
+      },
+      "generationModes": [
+        {
+          "mode": "class-settings-parent-class",
+          "status": "verified",
+          "classSettingsParentClassPath": "/Game/UI/UMG/Widgets/uw_common_currency.uw_common_currency_C",
+          "description": "Fresh UpToDate GeneratedClass identity is verified and may be selected as a system child Widget Blueprint Parent Class; no Phase2 child is claimed as built.",
+          "evidencePaths": [
+            "/Game/UI/UMG/Widgets/uw_common_currency"
+          ]
+        },
+        {
+          "mode": "widget-tree-instance",
+          "status": "verified",
+          "nestedWidgetClassPath": "/Game/UI/UMG/Widgets/uw_common_currency.uw_common_currency_C",
+          "parameterContractStatus": "none",
+          "instanceParameters": [],
+          "description": "Parameterless nested use is verified from the actual GeneratedClass plus the read-only baseline plus the exact widget-only extension checkpoint; no Phase2 nested instance or instance-parameter mutation is claimed as built.",
+          "evidencePaths": [
+            "/Game/UI/UMG/Widgets/uw_common_currency"
+          ]
+        }
+      ],
+      "interfaceContract": {
+        "parentClassPath": "/Script/UIFramework.GameActivatableWidget",
+        "nativeParentClassPath": "/Script/UIFramework.GameActivatableWidget",
+        "luaModule": "ui.widgets.uw_common_currency",
+        "referenceSize": [
+          182,
+          50
+        ],
+        "effectiveContentSize": [
+          182,
+          50
+        ],
+        "iconContentSize": [
+          50,
+          50
+        ],
+        "rootWidgetClassPath": "/Script/UMG.CanvasPanel",
+        "widgets": [
+          {
+            "name": "CanvasPanel_0",
+            "classPath": "/Script/UMG.CanvasPanel",
+            "parentName": null,
+            "isVariable": false,
+            "isInherited": false,
+            "visibility": "SelfHitTestInvisible"
+          },
+          {
+            "name": "SlotDown",
+            "classPath": "/Script/UMG.NamedSlot",
+            "parentName": "CanvasPanel_0",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 0,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": -1000
+          },
+          {
+            "name": "Icon",
+            "classPath": "/Script/UMG.Image",
+            "parentName": "CanvasPanel_0",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 1,
+            "visibility": "HitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0.5,
+                0,
+                0.5
+              ],
+              "offsets": [
+                0,
+                0,
+                50,
+                50
+              ],
+              "alignment": [
+                0,
+                0.5
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 0
+          },
+          {
+            "name": "TxtNum",
+            "classPath": "/Script/UMG.TextBlock",
+            "parentName": "CanvasPanel_0",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 2,
+            "visibility": "Visible",
+            "slotLayout": {
+              "anchors": [
+                1,
+                0.5,
+                1,
+                0.5
+              ],
+              "offsets": [
+                -0.8085403442382812,
+                0,
+                127.19145965576172,
+                34.802982330322266
+              ],
+              "alignment": [
+                1,
+                0.5
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 0
+          },
+          {
+            "name": "SlotUp",
+            "classPath": "/Script/UMG.NamedSlot",
+            "parentName": "CanvasPanel_0",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 3,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 1000
+          }
+        ]
+      },
+      "interfaceSha256": "0cdf16778f16ff7b968e28644f7824f38d85fc6c880ccd05f7a3c7e24ecff646",
+      "reuseContractSha256": "59c8774abab18c78bd6488b536d16c33521ea5ec90b0637d48211b957b229491",
+      "knownConsumers": [],
+      "evidence": [
+        {
+          "kind": "unreal-readback",
+          "path": "/Game/UI/UMG/Widgets/uw_common_currency",
+          "capturedAt": "2026-08-15T16:40:10+08:00",
+          "acquisitionMethod": "official-unreal-mcp",
+          "assetIdentity": {
+            "generatedClassPath": "/Game/UI/UMG/Widgets/uw_common_currency.uw_common_currency_C",
+            "parentClassPath": "/Script/UIFramework.GameActivatableWidget"
+          },
+          "widgetInstances": [
+            {
+              "widgetName": "CanvasPanel_0",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_currency.uw_common_currency:WidgetTree.CanvasPanel_0",
+              "classPath": "/Script/UMG.CanvasPanel"
+            },
+            {
+              "widgetName": "SlotDown",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_currency.uw_common_currency:WidgetTree.SlotDown",
+              "classPath": "/Script/UMG.NamedSlot"
+            },
+            {
+              "widgetName": "Icon",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_currency.uw_common_currency:WidgetTree.Icon",
+              "classPath": "/Script/UMG.Image"
+            },
+            {
+              "widgetName": "TxtNum",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_currency.uw_common_currency:WidgetTree.TxtNum",
+              "classPath": "/Script/UMG.TextBlock"
+            },
+            {
+              "widgetName": "SlotUp",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_currency.uw_common_currency:WidgetTree.SlotUp",
+              "classPath": "/Script/UMG.NamedSlot"
+            }
+          ]
+        },
+        {
+          "kind": "asset-package",
+          "path": "Content/U.uasset",
+          "capturedAt": "2026-08-15T16:40:10+08:00",
+          "acquisitionMethod": "filesystem"
+        },
+        {
+          "kind": "user-confirmation",
+          "path": "shared.common.currency",
+          "capturedAt": "2026-08-15T13:34:19+08:00",
+          "acquisitionMethod": "direct-user-message"
+        }
+      ],
+      "confirmation": {
+        "actorType": "user",
+        "source": "direct-user-message",
+        "confirmedAt": "2026-08-15T13:34:19+08:00"
+      }
+    },
+    {
+      "id": "shared.common.material-list",
+      "status": "active",
+      "assetPath": "/Game/UI/UMG/Widgets/uw_common_material_list",
+      "objectPath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list",
+      "generatedClassPath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list_C",
+      "assetKind": "list-entry",
+      "scope": "project-common",
+      "ownerSystemFolder": null,
+      "purpose": "武器培养材料槽空态/已填充态的项目共用条目控件",
+      "notes": "按已接受需求新建于项目 common 目录；包含完整 empty/populated 视觉分支、运行时 GameImage 道具 ICON、可交互 Button、NoDrawType 的 Normal/Hovered/Pressed 输入样式，以及经新鲜 Editor 进程验证的 SlotDown/SlotUp 双层扩展合同。恢复证据仍为初始不存在证明与内容寻址 UILayout/plan/checkpoint，不是旧 uasset 字节备份。",
+      "capabilityIds": [
+        "material.slot.empty",
+        "material.slot.populated",
+        "material.runtime-item-icon"
+      ],
+      "similarityContract": {
+        "hardConstraints": [
+          "size",
+          "state-model"
+        ],
+        "contentComparison": "semantic-similarity",
+        "decisionThreshold": "very-similar"
+      },
+      "extensionSlotsContract": {
+        "status": "verified",
+        "slots": [
+          {
+            "role": "down",
+            "widgetName": "SlotDown",
+            "classPath": "/Script/UMG.NamedSlot",
+            "parentRelation": "shared-root-direct-child",
+            "treeOrder": "first",
+            "zOrderRelation": "strictly-lower-than-all-direct-siblings",
+            "defaultLayout": {
+              "mode": "fill",
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "isVariable": true,
+            "visibility": "SelfHitTestInvisible"
+          },
+          {
+            "role": "up",
+            "widgetName": "SlotUp",
+            "classPath": "/Script/UMG.NamedSlot",
+            "parentRelation": "shared-root-direct-child",
+            "treeOrder": "last",
+            "zOrderRelation": "strictly-higher-than-all-direct-siblings",
+            "defaultLayout": {
+              "mode": "fill",
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "isVariable": true,
+            "visibility": "SelfHitTestInvisible"
+          }
+        ],
+        "legacyPreservedNames": [],
+        "childContentPolicy": {
+          "contentModes": [
+            "empty",
+            "panel"
+          ],
+          "simultaneousUseAllowed": true,
+          "maxDirectChildrenPerUsedSlot": 1,
+          "directChildRole": "semantic-panel",
+          "unusedSlotsMustBeEmpty": true,
+          "defaultPanelLayout": {
+            "mode": "fill",
+            "anchors": [
+              0,
+              0,
+              1,
+              1
+            ],
+            "offsets": [
+              0,
+              0,
+              0,
+              0
+            ],
+            "alignment": [
+              0,
+              0
+            ]
+          },
+          "specialAdaptationRequiresExplicitEvidence": true
+        }
+      },
+      "extensionSlotMigration": {
+        "operation": "add-dual-layer-slots",
+        "status": "verified",
+        "addedStandardNames": [
+          "SlotDown",
+          "SlotUp"
+        ],
+        "preSaveValidationRequired": true,
+        "reportPath": "Saved/CodexUIRequirements/weapon-upgrade-20260814/verification/shared-material-extension-restyle-r6-report.json",
+        "evidenceArtifactSha256": "9823e253387b980151fc7668a5bb7b0454d7003ef8d6c547bdc1fb3b19cbfc22",
+        "verifiedAt": "2026-08-15T11:22:54.158404+00:00"
+      },
+      "generationModes": [
+        {
+          "mode": "class-settings-parent-class",
+          "status": "verified",
+          "classSettingsParentClassPath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list_C",
+          "description": "Fresh UpToDate GeneratedClass identity is verified and may be selected as a system child Widget Blueprint Parent Class; no Phase2 child is claimed as built.",
+          "evidencePaths": [
+            "/Game/UI/UMG/Widgets/uw_common_material_list"
+          ]
+        },
+        {
+          "mode": "widget-tree-instance",
+          "status": "verified",
+          "nestedWidgetClassPath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list_C",
+          "parameterContractStatus": "none",
+          "instanceParameters": [],
+          "description": "Parameterless nested use is verified from the actual GeneratedClass plus the content-addressed UILayout/ordinary plan and exact completed checkpoints; no Phase2 nested instance or instance-parameter mutation is claimed as built.",
+          "evidencePaths": [
+            "/Game/UI/UMG/Widgets/uw_common_material_list"
+          ]
+        }
+      ],
+      "interfaceContract": {
+        "parentClassPath": "/Script/UIFramework.ListViewItem",
+        "nativeParentClassPath": "/Script/UIFramework.ListViewItem",
+        "luaModule": "None",
+        "referenceSize": [
+          176,
+          176
+        ],
+        "effectiveContentSize": [
+          176,
+          176
+        ],
+        "iconContentSize": [
+          147.84,
+          147.84
+        ],
+        "rootWidgetClassPath": "/Script/UMG.CanvasPanel",
+        "widgets": [
+          {
+            "name": "PanelRoot",
+            "classPath": "/Script/UMG.CanvasPanel",
+            "parentName": null,
+            "isVariable": false,
+            "isInherited": false,
+            "visibility": "SelfHitTestInvisible"
+          },
+          {
+            "name": "SlotDown",
+            "classPath": "/Script/UMG.NamedSlot",
+            "parentName": "PanelRoot",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 0,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": -1000
+          },
+          {
+            "name": "PanelMaterialSlotEntry",
+            "classPath": "/Script/UMG.CanvasPanel",
+            "parentName": "PanelRoot",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 1,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                0,
+                0,
+                176,
+                176
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 0
+          },
+          {
+            "name": "BtnMaterialSlot",
+            "classPath": "/Script/UMG.Button",
+            "parentName": "PanelMaterialSlotEntry",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 0,
+            "visibility": "Visible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                0,
+                0,
+                176,
+                176
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 0
+          },
+          {
+            "name": "PanelMaterialSlotContent",
+            "classPath": "/Script/UMG.CanvasPanel",
+            "parentName": "BtnMaterialSlot",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 0,
+            "visibility": "SelfHitTestInvisible"
+          },
+          {
+            "name": "PanelMaterialSlotEmpty",
+            "classPath": "/Script/UMG.CanvasPanel",
+            "parentName": "PanelMaterialSlotContent",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 0,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 0
+          },
+          {
+            "name": "ImgMaterialEmptyFill",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotEmpty",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 0,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                3.5199999809265137,
+                3.5199999809265137,
+                168.9600067138672,
+                168.9600067138672
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 0
+          },
+          {
+            "name": "ImgMaterialEmptyPlusHorizontal",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotEmpty",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 1,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                56.31999969482422,
+                85.36000061035156,
+                63.36000061035156,
+                5.28000020980835
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 2
+          },
+          {
+            "name": "ImgMaterialEmptyPlusVertical",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotEmpty",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 2,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                85.36000061035156,
+                56.31999969482422,
+                5.28000020980835,
+                63.36000061035156
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 2
+          },
+          {
+            "name": "ImgMaterialEmptyBorderTop",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotEmpty",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 3,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                2.640000104904175,
+                2.640000104904175,
+                170.72000122070312,
+                2.111999988555908
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 1
+          },
+          {
+            "name": "ImgMaterialEmptyBorderRight",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotEmpty",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 4,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                171.2480010986328,
+                2.640000104904175,
+                2.111999988555908,
+                170.72000122070312
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 1
+          },
+          {
+            "name": "ImgMaterialEmptyBorderBottom",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotEmpty",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 5,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                2.640000104904175,
+                171.2480010986328,
+                170.72000122070312,
+                2.111999988555908
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 1
+          },
+          {
+            "name": "ImgMaterialEmptyBorderLeft",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotEmpty",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 6,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                2.640000104904175,
+                2.640000104904175,
+                2.111999988555908,
+                170.72000122070312
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 1
+          },
+          {
+            "name": "PanelMaterialSlotPopulated",
+            "classPath": "/Script/UMG.CanvasPanel",
+            "parentName": "PanelMaterialSlotContent",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 1,
+            "visibility": "Collapsed",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 1
+          },
+          {
+            "name": "ImgMaterialPopulatedFill",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotPopulated",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 0,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                3.5199999809265137,
+                3.5199999809265137,
+                168.9600067138672,
+                168.9600067138672
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 0
+          },
+          {
+            "name": "ImgMaterialItemIcon",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotPopulated",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 1,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                14.079999923706055,
+                14.079999923706055,
+                147.83999633789062,
+                147.83999633789062
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 2
+          },
+          {
+            "name": "ImgMaterialPopulatedBorderTop",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotPopulated",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 2,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                2.640000104904175,
+                2.640000104904175,
+                170.72000122070312,
+                2.111999988555908
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 1
+          },
+          {
+            "name": "ImgMaterialPopulatedBorderRight",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotPopulated",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 3,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                171.2480010986328,
+                2.640000104904175,
+                2.111999988555908,
+                170.72000122070312
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 1
+          },
+          {
+            "name": "ImgMaterialPopulatedBorderBottom",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotPopulated",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 4,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                2.640000104904175,
+                171.2480010986328,
+                170.72000122070312,
+                2.111999988555908
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 1
+          },
+          {
+            "name": "ImgMaterialPopulatedBorderLeft",
+            "classPath": "/Script/UIFramework.GameImage",
+            "parentName": "PanelMaterialSlotPopulated",
+            "isVariable": false,
+            "isInherited": false,
+            "siblingIndex": 5,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "offsets": [
+                2.640000104904175,
+                2.640000104904175,
+                2.111999988555908,
+                170.72000122070312
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 1
+          },
+          {
+            "name": "SlotUp",
+            "classPath": "/Script/UMG.NamedSlot",
+            "parentName": "PanelRoot",
+            "isVariable": true,
+            "isInherited": false,
+            "siblingIndex": 2,
+            "visibility": "SelfHitTestInvisible",
+            "slotLayout": {
+              "anchors": [
+                0,
+                0,
+                1,
+                1
+              ],
+              "offsets": [
+                0,
+                0,
+                0,
+                0
+              ],
+              "alignment": [
+                0,
+                0
+              ]
+            },
+            "autoSize": false,
+            "zOrder": 1000
+          }
+        ]
+      },
+      "interfaceSha256": "656100054f3f76cabbbd56bc16d4f477bf448d6c7a18f2061080cf3a9a76b99a",
+      "reuseContractSha256": "ce4a779aa61c167ef35b2e3f70e1447f5bbd7170a404159d03e6479fbd00ba02",
+      "knownConsumers": [],
+      "evidence": [
+        {
+          "kind": "unreal-readback",
+          "path": "/Game/UI/UMG/Widgets/uw_common_material_list",
+          "capturedAt": "2026-08-15T19:19:20+08:00",
+          "acquisitionMethod": "nxue-agent",
+          "assetIdentity": {
+            "generatedClassPath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list_C",
+            "parentClassPath": "/Script/UIFramework.ListViewItem"
+          },
+          "widgetInstances": [
+            {
+              "widgetName": "PanelRoot",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.PanelRoot",
+              "classPath": "/Script/UMG.CanvasPanel"
+            },
+            {
+              "widgetName": "SlotDown",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.SlotDown",
+              "classPath": "/Script/UMG.NamedSlot"
+            },
+            {
+              "widgetName": "PanelMaterialSlotEntry",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.PanelMaterialSlotEntry",
+              "classPath": "/Script/UMG.CanvasPanel"
+            },
+            {
+              "widgetName": "BtnMaterialSlot",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.BtnMaterialSlot",
+              "classPath": "/Script/UMG.Button"
+            },
+            {
+              "widgetName": "PanelMaterialSlotContent",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.PanelMaterialSlotContent",
+              "classPath": "/Script/UMG.CanvasPanel"
+            },
+            {
+              "widgetName": "PanelMaterialSlotEmpty",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.PanelMaterialSlotEmpty",
+              "classPath": "/Script/UMG.CanvasPanel"
+            },
+            {
+              "widgetName": "ImgMaterialEmptyFill",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialEmptyFill",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "ImgMaterialEmptyPlusHorizontal",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialEmptyPlusHorizontal",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "ImgMaterialEmptyPlusVertical",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialEmptyPlusVertical",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "ImgMaterialEmptyBorderTop",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialEmptyBorderTop",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "ImgMaterialEmptyBorderRight",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialEmptyBorderRight",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "ImgMaterialEmptyBorderBottom",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialEmptyBorderBottom",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "ImgMaterialEmptyBorderLeft",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialEmptyBorderLeft",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "PanelMaterialSlotPopulated",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.PanelMaterialSlotPopulated",
+              "classPath": "/Script/UMG.CanvasPanel"
+            },
+            {
+              "widgetName": "ImgMaterialPopulatedFill",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialPopulatedFill",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "ImgMaterialItemIcon",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialItemIcon",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "ImgMaterialPopulatedBorderTop",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialPopulatedBorderTop",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "ImgMaterialPopulatedBorderRight",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialPopulatedBorderRight",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "ImgMaterialPopulatedBorderBottom",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialPopulatedBorderBottom",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "ImgMaterialPopulatedBorderLeft",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.ImgMaterialPopulatedBorderLeft",
+              "classPath": "/Script/UIFramework.GameImage"
+            },
+            {
+              "widgetName": "SlotUp",
+              "widgetTreePath": "/Game/UI/UMG/Widgets/uw_common_material_list.uw_common_material_list:WidgetTree.SlotUp",
+              "classPath": "/Script/UMG.NamedSlot"
+            }
+          ]
+        },
+        {
+          "kind": "asset-package",
+          "path": "Content/U.uasset",
+          "capturedAt": "2026-08-15T19:19:20+08:00",
+          "acquisitionMethod": "filesystem"
+        },
+        {
+          "kind": "user-confirmation",
+          "path": "shared.common.material-list",
+          "capturedAt": "2026-08-15T13:34:19+08:00",
+          "acquisitionMethod": "direct-user-message"
+        }
+      ],
+      "confirmation": {
+        "actorType": "user",
+        "source": "direct-user-message",
+        "confirmedAt": "2026-08-15T13:34:19+08:00"
+      }
+    }
+  ]
+}

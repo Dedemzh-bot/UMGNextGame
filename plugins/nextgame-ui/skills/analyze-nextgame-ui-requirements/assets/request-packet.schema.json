@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/ui-request-packet-0.1.json",
+  "title": "NextGame UI RequestPacket",
+  "type": "object",
+  "required": ["version", "requestId", "inputDigest", "userRequest", "sources", "targetHints", "projectRuleRefs"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "0.1"},
+    "requestId": {"$ref": "#/$defs/requestId"},
+    "inputDigest": {"$ref": "#/$defs/sha256"},
+    "userRequest": {
+      "type": "object",
+      "required": ["originalText", "language"],
+      "additionalProperties": false,
+      "properties": {
+        "originalText": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "language": {"type": "string", "pattern": "^[a-z]{2}(?:-[A-Z]{2})?$"}
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/source"}
+    },
+    "targetHints": {
+      "type": "object",
+      "required": ["assetKind", "designCanvas", "productionAuthorized"],
+      "additionalProperties": false,
+      "properties": {
+        "system": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9]*$"},
+        "systemFolder": {"type": ["string", "null"], "pattern": "^[A-Za-z][A-Za-z0-9_]*$"},
+        "assetKind": {"enum": ["screen", "child-widget", "unknown"]},
+        "mode": {"enum": ["prototype", "production", "unknown"]},
+        "designCanvas": {"$ref": "#/$defs/size"},
+        "targetAssetPaths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "pattern": "^/Game/UI/(?:AIPrototype(?:/.*)?|UMG/.+)$"}
+        },
+        "productionAuthorized": {"type": "boolean"}
+      }
+    },
+    "projectRuleRefs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["path", "required"],
+        "additionalProperties": false,
+        "properties": {
+          "path": {"type": "string", "minLength": 1},
+          "section": {"type": ["string", "null"], "minLength": 1},
+          "required": {"type": "boolean"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "requestId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "size": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer", "minimum": 1},
+        {"type": "integer", "minimum": 1}
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "source": {
+      "type": "object",
+      "required": ["sourceKey", "kind", "locatorKind", "description"],
+      "additionalProperties": false,
+      "properties": {
+        "sourceKey": {"type": "string", "pattern": "^source-[a-z0-9][a-z0-9-]*$"},
+        "kind": {"enum": ["image", "user-text", "project-asset", "project-rule", "other"]},
+        "locatorKind": {"enum": ["local-file", "inline", "unreal-object"]},
+        "description": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "content": {"type": "string", "minLength": 1},
+        "mediaType": {"type": "string", "pattern": "^[a-z0-9.+-]+/[a-z0-9.+-]+$"},
+        "imageSize": {"$ref": "#/$defs/size"},
+        "snapshotPath": {"type": "string", "minLength": 1},
+        "contentSha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

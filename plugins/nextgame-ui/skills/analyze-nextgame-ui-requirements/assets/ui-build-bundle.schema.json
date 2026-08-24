@@ -1,0 +1,1024 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/ui-build-bundle.json",
+  "title": "NextGame UIBuildBundle 0.1, 0.2, and 0.3",
+  "oneOf": [
+    {"$ref": "#/$defs/bundleV01"},
+    {"$ref": "#/$defs/bundleV02"},
+    {"$ref": "#/$defs/bundleV03"}
+  ],
+  "$defs": {
+    "bundleV01": {
+      "type": "object",
+      "required": ["version", "bundleId", "requirement", "assets", "nodeMappings", "crossAssetOperations", "execution", "verification"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": "0.1"},
+        "bundleId": {"$ref": "#/$defs/id"},
+        "requirement": {"$ref": "#/$defs/requirementLink"},
+        "assets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/asset"}},
+        "nodeMappings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/nodeMapping"}},
+        "crossAssetOperations": {"type": "array", "items": {"$ref": "#/$defs/crossAssetOperation"}},
+        "execution": {"$ref": "#/$defs/execution"},
+        "verification": {"$ref": "#/$defs/verification"}
+      }
+    },
+    "bundleV02": {
+      "type": "object",
+      "required": ["version", "bundleId", "requirement", "assets", "nodeMappings", "crossAssetOperations", "reuseRelations", "execution", "verification"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": "0.2"},
+        "bundleId": {"$ref": "#/$defs/id"},
+        "requirement": {"$ref": "#/$defs/requirementLink"},
+        "assets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/assetV02"}},
+        "nodeMappings": {"type": "array", "items": {"$ref": "#/$defs/nodeMapping"}},
+        "crossAssetOperations": {"type": "array", "items": {"$ref": "#/$defs/crossAssetOperation"}},
+        "reuseRelations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/reuseRelation"}},
+        "execution": {"$ref": "#/$defs/execution"},
+        "verification": {"$ref": "#/$defs/verification"}
+      }
+    },
+    "bundleV03": {
+      "type": "object",
+      "required": ["version", "bundleId", "requirement", "assets", "nodeMappings", "crossAssetOperations", "reuseRelations", "execution", "verification"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": "0.3"},
+        "bundleId": {"$ref": "#/$defs/id"},
+        "requirement": {"$ref": "#/$defs/requirementLink"},
+        "assets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/assetV02"}},
+        "nodeMappings": {"type": "array", "items": {"$ref": "#/$defs/nodeMapping"}},
+        "crossAssetOperations": {"type": "array", "items": {"$ref": "#/$defs/crossAssetOperation"}},
+        "reuseRelations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/reuseRelationV03"}},
+        "execution": {"$ref": "#/$defs/execution"},
+        "verification": {"$ref": "#/$defs/verification"}
+      }
+    },
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{2,95}$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "gameAssetPath": {"type": "string", "pattern": "^/Game/UI/(?:AIPrototype(?:/.*)?|UMG/.+)$"},
+    "classPath": {"type": "string", "pattern": "^(?:/Game(?:/[A-Za-z0-9_]+)+\\.[A-Za-z0-9_]+_C|/Script/[A-Za-z0-9_]+\\.[A-Za-z0-9_]+)$"},
+    "idRefs": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/id"}
+    },
+    "optionalIdRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/id"}
+    },
+    "size": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer", "minimum": 1},
+        {"type": "integer", "minimum": 1}
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "normalizedRect": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "number", "minimum": 0, "maximum": 1},
+        {"type": "number", "minimum": 0, "maximum": 1},
+        {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        {"type": "number", "exclusiveMinimum": 0, "maximum": 1}
+      ],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "requirementLink": {
+      "type": "object",
+      "required": ["path", "sha256", "requestId", "revision", "reviewStatus", "approvedContentSha256"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "requestId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"},
+        "revision": {"type": "integer", "minimum": 1},
+        "reviewStatus": {"enum": ["pending", "accepted", "rejected"]},
+        "approvedContentSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "asset": {
+      "type": "object",
+      "required": [
+        "id",
+        "assetPlanId",
+        "assetPath",
+        "assetKind",
+        "referenceSize",
+        "layoutSpecPath",
+        "layoutSpecSha256",
+        "dependsOnAssetIds",
+        "buildOrder",
+        "status"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "assetPlanId": {"$ref": "#/$defs/id"},
+        "assetPath": {"type": "string", "pattern": "^/Game/UI/(?:AIPrototype(?:/.*)?|UMG/.+)$"},
+        "assetKind": {"enum": ["screen", "child-widget", "list-entry"]},
+        "referenceSize": {"$ref": "#/$defs/size"},
+        "layoutSpecPath": {"type": "string", "minLength": 1},
+        "layoutSpecSha256": {"$ref": "#/$defs/sha256"},
+        "dependsOnAssetIds": {"$ref": "#/$defs/optionalIdRefs"},
+        "buildOrder": {"type": "integer", "minimum": 0},
+        "status": {"enum": ["planned", "built", "verified", "failed"]}
+      }
+    },
+    "assetV02": {
+      "oneOf": [
+        {"$ref": "#/$defs/layoutSpecAssetV02"},
+        {"$ref": "#/$defs/reuseOnlyAssetV02"}
+      ]
+    },
+    "layoutSpecAssetV02": {
+      "type": "object",
+      "required": ["id", "assetPlanId", "assetPath", "assetKind", "referenceSize", "representationKind", "layoutSpecPath", "layoutSpecSha256", "dependsOnAssetIds", "buildOrder", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "assetPlanId": {"$ref": "#/$defs/id"},
+        "assetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "assetKind": {"enum": ["screen", "child-widget", "list-entry"]},
+        "referenceSize": {"$ref": "#/$defs/size"},
+        "representationKind": {"const": "layout-spec"},
+        "layoutSpecPath": {"type": "string", "minLength": 1},
+        "layoutSpecSha256": {"$ref": "#/$defs/sha256"},
+        "dependsOnAssetIds": {"$ref": "#/$defs/optionalIdRefs"},
+        "buildOrder": {"type": "integer", "minimum": 0},
+        "status": {"enum": ["planned", "built", "verified", "failed"]}
+      }
+    },
+    "reuseOnlyAssetV02": {
+      "type": "object",
+      "required": ["id", "assetPlanId", "assetPath", "assetKind", "referenceSize", "representationKind", "layoutSpecPath", "layoutSpecSha256", "dependsOnAssetIds", "buildOrder", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "assetPlanId": {"$ref": "#/$defs/id"},
+        "assetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "assetKind": {"enum": ["child-widget", "list-entry"]},
+        "referenceSize": {"$ref": "#/$defs/size"},
+        "representationKind": {"const": "reuse-only"},
+        "layoutSpecPath": {"const": null},
+        "layoutSpecSha256": {"const": null},
+        "dependsOnAssetIds": {"$ref": "#/$defs/optionalIdRefs"},
+        "buildOrder": {"type": "integer", "minimum": 0},
+        "status": {"enum": ["planned", "built", "verified", "failed"]}
+      }
+    },
+    "nodeMapping": {
+      "type": "object",
+      "required": ["id", "assetId", "layoutNodeId", "mappingKind", "requirementRefs", "claimIds", "stateRefs"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "assetId": {"$ref": "#/$defs/id"},
+        "layoutNodeId": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "mappingKind": {"enum": ["direct", "composite-state", "collection", "generated-support"]},
+        "requirementRefs": {"$ref": "#/$defs/idRefs"},
+        "claimIds": {"$ref": "#/$defs/idRefs"},
+        "stateRefs": {"$ref": "#/$defs/optionalIdRefs"}
+      }
+    },
+    "crossAssetOperation": {
+      "type": "object",
+      "required": ["id", "type", "integrationStrategy", "sourceAssetId", "targetAssetId", "targetLayoutNodeId", "claimIds"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "type": {"enum": ["child-widget-integration", "entry-widget-class", "instance-state-initialization"]},
+        "integrationStrategy": {"enum": ["create-child-widget", "set-entry-widget-class", "initialize-instance-state"]},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetLayoutNodeId": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "claimIds": {"$ref": "#/$defs/idRefs"},
+        "placementContract": {"$ref": "#/$defs/placementContract"},
+        "stateHandling": {"$ref": "#/$defs/stateHandling"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"type": {"const": "child-widget-integration"}}},
+          "then": {
+            "required": ["placementContract"],
+            "properties": {"integrationStrategy": {"const": "create-child-widget"}}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "entry-widget-class"}}},
+          "then": {
+            "properties": {"integrationStrategy": {"const": "set-entry-widget-class"}}
+          }
+        },
+        {
+          "if": {"properties": {"type": {"const": "instance-state-initialization"}}},
+          "then": {
+            "properties": {"integrationStrategy": {"const": "initialize-instance-state"}}
+          }
+        }
+      ]
+    },
+    "placementContract": {
+      "type": "object",
+      "required": ["hostNormalizedRect", "hostSize", "slot", "zOrder", "sizingStrategy", "childSizingCompatibility"],
+      "additionalProperties": false,
+      "properties": {
+        "hostNormalizedRect": {"$ref": "#/$defs/normalizedRect"},
+        "hostSize": {"$ref": "#/$defs/size"},
+        "slot": {"$ref": "#/$defs/placementSlot"},
+        "zOrder": {"type": "integer", "minimum": 0},
+        "sizingStrategy": {"enum": ["fill-host", "fixed-host-rect", "content-driven", "weighted-remaining-space", "scroll-slot"]},
+        "childSizingCompatibility": {"$ref": "#/$defs/childSizingCompatibility"}
+      }
+    },
+    "childSizingCompatibility": {
+      "oneOf": [
+        {"$ref": "#/$defs/layoutNodeChildSizingCompatibility"},
+        {"$ref": "#/$defs/inheritedReuseOnlyChildSizingCompatibility"},
+        {"$ref": "#/$defs/inheritedReuseOnlyFlowSlotChildSizingCompatibility"},
+        {"$ref": "#/$defs/inheritedReuseOnlyScrollSlotChildSizingCompatibility"}
+      ]
+    },
+    "layoutNodeChildSizingCompatibility": {
+      "type": "object",
+      "required": ["mode", "axes", "sourceLayoutNodeIds"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"enum": ["host-equals-child-reference", "source-root-stretch", "source-flow-axis", "explicit-scalebox"]},
+        "axes": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"enum": ["horizontal", "vertical"]}},
+        "sourceLayoutNodeIds": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}}
+      }
+    },
+    "inheritedReuseOnlyChildSizingCompatibility": {
+      "type": "object",
+      "required": ["mode", "axes", "parentRelationId", "prototypeExtensionRelationId"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"const": "inherited-reuse-only-full-stretch"},
+        "axes": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"enum": ["horizontal", "vertical"]}
+        },
+        "parentRelationId": {"$ref": "#/$defs/id"},
+        "prototypeExtensionRelationId": {"$ref": "#/$defs/id"}
+      }
+    },
+    "inheritedReuseOnlyFlowSlotChildSizingCompatibility": {
+      "type": "object",
+      "required": ["mode", "axes", "allocation", "parentRelationId", "prototypeExtensionRelationId"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"const": "inherited-reuse-only-flow-slot"},
+        "axes": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"enum": ["horizontal", "vertical"]}
+        },
+        "allocation": {"enum": ["content-driven", "weighted-remaining-space"]},
+        "parentRelationId": {"$ref": "#/$defs/id"},
+        "prototypeExtensionRelationId": {"$ref": "#/$defs/id"}
+      }
+    },
+    "inheritedReuseOnlyScrollSlotChildSizingCompatibility": {
+      "type": "object",
+      "required": ["mode", "axes", "parentRelationId", "prototypeExtensionRelationId"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"const": "inherited-reuse-only-scroll-slot"},
+        "axes": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {"enum": ["horizontal", "vertical"]}
+        },
+        "parentRelationId": {"$ref": "#/$defs/id"},
+        "prototypeExtensionRelationId": {"$ref": "#/$defs/id"}
+      }
+    },
+    "placementSlot": {
+      "type": "object",
+      "required": ["containerType", "horizontalAlignment", "verticalAlignment", "padding"],
+      "additionalProperties": false,
+      "properties": {
+        "containerType": {"enum": ["CanvasPanel", "Overlay", "HorizontalBox", "VerticalBox", "GameScrollBox", "WrapBox", "ScaleBox"]},
+        "parentWidgetName": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"},
+        "parentTreePath": {"type": "string", "minLength": 1},
+        "horizontalAlignment": {"enum": ["Fill", "Left", "Center", "Right"]},
+        "verticalAlignment": {"enum": ["Fill", "Top", "Center", "Bottom"]},
+        "size": {
+          "type": "object",
+          "required": ["rule"],
+          "additionalProperties": false,
+          "properties": {
+            "rule": {"enum": ["Auto", "Fill"]},
+            "weight": {"type": "number", "exclusiveMinimum": 0}
+          },
+          "allOf": [
+            {
+              "if": {"properties": {"rule": {"const": "Fill"}}, "required": ["rule"]},
+              "then": {"required": ["weight"]},
+              "else": {"not": {"required": ["weight"]}}
+            }
+          ]
+        },
+        "padding": {
+          "type": "array",
+          "prefixItems": [
+            {"type": "number"},
+            {"type": "number"},
+            {"type": "number"},
+            {"type": "number"}
+          ],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        }
+      }
+    },
+    "stateHandling": {
+      "type": "object",
+      "required": ["strategy", "stateRefs"],
+      "additionalProperties": false,
+      "properties": {
+        "strategy": {"enum": ["owning-screen-state-tree", "static-variant-asset", "instance-parameter", "runtime-dependent"]},
+        "stateRefs": {"$ref": "#/$defs/idRefs"},
+        "parameterName": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"},
+        "previewExclusionReason": {"type": "string", "minLength": 1},
+        "deviationId": {"$ref": "#/$defs/id"}
+      }
+    },
+    "reuseRelation": {
+      "oneOf": [
+        {"$ref": "#/$defs/sharedPrototypeExtensionRelation"},
+        {"$ref": "#/$defs/classSettingsParentClassRelation"},
+        {"$ref": "#/$defs/widgetTreeInstanceRelation"}
+      ]
+    },
+    "reuseRelationV03": {
+      "oneOf": [
+        {"$ref": "#/$defs/sharedPrototypeExtensionRelationV03"},
+        {"$ref": "#/$defs/classSettingsParentClassRelationV03"},
+        {"$ref": "#/$defs/widgetTreeInstanceRelation"}
+      ]
+    },
+    "sharedPrototypeExtensionRelationV03": {
+      "oneOf": [
+        {"$ref": "#/$defs/sharedPrototypeExtensionRegistryRelationV03"},
+        {"$ref": "#/$defs/sharedPrototypeExtensionBootstrapRelationV03"}
+      ]
+    },
+    "sharedPrototypeExtensionRegistryRelationV03": {
+      "type": "object",
+      "required": ["id", "type", "sourceAssetId", "sourceAssetPath", "targetAssetId", "targetAssetPath", "namedSlots", "authorization", "registry", "activation", "requirementRefs", "claimIds"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "type": {"const": "shared-prototype-extension"},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "sourceAssetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "namedSlots": {"$ref": "#/$defs/dualNamedSlotExtension"},
+        "authorization": {"$ref": "#/$defs/sharedMutationAuthorization"},
+        "registry": {"$ref": "#/$defs/sharedRegistryIdentityV03"},
+        "activation": {"$ref": "#/$defs/sharedActivationV03"},
+        "requirementRefs": {"$ref": "#/$defs/idRefs"},
+        "claimIds": {"$ref": "#/$defs/idRefs"}
+      }
+    },
+    "sharedPrototypeExtensionBootstrapRelationV03": {
+      "type": "object",
+      "required": ["id", "type", "sourceAssetId", "sourceAssetPath", "targetAssetId", "targetAssetPath", "namedSlots", "authorization", "bootstrapSnapshot", "activation", "requirementRefs", "claimIds"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "type": {"const": "shared-prototype-extension"},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "sourceAssetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "namedSlots": {"$ref": "#/$defs/addDualLayerSlots"},
+        "authorization": {"$ref": "#/$defs/sharedMutationAuthorization"},
+        "bootstrapSnapshot": {"$ref": "#/$defs/sharedBootstrapIdentityV03"},
+        "activation": {"$ref": "#/$defs/plannedPostExtensionActivationV03"},
+        "requirementRefs": {"$ref": "#/$defs/idRefs"},
+        "claimIds": {"$ref": "#/$defs/idRefs"}
+      }
+    },
+    "dualNamedSlotExtension": {
+      "oneOf": [
+        {"$ref": "#/$defs/addDualLayerSlots"},
+        {"$ref": "#/$defs/migrateExistingStandardSlot"}
+      ]
+    },
+    "addDualLayerSlots": {
+      "type": "object",
+      "required": ["operation", "slots", "legacyPreservedNames"],
+      "additionalProperties": false,
+      "properties": {
+        "operation": {"const": "add-dual-layer-slots"},
+        "slots": {
+          "type": "array",
+          "prefixItems": [
+            {"$ref": "#/$defs/slotDownExtension"},
+            {"$ref": "#/$defs/slotUpExtension"}
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "legacyPreservedNames": {
+          "type": "array",
+          "maxItems": 0,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "migrateExistingStandardSlot": {
+      "type": "object",
+      "required": ["operation", "legacyStandardMigration", "slots", "legacyPreservedNames"],
+      "additionalProperties": false,
+      "properties": {
+        "operation": {"const": "migrate-existing-standard-slot"},
+        "legacyStandardMigration": {"$ref": "#/$defs/legacyStandardSlotMigration"},
+        "slots": {
+          "type": "array",
+          "prefixItems": [
+            {"$ref": "#/$defs/slotDownExtension"},
+            {"$ref": "#/$defs/slotUpExtension"}
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "legacyPreservedNames": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "legacyStandardSlotMigration": {
+      "type": "object",
+      "required": ["operation", "oldName", "newName", "preSaveValidationRequired"],
+      "additionalProperties": false,
+      "properties": {
+        "operation": {"const": "rename-standard-slot"},
+        "oldName": {"const": "SlotContent"},
+        "newName": {"const": "SlotUp"},
+        "preSaveValidationRequired": {"const": true}
+      }
+    },
+    "slotDownExtension": {
+      "type": "object",
+      "required": ["role", "standardName", "classPath", "parentRelation", "treeOrder", "zOrderRelation", "layout", "autoSize", "isVariable", "visibility"],
+      "additionalProperties": false,
+      "properties": {
+        "role": {"const": "down"},
+        "standardName": {"const": "SlotDown"},
+        "classPath": {"const": "/Script/UMG.NamedSlot"},
+        "parentRelation": {"const": "shared-root-direct-child"},
+        "treeOrder": {"const": "first"},
+        "zOrderRelation": {"const": "strictly-lower-than-all-direct-siblings"},
+        "layout": {"$ref": "#/$defs/fullFillLayout"},
+        "autoSize": {"const": false},
+        "isVariable": {"const": true},
+        "visibility": {"const": "SelfHitTestInvisible"}
+      }
+    },
+    "slotUpExtension": {
+      "type": "object",
+      "required": ["role", "standardName", "classPath", "parentRelation", "treeOrder", "zOrderRelation", "layout", "autoSize", "isVariable", "visibility"],
+      "additionalProperties": false,
+      "properties": {
+        "role": {"const": "up"},
+        "standardName": {"const": "SlotUp"},
+        "classPath": {"const": "/Script/UMG.NamedSlot"},
+        "parentRelation": {"const": "shared-root-direct-child"},
+        "treeOrder": {"const": "last"},
+        "zOrderRelation": {"const": "strictly-higher-than-all-direct-siblings"},
+        "layout": {"$ref": "#/$defs/fullFillLayout"},
+        "autoSize": {"const": false},
+        "isVariable": {"const": true},
+        "visibility": {"const": "SelfHitTestInvisible"}
+      }
+    },
+    "sharedRegistryIdentityV03": {
+      "type": "object",
+      "required": ["registryPath", "registrySha256", "registryId", "registryVersion", "registryRevision", "entryId", "entryStatus", "extensionSlotsStatus", "interfaceSha256", "reuseContractSha256"],
+      "additionalProperties": false,
+      "properties": {
+        "registryPath": {"type": "string", "minLength": 1},
+        "registrySha256": {"$ref": "#/$defs/sha256"},
+        "registryId": {"type": "string", "minLength": 1},
+        "registryVersion": {"const": "0.4"},
+        "registryRevision": {"type": "integer", "minimum": 1},
+        "entryId": {"type": "string", "pattern": "^shared\\.[a-z][a-z0-9.-]{2,95}$"},
+        "entryStatus": {"enum": ["candidate", "active"]},
+        "extensionSlotsStatus": {"enum": ["required-before-activation", "verified"]},
+        "interfaceSha256": {"$ref": "#/$defs/sha256"},
+        "reuseContractSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "sharedBootstrapIdentityV03": {
+      "type": "object",
+      "required": ["snapshotPath", "snapshotSha256", "snapshotId", "snapshotVersion", "snapshotRevision", "entryId", "entryStatus", "extensionSlotsStatus", "bootstrapContractSha256"],
+      "additionalProperties": false,
+      "properties": {
+        "snapshotPath": {"type": "string", "minLength": 1},
+        "snapshotSha256": {"$ref": "#/$defs/sha256"},
+        "snapshotId": {"const": "nextgame-shared-widget-bootstrap"},
+        "snapshotVersion": {"const": "0.1"},
+        "snapshotRevision": {"type": "integer", "minimum": 1},
+        "entryId": {"type": "string", "pattern": "^shared\\.[a-z][a-z0-9.-]{2,95}$"},
+        "entryStatus": {"const": "planned-bootstrap"},
+        "extensionSlotsStatus": {"const": "required-before-activation"},
+        "bootstrapContractSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "sharedActivationV03": {
+      "oneOf": [
+        {"$ref": "#/$defs/preverifiedActivationV03"},
+        {"$ref": "#/$defs/plannedPostExtensionActivationV03"},
+        {"$ref": "#/$defs/verifiedPostExtensionActivationV03"}
+      ]
+    },
+    "preverifiedActivationV03": {
+      "type": "object",
+      "required": ["mode", "resultingEntryStatus", "resultingExtensionSlotsStatus"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"const": "preverified"},
+        "resultingEntryStatus": {"const": "active"},
+        "resultingExtensionSlotsStatus": {"const": "verified"}
+      }
+    },
+    "plannedPostExtensionActivationV03": {
+      "type": "object",
+      "required": ["mode", "status", "resultingEntryStatus", "resultingExtensionSlotsStatus", "verificationCheckIds"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"const": "post-extension-activation"},
+        "status": {"const": "required"},
+        "resultingEntryStatus": {"const": "active"},
+        "resultingExtensionSlotsStatus": {"const": "verified"},
+        "verificationCheckIds": {"$ref": "#/$defs/idRefs"}
+      }
+    },
+    "verifiedPostExtensionActivationV03": {
+      "type": "object",
+      "required": ["mode", "status", "resultingEntryStatus", "resultingExtensionSlotsStatus", "verificationCheckIds", "evidenceArtifactPath", "evidenceArtifactSha256"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"const": "post-extension-activation"},
+        "status": {"const": "verified"},
+        "resultingEntryStatus": {"const": "active"},
+        "resultingExtensionSlotsStatus": {"const": "verified"},
+        "verificationCheckIds": {"$ref": "#/$defs/idRefs"},
+        "evidenceArtifactPath": {"type": "string", "minLength": 1},
+        "evidenceArtifactSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "classSettingsParentClassRelationV03": {
+      "type": "object",
+      "required": ["id", "type", "sourceAssetId", "sourceAssetPath", "targetAssetId", "targetAssetPath", "parentClassPath", "inheritedSlots", "requirementRefs", "claimIds"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "type": {"const": "class-settings-parent-class"},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "sourceAssetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "parentClassPath": {"$ref": "#/$defs/classPath"},
+        "inheritedSlots": {"$ref": "#/$defs/inheritedSlotsV03"},
+        "requirementRefs": {"$ref": "#/$defs/idRefs"},
+        "claimIds": {"$ref": "#/$defs/idRefs"}
+      }
+    },
+    "inheritedSlotsV03": {
+      "type": "array",
+      "prefixItems": [
+        {"$ref": "#/$defs/inheritedSlotDownV03"},
+        {"$ref": "#/$defs/inheritedSlotUpV03"}
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "inheritedSlotDownV03": {
+      "oneOf": [
+        {"$ref": "#/$defs/emptyInheritedSlotDownV03"},
+        {"$ref": "#/$defs/panelInheritedSlotDownV03"}
+      ]
+    },
+    "inheritedSlotUpV03": {
+      "oneOf": [
+        {"$ref": "#/$defs/emptyInheritedSlotUpV03"},
+        {"$ref": "#/$defs/panelInheritedSlotUpV03"}
+      ]
+    },
+    "emptyInheritedSlotDownV03": {
+      "type": "object",
+      "required": ["slotName", "contentMode"],
+      "additionalProperties": false,
+      "properties": {"slotName": {"const": "SlotDown"}, "contentMode": {"const": "empty"}}
+    },
+    "emptyInheritedSlotUpV03": {
+      "type": "object",
+      "required": ["slotName", "contentMode"],
+      "additionalProperties": false,
+      "properties": {"slotName": {"const": "SlotUp"}, "contentMode": {"const": "empty"}}
+    },
+    "panelInheritedSlotDownV03": {
+      "type": "object",
+      "required": ["slotName", "contentMode", "panel"],
+      "additionalProperties": false,
+      "properties": {"slotName": {"const": "SlotDown"}, "contentMode": {"const": "panel"}, "panel": {"$ref": "#/$defs/inheritedSlotPanelV03"}}
+    },
+    "panelInheritedSlotUpV03": {
+      "type": "object",
+      "required": ["slotName", "contentMode", "panel"],
+      "additionalProperties": false,
+      "properties": {"slotName": {"const": "SlotUp"}, "contentMode": {"const": "panel"}, "panel": {"$ref": "#/$defs/inheritedSlotPanelV03"}}
+    },
+    "inheritedSlotPanelV03": {
+      "type": "object",
+      "required": ["widgetName", "classPath", "treePath", "directChildRole", "directChildCount", "layoutMode"],
+      "additionalProperties": false,
+      "properties": {
+        "widgetName": {"type": "string", "minLength": 1},
+        "classPath": {"$ref": "#/$defs/classPath"},
+        "treePath": {"type": "string", "minLength": 1},
+        "directChildRole": {"const": "semantic-panel"},
+        "directChildCount": {"const": 1},
+        "layoutMode": {"enum": ["fill", "special-adaptation"]},
+        "layout": {"$ref": "#/$defs/fullFillLayout"},
+        "specialAdaptationEvidenceRefs": {"$ref": "#/$defs/idRefs"}
+      }
+    },
+    "sharedPrototypeExtensionRelation": {
+      "type": "object",
+      "required": ["id", "type", "sourceAssetId", "sourceAssetPath", "targetAssetId", "targetAssetPath", "namedSlot", "authorization", "registry", "activation", "requirementRefs", "claimIds"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "type": {"const": "shared-prototype-extension"},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "sourceAssetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "namedSlot": {"$ref": "#/$defs/namedSlotExtension"},
+        "authorization": {"$ref": "#/$defs/sharedMutationAuthorization"},
+        "registry": {"$ref": "#/$defs/sharedRegistryIdentity"},
+        "activation": {"$ref": "#/$defs/sharedActivation"},
+        "requirementRefs": {"$ref": "#/$defs/idRefs"},
+        "claimIds": {"$ref": "#/$defs/idRefs"}
+      }
+    },
+    "namedSlotExtension": {
+      "oneOf": [
+        {"$ref": "#/$defs/renameLegacyNamedSlotExtension"},
+        {"$ref": "#/$defs/addStandardNamedSlotExtension"}
+      ]
+    },
+    "renameLegacyNamedSlotExtension": {
+      "type": "object",
+      "required": ["operation", "oldName", "newName", "classPath", "treeOrder", "layout"],
+      "additionalProperties": false,
+      "properties": {
+        "operation": {"const": "rename-legacy-slot"},
+        "oldName": {"type": "string", "minLength": 1},
+        "newName": {"const": "SlotContent"},
+        "classPath": {"const": "/Script/UMG.NamedSlot"},
+        "treeOrder": {"const": "last"},
+        "layout": {"$ref": "#/$defs/fullFillLayout"}
+      }
+    },
+    "addStandardNamedSlotExtension": {
+      "type": "object",
+      "required": ["operation", "standardName", "classPath", "treeOrder", "layout", "legacyPreservedNames"],
+      "additionalProperties": false,
+      "properties": {
+        "operation": {"const": "add-standard-slot"},
+        "standardName": {"const": "SlotContent"},
+        "classPath": {"const": "/Script/UMG.NamedSlot"},
+        "treeOrder": {"const": "last"},
+        "layout": {"$ref": "#/$defs/fullFillLayout"},
+        "legacyPreservedNames": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "fullFillLayout": {
+      "type": "object",
+      "required": ["mode", "anchors", "offsets", "alignment"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"const": "fill"},
+        "anchors": {"type": "array", "prefixItems": [{"const": 0}, {"const": 0}, {"const": 1}, {"const": 1}], "items": false, "minItems": 4, "maxItems": 4},
+        "offsets": {"type": "array", "prefixItems": [{"const": 0}, {"const": 0}, {"const": 0}, {"const": 0}], "items": false, "minItems": 4, "maxItems": 4},
+        "alignment": {"type": "array", "prefixItems": [{"const": 0}, {"const": 0}], "items": false, "minItems": 2, "maxItems": 2}
+      }
+    },
+    "sharedMutationAuthorization": {
+      "type": "object",
+      "required": ["status", "actorType", "source", "evidenceRef"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"const": "accepted"},
+        "actorType": {"const": "user"},
+        "source": {"const": "direct-user-message"},
+        "evidenceRef": {"type": "string", "minLength": 1}
+      }
+    },
+    "sharedRegistryIdentity": {
+      "type": "object",
+      "required": ["registryPath", "registrySha256", "registryId", "registryRevision", "entryId", "entryStatus", "extensionSlotStatus", "interfaceSha256", "reuseContractSha256"],
+      "additionalProperties": false,
+      "properties": {
+        "registryPath": {"type": "string", "minLength": 1},
+        "registrySha256": {"$ref": "#/$defs/sha256"},
+        "registryId": {"type": "string", "minLength": 1},
+        "registryRevision": {"type": "integer", "minimum": 1},
+        "entryId": {"type": "string", "pattern": "^shared\\.[a-z][a-z0-9.-]{2,95}$"},
+        "entryStatus": {"enum": ["candidate", "active"]},
+        "extensionSlotStatus": {"enum": ["required-before-activation", "verified"]},
+        "interfaceSha256": {"$ref": "#/$defs/sha256"},
+        "reuseContractSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "sharedActivation": {
+      "oneOf": [
+        {"$ref": "#/$defs/preverifiedActivation"},
+        {"$ref": "#/$defs/plannedPostExtensionActivation"},
+        {"$ref": "#/$defs/verifiedPostExtensionActivation"}
+      ]
+    },
+    "preverifiedActivation": {
+      "type": "object",
+      "required": ["mode", "resultingEntryStatus", "resultingExtensionSlotStatus"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"const": "preverified"},
+        "resultingEntryStatus": {"const": "active"},
+        "resultingExtensionSlotStatus": {"const": "verified"}
+      }
+    },
+    "plannedPostExtensionActivation": {
+      "type": "object",
+      "required": ["mode", "status", "resultingEntryStatus", "resultingExtensionSlotStatus", "verificationCheckIds"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"const": "post-extension-activation"},
+        "status": {"const": "required"},
+        "resultingEntryStatus": {"const": "active"},
+        "resultingExtensionSlotStatus": {"const": "verified"},
+        "verificationCheckIds": {"$ref": "#/$defs/idRefs"}
+      }
+    },
+    "verifiedPostExtensionActivation": {
+      "type": "object",
+      "required": ["mode", "status", "resultingEntryStatus", "resultingExtensionSlotStatus", "verificationCheckIds", "evidenceArtifactPath", "evidenceArtifactSha256"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"const": "post-extension-activation"},
+        "status": {"const": "verified"},
+        "resultingEntryStatus": {"const": "active"},
+        "resultingExtensionSlotStatus": {"const": "verified"},
+        "verificationCheckIds": {"$ref": "#/$defs/idRefs"},
+        "evidenceArtifactPath": {"type": "string", "minLength": 1},
+        "evidenceArtifactSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "classSettingsParentClassRelation": {
+      "type": "object",
+      "required": ["id", "type", "sourceAssetId", "sourceAssetPath", "targetAssetId", "targetAssetPath", "parentClassPath", "inheritedSlot", "requirementRefs", "claimIds"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "type": {"const": "class-settings-parent-class"},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "sourceAssetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "parentClassPath": {"$ref": "#/$defs/classPath"},
+        "inheritedSlot": {"$ref": "#/$defs/inheritedSlotContent"},
+        "requirementRefs": {"$ref": "#/$defs/idRefs"},
+        "claimIds": {"$ref": "#/$defs/idRefs"}
+      }
+    },
+    "inheritedSlotContent": {
+      "oneOf": [
+        {"$ref": "#/$defs/emptyInheritedSlot"},
+        {"$ref": "#/$defs/panelInheritedSlot"}
+      ]
+    },
+    "emptyInheritedSlot": {
+      "type": "object",
+      "required": ["slotName", "contentMode"],
+      "additionalProperties": false,
+      "properties": {
+        "slotName": {"const": "SlotContent"},
+        "contentMode": {"const": "empty"}
+      }
+    },
+    "panelInheritedSlot": {
+      "type": "object",
+      "required": ["slotName", "contentMode", "panel"],
+      "additionalProperties": false,
+      "properties": {
+        "slotName": {"const": "SlotContent"},
+        "contentMode": {"const": "panel"},
+        "panel": {"$ref": "#/$defs/inheritedSlotPanel"}
+      }
+    },
+    "inheritedSlotPanel": {
+      "type": "object",
+      "required": ["widgetName", "classPath", "treePath", "layoutMode"],
+      "additionalProperties": false,
+      "properties": {
+        "widgetName": {"type": "string", "minLength": 1},
+        "classPath": {"$ref": "#/$defs/classPath"},
+        "treePath": {"type": "string", "minLength": 1},
+        "layoutMode": {"enum": ["fill", "special-adaptation"]}
+      }
+    },
+    "widgetTreeInstanceRelation": {
+      "type": "object",
+      "required": ["id", "type", "sourceAssetId", "sourceAssetPath", "targetAssetId", "targetAssetPath", "host", "sharedPrototypeClassPath", "nestedWidgetClassPath", "parameterOverrides", "placementContract", "requirementRefs", "claimIds"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "type": {"const": "widget-tree-instance"},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "sourceAssetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "host": {"$ref": "#/$defs/nestedHost"},
+        "sharedPrototypeClassPath": {"$ref": "#/$defs/classPath"},
+        "nestedWidgetClassPath": {"$ref": "#/$defs/classPath"},
+        "parameterOverrides": {"type": "array", "items": {"$ref": "#/$defs/parameterOverride"}},
+        "placementContract": {"$ref": "#/$defs/placementContract"},
+        "requirementRefs": {"$ref": "#/$defs/idRefs"},
+        "claimIds": {"$ref": "#/$defs/idRefs"}
+      }
+    },
+    "nestedHost": {
+      "type": "object",
+      "required": ["widgetName", "treePath"],
+      "additionalProperties": false,
+      "properties": {
+        "widgetName": {"type": "string", "minLength": 1},
+        "treePath": {"type": "string", "minLength": 1}
+      }
+    },
+    "parameterOverride": {
+      "type": "object",
+      "required": ["name", "valueSource", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "valueSource": {"enum": ["user-requirement", "requirement-spec", "project-default", "literal", "runtime-binding"]},
+        "value": {}
+      }
+    },
+    "execution": {
+      "type": "object",
+      "required": ["status", "buildOrderAssetIds"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["pending", "running", "completed", "failed"]},
+        "buildOrderAssetIds": {"$ref": "#/$defs/idRefs"},
+        "startedAt": {"type": "string", "minLength": 1},
+        "completedAt": {"type": "string", "minLength": 1}
+      }
+    },
+    "verification": {
+      "type": "object",
+      "required": ["status", "checks", "deviations"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["pending", "passed", "failed"]},
+        "checks": {"type": "array", "items": {"$ref": "#/$defs/verificationCheck"}},
+        "deviations": {"type": "array", "items": {"$ref": "#/$defs/deviation"}}
+      }
+    },
+    "verificationCheck": {
+      "type": "object",
+      "required": ["id", "type", "status", "details", "requirementRefs", "claimIds"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "type": {"enum": ["schema", "compile", "save", "widget-tree", "key-properties", "preview", "deviation"]},
+        "assetId": {"$ref": "#/$defs/id"},
+        "status": {"enum": ["pending", "passed", "failed"]},
+        "details": {"type": "string", "minLength": 1},
+        "artifactPath": {"type": "string", "minLength": 1},
+        "previewAudit": {"$ref": "#/$defs/previewAudit"},
+        "requirementRefs": {"$ref": "#/$defs/optionalIdRefs"},
+        "claimIds": {"$ref": "#/$defs/optionalIdRefs"}
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "type": {"const": "preview"},
+              "status": {"const": "passed"}
+            },
+            "required": ["type", "status"]
+          },
+          "then": {"required": ["assetId", "artifactPath", "previewAudit"]}
+        }
+      ]
+    },
+    "previewAudit": {
+      "type": "object",
+      "required": ["targetAssetId", "targetWindow", "viewport", "canvas", "modalOrMultipleWindowContamination", "geometryComparisons", "unauthorizedOverlaps", "artifactSha256"],
+      "additionalProperties": false,
+      "properties": {
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetWindow": {"type": "string", "minLength": 1},
+        "viewport": {"$ref": "#/$defs/size"},
+        "canvas": {"$ref": "#/$defs/previewCanvas"},
+        "modalOrMultipleWindowContamination": {"const": false},
+        "geometryComparisons": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/geometryComparison"}},
+        "visualLayerComparisons": {"type": "array", "items": {"$ref": "#/$defs/visualLayerComparison"}},
+        "unauthorizedOverlaps": {"type": "array", "maxItems": 0},
+        "artifactSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "previewCanvas": {
+      "type": "object",
+      "required": ["pixelSize", "aspectRatio"],
+      "additionalProperties": false,
+      "properties": {
+        "pixelSize": {"$ref": "#/$defs/size"},
+        "aspectRatio": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "geometryComparison": {
+      "type": "object",
+      "required": ["requirementRef", "layoutNodeId", "expectedNormalizedRect", "actualNormalizedRect", "maxDelta", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "requirementRef": {"$ref": "#/$defs/id"},
+        "layoutNodeId": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "expectedNormalizedRect": {"$ref": "#/$defs/normalizedRect"},
+        "actualNormalizedRect": {"$ref": "#/$defs/normalizedRect"},
+        "maxDelta": {"type": "number", "minimum": 0, "maximum": 0.1},
+        "status": {"const": "passed"}
+      }
+    },
+    "visualLayerComparison": {
+      "type": "object",
+      "required": ["requirementRef", "layoutNodeId", "expectedRole", "disposition", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "requirementRef": {"$ref": "#/$defs/id"},
+        "layoutNodeId": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+        "expectedRole": {"const": "visual.image"},
+        "disposition": {"enum": ["present", "merged", "accepted-deviation"]},
+        "status": {"const": "passed"},
+        "mergedIntoRequirementRef": {"$ref": "#/$defs/id"},
+        "deviationId": {"$ref": "#/$defs/id"},
+        "notes": {"type": "string", "minLength": 1}
+      }
+    },
+    "deviation": {
+      "type": "object",
+      "required": ["id", "affectedRequirementRefs", "affectedAssetIds", "expected", "actual", "reason", "impact", "status"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/id"},
+        "affectedRequirementRefs": {"$ref": "#/$defs/idRefs"},
+        "affectedAssetIds": {"$ref": "#/$defs/idRefs"},
+        "expected": {"type": "string", "minLength": 1},
+        "actual": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "impact": {"enum": ["low", "medium", "high"]},
+        "status": {"enum": ["pending", "accepted", "rejected"]},
+        "approvedBy": {"type": "string", "minLength": 1},
+        "approvedAt": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

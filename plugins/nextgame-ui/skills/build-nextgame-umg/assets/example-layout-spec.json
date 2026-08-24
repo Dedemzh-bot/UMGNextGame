@@ -1,0 +1,17 @@
+{
+  "version": "0.2",
+  "mode": "prototype",
+  "asset": {"folder": "/Game/UI/AIPrototype", "name": "umg_ai_reference_demo"},
+  "referenceSize": [2560, 1440],
+  "profile": {"screenType": "hud", "adaptive": true, "interactive": true, "hasText": true, "containsRepeatedElements": false, "regionGrouping": true, "assetKind": "screen", "designSizeMode": "FillScreen", "system": "demo", "systemFolder": "Demo", "subsystem": null, "function": null, "secondaryFunction": null, "targetAsset": {"folder": "/Game/UI/UMG/Demo", "name": "umg_demo"}},
+  "notes": ["Native controls are placeholders until project mappings are supplied."],
+  "nodes": [
+    {"id": "root", "name": "PanelRoot", "role": "screen.root", "parent": null, "rect": [0, 0, 1, 1], "anchor": "left-top", "properties": {}},
+    {"id": "header-region", "name": "PanelHeader", "role": "container.canvas", "parent": "root", "rect": [0.3, 0.04, 0.4, 0.14], "anchor": "center-top", "regionPurpose": "header", "properties": {}},
+    {"id": "title", "name": "TxtTitle", "role": "text.label", "parent": "header-region", "rect": [0.35, 0.08, 0.3, 0.08], "anchor": "center", "properties": {"text": "Prototype UI", "font": {"size": 32}, "color": {"r": 1, "g": 1, "b": 1, "a": 1}}},
+    {"id": "action-region", "name": "PanelActions", "role": "container.canvas", "parent": "root", "rect": [0.72, 0.8, 0.22, 0.14], "anchor": "right-bottom", "regionPurpose": "actions", "properties": {}},
+    {"id": "confirm", "name": "BtnConfirm", "role": "input.button", "parent": "action-region", "rect": [0.76, 0.84, 0.16, 0.08], "anchor": "center", "properties": {"enabled": true}},
+    {"id": "status-region", "name": "PanelStatus", "role": "container.canvas", "parent": "root", "rect": [0.06, 0.3, 0.07, 0.38], "anchor": "left-center", "regionPurpose": "status", "properties": {}},
+    {"id": "progress", "name": "BarDemo", "role": "progress.linear", "parent": "status-region", "rect": [0.08, 0.34, 0.025, 0.3], "anchor": "center", "properties": {"percent": 0.75, "fillDirection": "BottomToTop", "color": {"r": 0.25, "g": 0.85, "b": 0.45, "a": 1}}}
+  ]
+}

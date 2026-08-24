@@ -1,0 +1,291 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/ui-layout-spec-0.2.json",
+  "title": "NextGame UILayoutSpec",
+  "type": "object",
+  "required": ["version", "mode", "asset", "referenceSize", "profile", "nodes"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "0.2"},
+    "mode": {"enum": ["prototype", "production"]},
+    "asset": {
+      "type": "object",
+      "required": ["folder", "name"],
+      "additionalProperties": false,
+      "properties": {
+        "folder": {"type": "string", "pattern": "^/Game/UI/(?:AIPrototype(?:/.*)?|UMG/.+)$"},
+        "name": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"}
+      }
+    },
+    "referenceSize": {
+      "type": "array",
+      "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "profile": {
+      "type": "object",
+      "required": ["adaptive", "interactive", "hasText", "containsRepeatedElements", "regionGrouping"],
+      "additionalProperties": true,
+      "properties": {
+        "screenType": {"type": "string"},
+        "adaptive": {"type": "boolean"},
+        "interactive": {"type": "boolean"},
+        "hasText": {"type": "boolean"},
+        "containsRepeatedElements": {"type": "boolean"},
+        "regionGrouping": {"type": "boolean"},
+        "explicitPanelSlots": {"type": "boolean"},
+        "designSizeMode": {"enum": ["FillScreen", "Desired"]},
+        "listRole": {"enum": ["container", "entry"]},
+        "collectionSizing": {"enum": ["show-all", "fixed-viewport"]},
+        "parentClass": {"type": "string", "pattern": "^/(?:Script|Game)/.+"},
+        "assetKind": {"enum": ["prototype", "screen", "child-widget"]},
+        "assetScope": {"enum": ["system", "project-common"]},
+        "system": {"type": "string", "pattern": "^[a-z][a-z0-9]*$"},
+        "systemFolder": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"},
+        "subsystem": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9]*$"},
+        "function": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9]*$"},
+        "secondaryFunction": {"type": ["string", "null"], "pattern": "^[a-z][a-z0-9]*$"},
+        "targetAsset": {
+          "type": "object",
+          "required": ["folder", "name"],
+          "additionalProperties": false,
+          "properties": {
+            "folder": {"type": "string", "pattern": "^/Game/UI/UMG/.+"},
+            "name": {"type": "string"},
+            "integrationAsset": {"type": "string", "pattern": "^/Game/UI/UMG/.+"}
+          }
+        }
+      }
+    },
+    "notes": {"type": "array", "items": {"type": "string"}},
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "role", "parent", "rect", "anchor", "properties"],
+        "additionalProperties": false,
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+          "name": {"type": "string", "pattern": "^[A-Za-z][A-Za-z0-9_]*$"},
+          "isVariable": {"type": "boolean"},
+          "role": {"type": "string"},
+          "parent": {"type": ["string", "null"]},
+          "rect": {
+            "type": "array",
+            "prefixItems": [
+              {"type": "number", "minimum": 0, "maximum": 1},
+              {"type": "number", "minimum": 0, "maximum": 1},
+              {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+              {"type": "number", "exclusiveMinimum": 0, "maximum": 1}
+            ],
+            "items": false,
+            "minItems": 4,
+            "maxItems": 4
+          },
+          "anchor": {"enum": ["auto", "left-top", "center-top", "right-top", "left-center", "center", "right-center", "left-bottom", "center-bottom", "right-bottom"]},
+          "zOrder": {"type": "integer", "default": 0},
+          "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+          "regionPurpose": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+          "rootLayer": {"enum": ["background", "overlay"]},
+          "adaptiveLayout": {
+            "type": "object",
+            "required": ["horizontal", "vertical", "reason"],
+            "additionalProperties": false,
+            "properties": {
+              "horizontal": {"enum": ["left", "center", "right", "stretch"]},
+              "vertical": {"enum": ["top", "center", "bottom", "stretch"]},
+              "reason": {"type": "string", "minLength": 1}
+            }
+          },
+          "overlayPurpose": {"enum": ["layering", "adaptive-bounds", "independent-alignment"]},
+          "textGroup": {
+            "type": "object",
+            "required": ["kind", "alignment", "orderedChildren"],
+            "additionalProperties": false,
+            "properties": {
+              "kind": {"const": "ratio"},
+              "alignment": {"enum": ["Left", "Center", "Right"]},
+              "orderedChildren": {
+                "type": "array",
+                "prefixItems": [
+                  {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+                  {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"},
+                  {"type": "string", "pattern": "^[a-z][a-z0-9_-]*$"}
+                ],
+                "items": false,
+                "minItems": 3,
+                "maxItems": 3
+              }
+            }
+          },
+          "fullHeight": {"type": "boolean"},
+          "contentDrivenSize": {"type": "object", "required": ["verified"], "additionalProperties": true, "properties": {"verified": {"type": "boolean"}}},
+          "slotLayout": {
+            "type": "object",
+            "required": ["anchors", "offsets", "alignment", "autoSize"],
+            "additionalProperties": false,
+            "properties": {
+              "anchors": {
+                "type": "object",
+                "required": ["minimum", "maximum"],
+                "additionalProperties": false,
+                "properties": {
+                  "minimum": {"type": "array", "prefixItems": [{"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}], "items": false, "minItems": 2, "maxItems": 2},
+                  "maximum": {"type": "array", "prefixItems": [{"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}], "items": false, "minItems": 2, "maxItems": 2}
+                }
+              },
+              "offsets": {
+                "type": "object",
+                "required": ["left", "top", "right", "bottom"],
+                "additionalProperties": false,
+                "properties": {
+                  "left": {"type": "number"},
+                  "top": {"type": "number"},
+                  "right": {"type": "number"},
+                  "bottom": {"type": "number"}
+                }
+              },
+              "alignment": {"type": "array", "prefixItems": [{"type": "number", "minimum": 0, "maximum": 1}, {"type": "number", "minimum": 0, "maximum": 1}], "items": false, "minItems": 2, "maxItems": 2},
+              "autoSize": {"type": "boolean"}
+            }
+          },
+          "buttonSlot": {
+            "type": "object",
+            "required": ["padding", "horizontalAlignment", "verticalAlignment"],
+            "additionalProperties": false,
+            "properties": {
+              "padding": {
+                "type": "array",
+                "prefixItems": [
+                  {"type": "number"},
+                  {"type": "number"},
+                  {"type": "number"},
+                  {"type": "number"}
+                ],
+                "items": false,
+                "minItems": 4,
+                "maxItems": 4
+              },
+              "horizontalAlignment": {"const": "Fill"},
+              "verticalAlignment": {"const": "Fill"}
+            }
+          },
+          "overlaySlot": {
+            "type": "object",
+            "required": ["horizontalAlignment", "verticalAlignment"],
+            "additionalProperties": false,
+            "properties": {
+              "horizontalAlignment": {"enum": ["Fill", "Left", "Center", "Right"]},
+              "verticalAlignment": {"enum": ["Fill", "Top", "Center", "Bottom"]}
+            }
+          },
+          "flowSlot": {
+            "type": "object",
+            "required": ["size", "padding", "horizontalAlignment", "verticalAlignment"],
+            "additionalProperties": false,
+            "properties": {
+              "size": {
+                "type": "object",
+                "required": ["rule"],
+                "additionalProperties": false,
+                "properties": {
+                  "rule": {"enum": ["Auto", "Fill"]},
+                  "weight": {"type": "number", "exclusiveMinimum": 0}
+                },
+                "allOf": [
+                  {
+                    "if": {"properties": {"rule": {"const": "Fill"}}, "required": ["rule"]},
+                    "then": {"required": ["weight"]},
+                    "else": {"not": {"required": ["weight"]}}
+                  }
+                ]
+              },
+              "padding": {
+                "type": "array",
+                "prefixItems": [
+                  {"type": "number"},
+                  {"type": "number"},
+                  {"type": "number"},
+                  {"type": "number"}
+                ],
+                "items": false,
+                "minItems": 4,
+                "maxItems": 4
+              },
+              "horizontalAlignment": {"enum": ["Fill", "Left", "Center", "Right"]},
+              "verticalAlignment": {"enum": ["Fill", "Top", "Center", "Bottom"]}
+            }
+          },
+          "scrollSlot": {
+            "type": "object",
+            "required": ["padding", "horizontalAlignment", "verticalAlignment"],
+            "additionalProperties": false,
+            "properties": {
+              "padding": {
+                "type": "array",
+                "prefixItems": [
+                  {"type": "number"},
+                  {"type": "number"},
+                  {"type": "number"},
+                  {"type": "number"}
+                ],
+                "items": false,
+                "minItems": 4,
+                "maxItems": 4
+              },
+              "horizontalAlignment": {"enum": ["Fill", "Left", "Center", "Right"]},
+              "verticalAlignment": {"enum": ["Fill", "Top", "Center", "Bottom"]}
+            }
+          },
+          "properties": {"type": "object"}
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "profile": {
+            "required": ["assetKind"],
+            "properties": {
+              "assetKind": {"const": "screen"}
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "referenceSize": {"const": [2560, 1440]}
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "profile": {
+            "required": ["assetScope"],
+            "properties": {
+              "assetScope": {"const": "project-common"}
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "profile": {
+            "required": ["assetKind", "system", "systemFolder", "function", "targetAsset"],
+            "properties": {
+              "assetKind": {"const": "child-widget"},
+              "system": {"const": "common"},
+              "subsystem": {"const": null}
+            }
+          }
+        }
+      }
+    }
+  ]
+}

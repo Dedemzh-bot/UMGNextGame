@@ -1,0 +1,806 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NextGame Unreal Widget Readback 0.1, 0.2, and 0.3",
+  "oneOf": [
+    {"$ref": "#/$defs/readbackV01"},
+    {"$ref": "#/$defs/readbackV02"},
+    {"$ref": "#/$defs/readbackV03"}
+  ],
+  "$defs": {
+    "readbackV01": {
+      "type": "object",
+      "required": ["version", "readbackId", "capturedAt", "capturedFrom", "acquisition", "status", "requirementBinding", "bundleBinding", "assets"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": "0.1"},
+        "readbackId": {"$ref": "#/$defs/id"},
+        "capturedAt": {"type": "string", "minLength": 1},
+        "capturedFrom": {"const": "unreal-editor"},
+        "acquisition": {"$ref": "#/$defs/acquisition"},
+        "status": {"const": "verified"},
+        "requirementBinding": {"$ref": "#/$defs/requirementBinding"},
+        "bundleBinding": {"$ref": "#/$defs/bundleBinding"},
+        "assets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/assetV01"}}
+      }
+    },
+    "readbackV02": {
+      "type": "object",
+      "required": ["version", "readbackId", "capturedAt", "capturedFrom", "acquisition", "status", "requirementBinding", "bundleBinding", "assets", "reuseRelations"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": "0.2"},
+        "readbackId": {"$ref": "#/$defs/id"},
+        "capturedAt": {"type": "string", "minLength": 1},
+        "capturedFrom": {"const": "unreal-editor"},
+        "acquisition": {"$ref": "#/$defs/acquisition"},
+        "status": {"const": "verified"},
+        "requirementBinding": {"$ref": "#/$defs/requirementBinding"},
+        "bundleBinding": {"$ref": "#/$defs/bundleBinding"},
+        "assets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/assetV02"}},
+        "reuseRelations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/reuseRelationV02"}}
+      }
+    },
+    "readbackV03": {
+      "type": "object",
+      "required": ["version", "readbackId", "capturedAt", "capturedFrom", "acquisition", "status", "requirementBinding", "bundleBinding", "assets", "reuseRelations"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": "0.3"},
+        "readbackId": {"$ref": "#/$defs/id"},
+        "capturedAt": {"type": "string", "minLength": 1},
+        "capturedFrom": {"const": "unreal-editor"},
+        "acquisition": {"$ref": "#/$defs/acquisition"},
+        "status": {"const": "verified"},
+        "requirementBinding": {"$ref": "#/$defs/requirementBinding"},
+        "bundleBinding": {"$ref": "#/$defs/bundleBinding"},
+        "assets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/assetV02"}},
+        "reuseRelations": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/reuseRelationV03"}}
+      }
+    },
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "visibility": {"enum": ["Visible", "Collapsed", "Hidden", "HitTestInvisible", "SelfHitTestInvisible"]},
+    "designSizeMode": {"enum": ["FillScreen", "Desired"]},
+    "assetPath": {"type": "string", "pattern": "^/Game/UI/UMG/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)+$"},
+    "acquisition": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["method"],
+          "additionalProperties": false,
+          "properties": {"method": {"const": "official-unreal-mcp"}}
+        },
+        {
+          "type": "object",
+          "required": ["method", "fallbackReason"],
+          "additionalProperties": false,
+          "properties": {
+            "method": {"const": "nxue-agent"},
+            "fallbackReason": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "required": ["method", "fieldFallbacks"],
+          "additionalProperties": false,
+          "properties": {
+            "method": {"const": "mixed"},
+            "fieldFallbacks": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "object",
+                "required": ["jsonPath", "fallbackReason"],
+                "additionalProperties": false,
+                "properties": {
+                  "jsonPath": {"type": "string", "minLength": 1},
+                  "fallbackReason": {"type": "string", "minLength": 1}
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "requirementBinding": {
+      "type": "object",
+      "required": ["requestId", "revision", "approvedContentSha256", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {"type": "string", "minLength": 1},
+        "revision": {"type": "integer", "minimum": 1},
+        "approvedContentSha256": {"$ref": "#/$defs/sha256"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "bundleBinding": {
+      "type": "object",
+      "required": ["bundleId", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "bundleId": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "widget": {
+      "type": "object",
+      "required": ["widgetName", "classPath", "parentWidgetName", "isVariable"],
+      "additionalProperties": false,
+      "properties": {
+        "widgetName": {"type": "string", "minLength": 1},
+        "classPath": {"type": "string", "minLength": 1},
+        "parentWidgetName": {"type": ["string", "null"]},
+        "isVariable": {"type": "boolean"},
+        "entryWidgetClass": {"type": ["string", "null"]},
+        "visibility": {"$ref": "#/$defs/visibility"}
+      }
+    },
+    "nodeMapping": {
+      "type": "object",
+      "required": ["nodeMappingId", "layoutNodeId", "widgetName"],
+      "additionalProperties": false,
+      "properties": {
+        "nodeMappingId": {"$ref": "#/$defs/id"},
+        "layoutNodeId": {"type": "string", "minLength": 1},
+        "widgetName": {"type": "string", "minLength": 1}
+      }
+    },
+    "assetV01": {
+      "type": "object",
+      "required": ["assetId", "assetPath", "assetObjectPath", "assetClass", "status", "widgets", "nodeMappings"],
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {"$ref": "#/$defs/id"},
+        "assetPath": {"$ref": "#/$defs/assetPath"},
+        "assetObjectPath": {"type": "string", "minLength": 1},
+        "assetClass": {"type": "string", "minLength": 1},
+        "designSizeMode": {"$ref": "#/$defs/designSizeMode"},
+        "status": {"const": "verified"},
+        "widgets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/widget"}},
+        "nodeMappings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/nodeMapping"}}
+      }
+    },
+    "assetV02": {
+      "oneOf": [
+        {"$ref": "#/$defs/layoutSpecAssetV02"},
+        {"$ref": "#/$defs/reuseOnlyAssetV02"}
+      ]
+    },
+    "layoutSpecAssetV02": {
+      "type": "object",
+      "required": ["assetId", "assetPath", "assetObjectPath", "assetClass", "generatedClassPath", "parentClassPath", "representationKind", "status", "widgets", "nodeMappings"],
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {"$ref": "#/$defs/id"},
+        "assetPath": {"$ref": "#/$defs/assetPath"},
+        "assetObjectPath": {"type": "string", "minLength": 1},
+        "assetClass": {"type": "string", "minLength": 1},
+        "designSizeMode": {"$ref": "#/$defs/designSizeMode"},
+        "generatedClassPath": {"type": "string", "minLength": 1},
+        "parentClassPath": {"type": "string", "minLength": 1},
+        "representationKind": {"const": "layout-spec"},
+        "status": {"const": "verified"},
+        "widgets": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/widget"}},
+        "nodeMappings": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/nodeMapping"}}
+      }
+    },
+    "reuseOnlyAssetV02": {
+      "type": "object",
+      "required": ["assetId", "assetPath", "assetObjectPath", "assetClass", "generatedClassPath", "parentClassPath", "representationKind", "status", "widgets", "nodeMappings"],
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {"$ref": "#/$defs/id"},
+        "assetPath": {"$ref": "#/$defs/assetPath"},
+        "assetObjectPath": {"type": "string", "minLength": 1},
+        "assetClass": {"type": "string", "minLength": 1},
+        "designSizeMode": {"$ref": "#/$defs/designSizeMode"},
+        "generatedClassPath": {"type": "string", "minLength": 1},
+        "parentClassPath": {"type": "string", "minLength": 1},
+        "representationKind": {"const": "reuse-only"},
+        "status": {"const": "verified"},
+        "widgets": {"type": "array", "items": {"$ref": "#/$defs/widget"}},
+        "nodeMappings": {"type": "array", "maxItems": 0, "items": {"$ref": "#/$defs/nodeMapping"}}
+      }
+    },
+    "runtimeFieldRefs": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/id"}
+    },
+    "reuseRelationV02": {
+      "oneOf": [
+        {"$ref": "#/$defs/sharedPrototypeExtensionReadback"},
+        {"$ref": "#/$defs/classSettingsParentClassReadback"},
+        {"$ref": "#/$defs/widgetTreeInstanceReadback"}
+      ]
+    },
+    "reuseRelationV03": {
+      "oneOf": [
+        {"$ref": "#/$defs/sharedPrototypeExtensionReadbackV03"},
+        {"$ref": "#/$defs/classSettingsParentClassReadbackV03"},
+        {"$ref": "#/$defs/widgetTreeInstanceReadbackV03"}
+      ]
+    },
+    "sharedPrototypeExtensionReadbackV03": {
+      "type": "object",
+      "required": ["bundleRelationId", "type", "status", "sourceAssetId", "sourceAssetPath", "targetAssetId", "targetAssetPath", "namedSlots", "runtimeFieldRefs"],
+      "additionalProperties": false,
+      "properties": {
+        "bundleRelationId": {"$ref": "#/$defs/id"},
+        "type": {"const": "shared-prototype-extension"},
+        "status": {"const": "verified"},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "sourceAssetPath": {"$ref": "#/$defs/assetPath"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetPath": {"$ref": "#/$defs/assetPath"},
+        "namedSlots": {"$ref": "#/$defs/dualNamedSlotReadbackV03"},
+        "runtimeFieldRefs": {"$ref": "#/$defs/emptyRuntimeFieldRefs"}
+      }
+    },
+    "dualNamedSlotReadbackV03": {
+      "oneOf": [
+        {"$ref": "#/$defs/addDualNamedSlotReadbackV03"},
+        {"$ref": "#/$defs/migrateDualNamedSlotReadbackV03"}
+      ]
+    },
+    "addDualNamedSlotReadbackV03": {
+      "type": "object",
+      "required": ["operation", "slots", "legacyPreservedNames", "directRootChildren", "directRootLayers"],
+      "additionalProperties": false,
+      "properties": {
+        "operation": {"const": "add-dual-layer-slots"},
+        "slots": {
+          "type": "array",
+          "prefixItems": [
+            {"$ref": "#/$defs/slotDownReadbackV03"},
+            {"$ref": "#/$defs/slotUpReadbackV03"}
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "legacyPreservedNames": {
+          "type": "array",
+          "maxItems": 0,
+          "items": false
+        },
+        "directRootChildren": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "directRootLayers": {
+          "type": "array",
+          "minItems": 3,
+          "items": {"$ref": "#/$defs/directRootLayerReadbackV03"}
+        }
+      }
+    },
+    "migrateDualNamedSlotReadbackV03": {
+      "type": "object",
+      "required": ["operation", "legacyStandardMigration", "slots", "legacyPreservedNames", "directRootChildren", "directRootLayers"],
+      "additionalProperties": false,
+      "properties": {
+        "operation": {"const": "migrate-existing-standard-slot"},
+        "legacyStandardMigration": {"$ref": "#/$defs/legacyStandardSlotMigrationReadbackV03"},
+        "slots": {
+          "type": "array",
+          "prefixItems": [
+            {"$ref": "#/$defs/slotDownReadbackV03"},
+            {"$ref": "#/$defs/slotUpReadbackV03"}
+          ],
+          "items": false,
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "legacyPreservedNames": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "directRootChildren": {
+          "type": "array",
+          "minItems": 3,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "directRootLayers": {
+          "type": "array",
+          "minItems": 3,
+          "items": {"$ref": "#/$defs/directRootLayerReadbackV03"}
+        }
+      }
+    },
+    "legacyStandardSlotMigrationReadbackV03": {
+      "type": "object",
+      "required": ["operation", "oldName", "newName", "preSaveValidationRequired"],
+      "additionalProperties": false,
+      "properties": {
+        "operation": {"const": "rename-standard-slot"},
+        "oldName": {"const": "SlotContent"},
+        "newName": {"const": "SlotUp"},
+        "preSaveValidationRequired": {"const": true}
+      }
+    },
+    "slotDownReadbackV03": {
+      "type": "object",
+      "required": ["role", "standardName", "classPath", "parentRelation", "parentWidgetName", "treeOrder", "treeIndex", "directSiblingIndex", "zOrderRelation", "zOrder", "layout", "autoSize", "isVariable", "visibility"],
+      "additionalProperties": false,
+      "properties": {
+        "role": {"const": "down"},
+        "standardName": {"const": "SlotDown"},
+        "classPath": {"const": "/Script/UMG.NamedSlot"},
+        "parentRelation": {"const": "shared-root-direct-child"},
+        "parentWidgetName": {"type": "string", "minLength": 1},
+        "treeOrder": {"const": "first"},
+        "treeIndex": {"type": "integer", "minimum": 0},
+        "directSiblingIndex": {"const": 0},
+        "zOrderRelation": {"const": "strictly-lower-than-all-direct-siblings"},
+        "zOrder": {"type": "integer"},
+        "layout": {"$ref": "#/$defs/fullFillLayout"},
+        "autoSize": {"const": false},
+        "isVariable": {"const": true},
+        "visibility": {"const": "SelfHitTestInvisible"}
+      }
+    },
+    "slotUpReadbackV03": {
+      "type": "object",
+      "required": ["role", "standardName", "classPath", "parentRelation", "parentWidgetName", "treeOrder", "treeIndex", "directSiblingIndex", "zOrderRelation", "zOrder", "layout", "autoSize", "isVariable", "visibility"],
+      "additionalProperties": false,
+      "properties": {
+        "role": {"const": "up"},
+        "standardName": {"const": "SlotUp"},
+        "classPath": {"const": "/Script/UMG.NamedSlot"},
+        "parentRelation": {"const": "shared-root-direct-child"},
+        "parentWidgetName": {"type": "string", "minLength": 1},
+        "treeOrder": {"const": "last"},
+        "treeIndex": {"type": "integer", "minimum": 0},
+        "directSiblingIndex": {"type": "integer", "minimum": 1},
+        "zOrderRelation": {"const": "strictly-higher-than-all-direct-siblings"},
+        "zOrder": {"type": "integer"},
+        "layout": {"$ref": "#/$defs/fullFillLayout"},
+        "autoSize": {"const": false},
+        "isVariable": {"const": true},
+        "visibility": {"const": "SelfHitTestInvisible"}
+      }
+    },
+    "directRootLayerReadbackV03": {
+      "type": "object",
+      "required": ["name", "treeIndex", "directSiblingIndex", "zOrder", "parentWidgetName"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "treeIndex": {"type": "integer", "minimum": 0},
+        "directSiblingIndex": {"type": "integer", "minimum": 0},
+        "zOrder": {"type": "integer"},
+        "parentWidgetName": {"type": "string", "minLength": 1}
+      }
+    },
+    "classSettingsParentClassReadbackV03": {
+      "type": "object",
+      "required": ["bundleRelationId", "type", "status", "sourceAssetId", "sourceAssetPath", "targetAssetId", "targetAssetPath", "parentClassPath", "inheritedSlots", "runtimeFieldRefs"],
+      "additionalProperties": false,
+      "properties": {
+        "bundleRelationId": {"$ref": "#/$defs/id"},
+        "type": {"const": "class-settings-parent-class"},
+        "status": {"const": "verified"},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "sourceAssetPath": {"$ref": "#/$defs/assetPath"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetPath": {"$ref": "#/$defs/assetPath"},
+        "parentClassPath": {"type": "string", "minLength": 1},
+        "inheritedSlots": {"$ref": "#/$defs/inheritedSlotsReadbackV03"},
+        "runtimeFieldRefs": {"$ref": "#/$defs/emptyRuntimeFieldRefs"}
+      }
+    },
+    "inheritedSlotsReadbackV03": {
+      "type": "array",
+      "prefixItems": [
+        {"$ref": "#/$defs/inheritedSlotDownReadbackV03"},
+        {"$ref": "#/$defs/inheritedSlotUpReadbackV03"}
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "inheritedSlotDownReadbackV03": {
+      "oneOf": [
+        {"$ref": "#/$defs/emptyInheritedSlotDownReadbackV03"},
+        {"$ref": "#/$defs/panelInheritedSlotDownReadbackV03"}
+      ]
+    },
+    "inheritedSlotUpReadbackV03": {
+      "oneOf": [
+        {"$ref": "#/$defs/emptyInheritedSlotUpReadbackV03"},
+        {"$ref": "#/$defs/panelInheritedSlotUpReadbackV03"}
+      ]
+    },
+    "emptyInheritedSlotDownReadbackV03": {
+      "type": "object",
+      "required": ["slotName", "contentMode"],
+      "additionalProperties": false,
+      "properties": {"slotName": {"const": "SlotDown"}, "contentMode": {"const": "empty"}}
+    },
+    "emptyInheritedSlotUpReadbackV03": {
+      "type": "object",
+      "required": ["slotName", "contentMode"],
+      "additionalProperties": false,
+      "properties": {"slotName": {"const": "SlotUp"}, "contentMode": {"const": "empty"}}
+    },
+    "panelInheritedSlotDownReadbackV03": {
+      "type": "object",
+      "required": ["slotName", "contentMode", "panel"],
+      "additionalProperties": false,
+      "properties": {"slotName": {"const": "SlotDown"}, "contentMode": {"const": "panel"}, "panel": {"$ref": "#/$defs/inheritedSlotPanelReadbackV03"}}
+    },
+    "panelInheritedSlotUpReadbackV03": {
+      "type": "object",
+      "required": ["slotName", "contentMode", "panel"],
+      "additionalProperties": false,
+      "properties": {"slotName": {"const": "SlotUp"}, "contentMode": {"const": "panel"}, "panel": {"$ref": "#/$defs/inheritedSlotPanelReadbackV03"}}
+    },
+    "inheritedSlotPanelReadbackV03": {
+      "type": "object",
+      "required": ["widgetName", "classPath", "treePath", "directChildRole", "directChildCount", "layoutMode"],
+      "additionalProperties": false,
+      "properties": {
+        "widgetName": {"type": "string", "minLength": 1},
+        "classPath": {"type": "string", "minLength": 1},
+        "treePath": {"type": "string", "minLength": 1},
+        "directChildRole": {"const": "semantic-panel"},
+        "directChildCount": {"const": 1},
+        "layoutMode": {"enum": ["fill", "special-adaptation"]},
+        "layout": {"$ref": "#/$defs/fullFillLayout"},
+        "specialAdaptationEvidenceRefs": {"$ref": "#/$defs/runtimeFieldRefs"}
+      }
+    },
+    "sharedPrototypeExtensionReadback": {
+      "type": "object",
+      "required": ["bundleRelationId", "type", "status", "sourceAssetId", "sourceAssetPath", "targetAssetId", "targetAssetPath", "namedSlot", "runtimeFieldRefs"],
+      "additionalProperties": false,
+      "properties": {
+        "bundleRelationId": {"$ref": "#/$defs/id"},
+        "type": {"const": "shared-prototype-extension"},
+        "status": {"const": "verified"},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "sourceAssetPath": {"$ref": "#/$defs/assetPath"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetPath": {"$ref": "#/$defs/assetPath"},
+        "namedSlot": {"$ref": "#/$defs/standardNamedSlotReadback"},
+        "runtimeFieldRefs": {"$ref": "#/$defs/emptyRuntimeFieldRefs"}
+      }
+    },
+    "standardNamedSlotReadback": {
+      "oneOf": [
+        {"$ref": "#/$defs/renameLegacyNamedSlotReadbackV02"},
+        {"$ref": "#/$defs/addStandardNamedSlotReadbackV02"}
+      ]
+    },
+    "renameLegacyNamedSlotReadbackV02": {
+      "type": "object",
+      "required": ["operation", "oldName", "newName", "classPath", "treeOrder", "layout"],
+      "additionalProperties": false,
+      "properties": {
+        "operation": {"const": "rename-legacy-slot"},
+        "oldName": {"type": "string", "minLength": 1},
+        "newName": {"const": "SlotContent"},
+        "classPath": {"const": "/Script/UMG.NamedSlot"},
+        "treeOrder": {"const": "last"},
+        "layout": {"$ref": "#/$defs/fullFillLayout"}
+      }
+    },
+    "addStandardNamedSlotReadbackV02": {
+      "type": "object",
+      "required": ["operation", "standardName", "classPath", "treeOrder", "layout", "legacyPreservedNames"],
+      "additionalProperties": false,
+      "properties": {
+        "operation": {"const": "add-standard-slot"},
+        "standardName": {"const": "SlotContent"},
+        "classPath": {"const": "/Script/UMG.NamedSlot"},
+        "treeOrder": {"const": "last"},
+        "layout": {"$ref": "#/$defs/fullFillLayout"},
+        "legacyPreservedNames": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "fullFillLayout": {
+      "type": "object",
+      "required": ["mode", "anchors", "offsets", "alignment"],
+      "additionalProperties": false,
+      "properties": {
+        "mode": {"const": "fill"},
+        "anchors": {"type": "array", "prefixItems": [{"const": 0}, {"const": 0}, {"const": 1}, {"const": 1}], "items": false, "minItems": 4, "maxItems": 4},
+        "offsets": {"type": "array", "prefixItems": [{"const": 0}, {"const": 0}, {"const": 0}, {"const": 0}], "items": false, "minItems": 4, "maxItems": 4},
+        "alignment": {"type": "array", "prefixItems": [{"const": 0}, {"const": 0}], "items": false, "minItems": 2, "maxItems": 2}
+      }
+    },
+    "classSettingsParentClassReadback": {
+      "type": "object",
+      "required": ["bundleRelationId", "type", "status", "sourceAssetId", "sourceAssetPath", "targetAssetId", "targetAssetPath", "parentClassPath", "inheritedSlot", "runtimeFieldRefs"],
+      "additionalProperties": false,
+      "properties": {
+        "bundleRelationId": {"$ref": "#/$defs/id"},
+        "type": {"const": "class-settings-parent-class"},
+        "status": {"const": "verified"},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "sourceAssetPath": {"$ref": "#/$defs/assetPath"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetPath": {"$ref": "#/$defs/assetPath"},
+        "parentClassPath": {"type": "string", "minLength": 1},
+        "inheritedSlot": {"$ref": "#/$defs/inheritedSlotReadback"},
+        "runtimeFieldRefs": {"$ref": "#/$defs/emptyRuntimeFieldRefs"}
+      }
+    },
+    "inheritedSlotReadback": {
+      "oneOf": [
+        {"$ref": "#/$defs/emptyInheritedSlotReadbackV02"},
+        {"$ref": "#/$defs/panelInheritedSlotReadbackV02"}
+      ]
+    },
+    "emptyInheritedSlotReadbackV02": {
+      "type": "object",
+      "required": ["slotName", "contentMode"],
+      "additionalProperties": false,
+      "properties": {
+        "slotName": {"const": "SlotContent"},
+        "contentMode": {"const": "empty"}
+      }
+    },
+    "panelInheritedSlotReadbackV02": {
+      "type": "object",
+      "required": ["slotName", "contentMode", "panel"],
+      "additionalProperties": false,
+      "properties": {
+        "slotName": {"const": "SlotContent"},
+        "contentMode": {"const": "panel"},
+        "panel": {"$ref": "#/$defs/inheritedSlotPanelReadbackV02"}
+      }
+    },
+    "inheritedSlotPanelReadbackV02": {
+      "type": "object",
+      "required": ["widgetName", "classPath", "treePath", "layoutMode"],
+      "additionalProperties": false,
+      "properties": {
+        "widgetName": {"type": "string", "minLength": 1},
+        "classPath": {"type": "string", "minLength": 1},
+        "treePath": {"type": "string", "minLength": 1},
+        "layoutMode": {"enum": ["fill", "special-adaptation"]}
+      }
+    },
+    "emptyRuntimeFieldRefs": {
+      "type": "array",
+      "maxItems": 0,
+      "items": {"$ref": "#/$defs/id"}
+    },
+    "widgetTreeInstanceReadback": {
+      "type": "object",
+      "required": ["bundleRelationId", "type", "status", "sourceAssetId", "sourceAssetPath", "targetAssetId", "targetAssetPath", "host", "sharedPrototypeClassPath", "nestedWidgetClassPath", "placement", "runtimeFieldRefs"],
+      "additionalProperties": false,
+      "properties": {
+        "bundleRelationId": {"$ref": "#/$defs/id"},
+        "type": {"const": "widget-tree-instance"},
+        "status": {"const": "verified"},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "sourceAssetPath": {"$ref": "#/$defs/assetPath"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetPath": {"$ref": "#/$defs/assetPath"},
+        "host": {"$ref": "#/$defs/hostWidgetReadback"},
+        "sharedPrototypeClassPath": {"type": "string", "minLength": 1},
+        "nestedWidgetClassPath": {"type": "string", "minLength": 1},
+        "placement": {"$ref": "#/$defs/placementReadback"},
+        "runtimeFieldRefs": {"$ref": "#/$defs/runtimeFieldRefs"}
+      }
+    },
+    "widgetTreeInstanceReadbackV03": {
+      "type": "object",
+      "required": ["bundleRelationId", "type", "status", "sourceAssetId", "sourceAssetPath", "targetAssetId", "targetAssetPath", "host", "sharedPrototypeClassPath", "nestedWidgetClassPath", "parameterOverrides", "placement", "runtimeFieldRefs"],
+      "additionalProperties": false,
+      "properties": {
+        "bundleRelationId": {"$ref": "#/$defs/id"},
+        "type": {"const": "widget-tree-instance"},
+        "status": {"const": "verified"},
+        "sourceAssetId": {"$ref": "#/$defs/id"},
+        "sourceAssetPath": {"$ref": "#/$defs/assetPath"},
+        "targetAssetId": {"$ref": "#/$defs/id"},
+        "targetAssetPath": {"$ref": "#/$defs/assetPath"},
+        "host": {"$ref": "#/$defs/hostWidgetReadback"},
+        "sharedPrototypeClassPath": {"type": "string", "minLength": 1},
+        "nestedWidgetClassPath": {"type": "string", "minLength": 1},
+        "parameterOverrides": {"type": "array", "items": {"$ref": "#/$defs/parameterOverrideReadbackV03"}},
+        "placement": {"$ref": "#/$defs/placementReadbackV03"},
+        "runtimeFieldRefs": {"$ref": "#/$defs/runtimeFieldRefs"}
+      }
+    },
+    "parameterOverrideReadbackV03": {
+      "type": "object",
+      "required": ["name", "valueSource", "value"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "valueSource": {"enum": ["user-requirement", "requirement-spec", "project-default", "literal", "runtime-binding"]},
+        "value": {}
+      }
+    },
+    "hostWidgetReadback": {
+      "type": "object",
+      "required": ["widgetName", "treePath", "classPath", "parentWidgetName"],
+      "additionalProperties": false,
+      "properties": {
+        "widgetName": {"type": "string", "minLength": 1},
+        "treePath": {"type": "string", "minLength": 1},
+        "classPath": {"type": "string", "minLength": 1},
+        "parentWidgetName": {"type": "string", "minLength": 1}
+      }
+    },
+    "normalizedRect": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "number", "minimum": 0, "maximum": 1},
+        {"type": "number", "minimum": 0, "maximum": 1},
+        {"type": "number", "exclusiveMinimum": 0, "maximum": 1},
+        {"type": "number", "exclusiveMinimum": 0, "maximum": 1}
+      ],
+      "items": false,
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "size": {
+      "type": "array",
+      "prefixItems": [{"type": "integer", "minimum": 1}, {"type": "integer", "minimum": 1}],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "placementReadback": {
+      "type": "object",
+      "required": ["hostNormalizedRect", "hostSize", "slot", "zOrder"],
+      "additionalProperties": false,
+      "properties": {
+        "hostNormalizedRect": {"$ref": "#/$defs/normalizedRect"},
+        "hostSize": {"$ref": "#/$defs/size"},
+        "slot": {"$ref": "#/$defs/slotReadback"},
+        "zOrder": {"type": "integer"}
+      }
+    },
+    "slotReadback": {
+      "type": "object",
+      "required": ["classPath", "containerType", "horizontalAlignment", "verticalAlignment", "padding"],
+      "additionalProperties": false,
+      "properties": {
+        "classPath": {"type": "string", "minLength": 1},
+        "containerType": {"type": "string", "minLength": 1},
+        "horizontalAlignment": {"enum": ["Fill", "Left", "Center", "Right"]},
+        "verticalAlignment": {"enum": ["Fill", "Top", "Center", "Bottom"]},
+        "padding": {
+          "type": "array",
+          "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}, {"type": "number"}],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        }
+      }
+    },
+    "placementReadbackV03": {
+      "type": "object",
+      "required": ["hostNormalizedRect", "hostSize", "slot", "zOrder"],
+      "additionalProperties": false,
+      "properties": {
+        "hostNormalizedRect": {"$ref": "#/$defs/normalizedRect"},
+        "hostSize": {"$ref": "#/$defs/size"},
+        "slot": {"$ref": "#/$defs/slotReadbackV03"},
+        "zOrder": {"type": "integer"}
+      }
+    },
+    "slotReadbackV03": {
+      "oneOf": [
+        {"$ref": "#/$defs/fixedSlotReadbackV03"},
+        {"$ref": "#/$defs/flowSlotReadbackV03"},
+        {"$ref": "#/$defs/scrollSlotReadbackV03"}
+      ]
+    },
+    "fixedSlotReadbackV03": {
+      "type": "object",
+      "required": ["classPath", "containerType", "horizontalAlignment", "verticalAlignment", "padding"],
+      "additionalProperties": false,
+      "properties": {
+        "classPath": {"type": "string", "minLength": 1},
+        "containerType": {"enum": ["CanvasPanel", "Overlay", "Button", "WrapBox", "ScaleBox"]},
+        "parentWidgetName": {"type": "string", "minLength": 1},
+        "parentTreePath": {"type": "string", "minLength": 1},
+        "horizontalAlignment": {"enum": ["Fill", "Left", "Center", "Right"]},
+        "verticalAlignment": {"enum": ["Fill", "Top", "Center", "Bottom"]},
+        "padding": {
+          "type": "array",
+          "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}, {"type": "number"}],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        }
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {"required": ["classPath", "containerType"], "properties": {"classPath": {"const": "/Script/UMG.CanvasPanelSlot"}, "containerType": {"const": "CanvasPanel"}}},
+            {"required": ["classPath", "containerType"], "properties": {"classPath": {"const": "/Script/UMG.OverlaySlot"}, "containerType": {"const": "Overlay"}}},
+            {"required": ["classPath", "containerType"], "properties": {"classPath": {"const": "/Script/UMG.ButtonSlot"}, "containerType": {"const": "Button"}}},
+            {"required": ["classPath", "containerType"], "properties": {"classPath": {"const": "/Script/UMG.WrapBoxSlot"}, "containerType": {"const": "WrapBox"}}},
+            {"required": ["classPath", "containerType"], "properties": {"classPath": {"const": "/Script/UMG.ScaleBoxSlot"}, "containerType": {"const": "ScaleBox"}}}
+          ]
+        }
+      ]
+    },
+    "flowSlotReadbackV03": {
+      "type": "object",
+      "required": ["classPath", "containerType", "horizontalAlignment", "verticalAlignment", "padding", "size"],
+      "additionalProperties": false,
+      "properties": {
+        "classPath": {"type": "string", "minLength": 1},
+        "containerType": {"enum": ["HorizontalBox", "VerticalBox"]},
+        "parentWidgetName": {"type": "string", "minLength": 1},
+        "parentTreePath": {"type": "string", "minLength": 1},
+        "horizontalAlignment": {"enum": ["Fill", "Left", "Center", "Right"]},
+        "verticalAlignment": {"enum": ["Fill", "Top", "Center", "Bottom"]},
+        "padding": {
+          "type": "array",
+          "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}, {"type": "number"}],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "size": {"$ref": "#/$defs/flowSlotSizeReadbackV03"}
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {"required": ["classPath", "containerType"], "properties": {"classPath": {"const": "/Script/UMG.HorizontalBoxSlot"}, "containerType": {"const": "HorizontalBox"}}},
+            {"required": ["classPath", "containerType"], "properties": {"classPath": {"const": "/Script/UMG.VerticalBoxSlot"}, "containerType": {"const": "VerticalBox"}}}
+          ]
+        }
+      ]
+    },
+    "flowSlotSizeReadbackV03": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["rule"],
+          "additionalProperties": false,
+          "properties": {"rule": {"const": "Auto"}}
+        },
+        {
+          "type": "object",
+          "required": ["rule", "weight"],
+          "additionalProperties": false,
+          "properties": {
+            "rule": {"const": "Fill"},
+            "weight": {"type": "number", "exclusiveMinimum": 0}
+          }
+        }
+      ]
+    },
+    "scrollSlotReadbackV03": {
+      "type": "object",
+      "required": ["classPath", "containerType", "horizontalAlignment", "verticalAlignment", "padding"],
+      "additionalProperties": false,
+      "properties": {
+        "classPath": {"const": "/Script/UMG.ScrollBoxSlot"},
+        "containerType": {"const": "GameScrollBox"},
+        "parentWidgetName": {"type": "string", "minLength": 1},
+        "parentTreePath": {"type": "string", "minLength": 1},
+        "horizontalAlignment": {"enum": ["Fill", "Left", "Center", "Right"]},
+        "verticalAlignment": {"enum": ["Fill", "Top", "Center", "Bottom"]},
+        "padding": {
+          "type": "array",
+          "prefixItems": [{"type": "number"}, {"type": "number"}, {"type": "number"}, {"type": "number"}],
+          "items": false,
+          "minItems": 4,
+          "maxItems": 4
+        }
+      }
+    }
+  }
+}

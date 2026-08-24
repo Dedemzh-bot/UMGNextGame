@@ -1,0 +1,74 @@
+{
+  "version": "0.2",
+  "verificationId": "document:handoff:fixture-bundle",
+  "verifiedAt": "2026-08-10T12:12:00+08:00",
+  "status": "passed",
+  "handoff": {
+    "handoffId": "handoff:fixture-bundle",
+    "sha256": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+  },
+  "document": {
+    "fileName": "20260810_UGameRole界面说明.docx",
+    "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+  },
+  "render": {
+    "renderer": "LibreOffice/soffice",
+    "rendererVersion": "LibreOffice 25.2.0.0",
+    "sofficeAvailable": true,
+    "evidenceSha256": "2222222222222222222222222222222222222222222222222222222222222222",
+    "canonicalPdf": {
+      "fileName": "20260810_UGameRole\u754c\u9762\u8bf4\u660e.canonical.pdf",
+      "sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+      "byteSize": 8192
+    },
+    "canonicalPageRender": {
+      "tool": "pdftoppm",
+      "version": "pdftoppm version 26.05.0",
+      "dpi": 150,
+      "pageCount": 1,
+      "authoritativePagesGenerated": true
+    },
+    "pageCount": 1,
+    "pages": [
+      {
+        "pageNumber": 1,
+        "fileName": "page-1.png",
+        "sha256": "1111111111111111111111111111111111111111111111111111111111111111",
+        "byteSize": 4096,
+        "width": 1600,
+        "height": 2263
+      }
+    ]
+  },
+  "coverage": {
+    "targetAssetPaths": ["/Game/UI/UMG/Role/umg_role"],
+    "programVariableIdentifiers": ["ListRole"],
+    "collectionIdentifiers": ["ListRole", "collection-role-list"],
+    "collectionEntryClasses": ["/Game/UI/UMG/Role/Widgets/uw_role_item.uw_role_item_C"],
+    "stateModelIdentifiers": ["state-model-role-selection"],
+    "stateAxisIdentifiers": ["axis-role-selection"],
+    "stateIdentifiers": ["state-role-selected"],
+    "stateControlIdentifiers": [],
+    "stateControlKinds": [],
+    "stateControlDescriptions": [],
+    "stateControlTargetStateIdentifiers": [],
+    "stateBranchWidgetIdentifiers": [],
+    "stateOutcomeWidgetIdentifiers": ["ListRole"],
+    "acceptedDeviationIdentifiers": ["build-screen-role", "deviation-role-preview", "state-role-selected"],
+    "stateControlGapIdentifiers": ["state-control-input-missing", "state-model-role-selection"],
+    "semanticRelationshipStatements": [
+      "Accepted deviation: id=\"deviation-role-preview\"; status=\"accepted\"; impact=\"low\"; affectedAssetIds=[\"build-screen-role\"]; affectedRequirementRefs=[\"state-role-selected\"]",
+      "Collection EntryClass: assetPath=\"/Game/UI/UMG/Role/umg_role\"; collectionId=\"collection-role-list\"; widgetName=\"ListRole\"; entryWidgetClass=\"/Game/UI/UMG/Role/Widgets/uw_role_item.uw_role_item_C\"",
+      "Program variable: assetPath=\"/Game/UI/UMG/Role/umg_role\"; id=\"variable:build-screen-role:ListRole\"; widgetName=\"ListRole\"; widgetClass=\"/Script/UIFramework.LuaListView\"; purpose=\"\u7a0b\u5e8f\u63a7\u5236\u96c6\u5408\u5185\u5bb9\"",
+      "State outcome: assetPath=\"/Game/UI/UMG/Role/umg_role\"; stateModelId=\"state-model-role-selection\"; axisId=\"axis-role-selection\"; stateId=\"state-role-selected\"; isDefault=true; assetId=\"build-screen-role\"; widgetName=\"ListRole\"; visibility=\"SelfHitTestInvisible\"",
+      "State-control gap: code=\"state-control-input-missing\"; stateModelId=\"state-model-role-selection\"; controlInputId=null",
+      "Target asset: assetPath=\"/Game/UI/UMG/Role/umg_role\""
+    ]
+  },
+  "visualReview": {
+    "reviewedBy": "documents-agent",
+    "reviewedAt": "2026-08-10T12:11:00+08:00",
+    "reviewedPageFiles": ["page-1.png"],
+    "allPagesReviewed": true
+  }
+}

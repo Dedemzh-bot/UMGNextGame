@@ -1,0 +1,97 @@
+{
+  "version": "0.2",
+  "mode": "production",
+  "asset": {
+    "folder": "/Game/UI/UMG/Role",
+    "name": "umg_role"
+  },
+  "referenceSize": [2560, 1440],
+  "profile": {
+    "screenType": "role",
+    "adaptive": true,
+    "interactive": true,
+    "hasText": false,
+    "containsRepeatedElements": true,
+    "regionGrouping": true,
+    "assetKind": "screen",
+    "designSizeMode": "FillScreen",
+    "system": "role",
+    "systemFolder": "Role",
+    "subsystem": null,
+    "function": null,
+    "secondaryFunction": null,
+    "targetAsset": {
+      "folder": "/Game/UI/UMG/Role",
+      "name": "umg_role"
+    }
+  },
+  "notes": ["The tab placeholders are replaced by uw_role_navigation_tab child widgets during integration."],
+  "nodes": [
+    {
+      "id": "node-screen-root",
+      "name": "PanelRoot",
+      "role": "screen.root",
+      "parent": null,
+      "rect": [0.0, 0.0, 1.0, 1.0],
+      "anchor": "left-top",
+      "properties": {"visibility": "SelfHitTestInvisible"}
+    },
+    {
+      "id": "node-navigation-panel",
+      "name": "PanelNavigation",
+      "role": "container.canvas",
+      "parent": "node-screen-root",
+      "rect": [0.08, 0.08, 0.14, 0.72],
+      "anchor": "left-center",
+      "regionPurpose": "navigation",
+      "adaptiveLayout": {"horizontal": "left", "vertical": "stretch", "reason": "The navigation remains left-aligned and preserves vertical margins."},
+      "slotLayout": {
+        "anchors": {"minimum": [0.0, 0.0], "maximum": [0.0, 1.0]},
+        "offsets": {"left": 204.8, "top": 115.2, "right": 1996.8, "bottom": 288.0},
+        "alignment": [0.0, 0.0],
+        "autoSize": false
+      },
+      "properties": {"visibility": "SelfHitTestInvisible"}
+    },
+    {
+      "id": "node-tab-role-instance",
+      "name": "PanelRoleTabRole",
+      "isVariable": true,
+      "role": "container.canvas",
+      "parent": "node-navigation-panel",
+      "rect": [0.09, 0.11, 0.12, 0.09],
+      "anchor": "left-top",
+      "properties": {"visibility": "SelfHitTestInvisible"}
+    },
+    {
+      "id": "node-tab-weapon-instance",
+      "name": "PanelRoleTabWeapon",
+      "isVariable": true,
+      "role": "container.canvas",
+      "parent": "node-navigation-panel",
+      "rect": [0.09, 0.22, 0.12, 0.09],
+      "anchor": "left-top",
+      "properties": {"visibility": "SelfHitTestInvisible"}
+    },
+    {
+      "id": "node-tab-talent-instance",
+      "name": "PanelRoleTabTalent",
+      "isVariable": true,
+      "role": "container.canvas",
+      "parent": "node-navigation-panel",
+      "rect": [0.09, 0.33, 0.12, 0.09],
+      "anchor": "left-top",
+      "properties": {"visibility": "SelfHitTestInvisible"}
+    },
+    {
+      "id": "node-tab-neural-instance",
+      "name": "PanelRoleTabNeural",
+      "isVariable": true,
+      "role": "container.canvas",
+      "parent": "node-navigation-panel",
+      "rect": [0.09, 0.44, 0.12, 0.09],
+      "anchor": "left-top",
+      "properties": {"visibility": "SelfHitTestInvisible"}
+    }
+  ]
+}

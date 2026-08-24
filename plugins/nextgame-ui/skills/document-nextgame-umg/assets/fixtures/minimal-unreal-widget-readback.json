@@ -1,0 +1,44 @@
+{
+  "version": "0.1",
+  "readbackId": "readback:fixture",
+  "capturedAt": "2026-08-10T12:00:00+08:00",
+  "capturedFrom": "unreal-editor",
+  "acquisition": {"method": "official-unreal-mcp"},
+  "status": "verified",
+  "requirementBinding": {
+    "requestId": "fixture-request",
+    "revision": 1,
+    "approvedContentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "bundleBinding": {
+    "bundleId": "fixture-bundle",
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "assets": [
+    {
+      "assetId": "build-screen-role",
+      "assetPath": "/Game/UI/UMG/Role/umg_role",
+      "assetObjectPath": "/Game/UI/UMG/Role/umg_role.umg_role",
+      "assetClass": "/Script/UMGEditor.WidgetBlueprint",
+      "status": "verified",
+      "widgets": [
+        {
+          "widgetName": "ListRole",
+          "classPath": "/Script/UIFramework.LuaListView",
+          "parentWidgetName": "PanelRoot",
+          "isVariable": true,
+          "entryWidgetClass": "/Game/UI/UMG/Role/Widgets/uw_role_item.uw_role_item_C",
+          "visibility": "Visible"
+        }
+      ],
+      "nodeMappings": [
+        {
+          "nodeMappingId": "mapping-role-list",
+          "layoutNodeId": "node-role-list",
+          "widgetName": "ListRole"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,1204 @@
+{
+  "version": "0.2",
+  "sourceSpec": "Tools\\CodexMarketplace\\plugins\\nextgame-ui\\skills\\build-nextgame-umg\\assets\\example-layout-spec.json",
+  "assetPath": "/Game/UI/AIPrototype/umg_ai_reference_demo",
+  "objectPath": "/Game/UI/AIPrototype/umg_ai_reference_demo.umg_ai_reference_demo",
+  "intendedTarget": {
+    "folder": "/Game/UI/UMG/Demo",
+    "name": "umg_demo"
+  },
+  "designSizeMode": "FillScreen",
+  "selectedRuleIds": [
+    "layout.project-design-resolution",
+    "layout.designer-size-mode",
+    "layout.adaptive-anchors",
+    "layout.decorative-image-adaptation",
+    "layout.localized-content-adaptation",
+    "interaction.button-trigger-owner",
+    "interaction.button-child-image-no-draw",
+    "interaction.short-centered-button-label",
+    "interaction.passive-self-only",
+    "widget.runtime-variable",
+    "component.project-game-image",
+    "visual.complete-image-composition",
+    "text.component-content",
+    "text.independent-blocks",
+    "text.even-font-size",
+    "text.explicit-color",
+    "text.explicit-wrap-width",
+    "text.justification",
+    "text.runtime-ratio-group",
+    "layout.full-height-stretch-chain",
+    "layout.content-driven-canvas-module",
+    "structure.region-modules",
+    "structure.overlay-minimal",
+    "structure.overlay-slot-alignment",
+    "naming.widget-component-instance",
+    "structure.standard-system",
+    "folder.system-widget-blueprints",
+    "naming.screen-blueprint",
+    "prototype.asset-path",
+    "prototype.asset-name",
+    "prototype.native-components",
+    "layout.normalized-rects",
+    "interaction.prototype-buttons",
+    "text.prototype-copy"
+  ],
+  "selectedRuleIdsBySourceType": {
+    "explicit": [
+      "layout.project-design-resolution",
+      "layout.designer-size-mode",
+      "layout.adaptive-anchors",
+      "layout.decorative-image-adaptation",
+      "layout.localized-content-adaptation",
+      "interaction.button-trigger-owner",
+      "interaction.button-child-image-no-draw",
+      "interaction.short-centered-button-label",
+      "interaction.passive-self-only",
+      "widget.runtime-variable",
+      "component.project-game-image",
+      "visual.complete-image-composition",
+      "text.component-content",
+      "text.independent-blocks",
+      "text.even-font-size",
+      "text.explicit-color",
+      "text.explicit-wrap-width",
+      "text.justification",
+      "text.runtime-ratio-group",
+      "layout.full-height-stretch-chain",
+      "layout.content-driven-canvas-module",
+      "structure.region-modules",
+      "structure.overlay-minimal",
+      "structure.overlay-slot-alignment",
+      "naming.widget-component-instance",
+      "structure.standard-system",
+      "folder.system-widget-blueprints",
+      "naming.screen-blueprint"
+    ],
+    "baseline": [
+      "prototype.asset-path",
+      "prototype.asset-name",
+      "prototype.native-components",
+      "layout.normalized-rects",
+      "interaction.prototype-buttons",
+      "text.prototype-copy"
+    ]
+  },
+  "warnings": [
+    "Native controls are placeholders until project mappings are supplied.",
+    "confirm: Native placeholder. Replace with the project button component when its mapping is supplied."
+  ],
+  "executorContract": {
+    "referenceSyntax": "${savedResult.json.path}",
+    "propertyWriteSequence": [
+      "list_properties",
+      "get_properties",
+      "set_properties"
+    ],
+    "setPropertiesValuesEncoding": "compact JSON string",
+    "designSizeModeWrite": {
+      "primary": "official-unreal-mcp generated-CDO ObjectTools list/get/set",
+      "fallback": "nxue manage-property only when the official route does not expose the protected CDO field",
+      "cdoObjectPath": "/Game/UI/AIPrototype/umg_ai_reference_demo.Default__umg_ai_reference_demo_C",
+      "propertyPath": "DesignSizeMode",
+      "expectedValue": "FillScreen",
+      "requiresPostSaveReadback": true
+    }
+  },
+  "steps": [
+    {
+      "stepId": "check-destination",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "ListWidgetBlueprints",
+      "arguments": {
+        "folderPath": "/Game/UI/AIPrototype"
+      },
+      "assertion": "Stop if /Game/UI/AIPrototype/umg_ai_reference_demo.umg_ai_reference_demo already exists unless update was explicitly authorized."
+    },
+    {
+      "stepId": "create-blueprint",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "CreateWidgetBlueprint",
+      "arguments": {
+        "folderPath": "/Game/UI/AIPrototype",
+        "assetName": "umg_ai_reference_demo",
+        "parentClass": {
+          "refPath": "/Script/UMG.UserWidget"
+        }
+      },
+      "saveResultAs": "blueprint"
+    },
+    {
+      "stepId": "add-root",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "AddWidget",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widgetClass": {
+          "refPath": "/Script/UMG.CanvasPanel"
+        },
+        "widgetDisplayName": "PanelRoot",
+        "childIndex": -1
+      },
+      "saveResultAs": "node.root"
+    },
+    {
+      "stepId": "toggle-widget-variable-root",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "ToggleWidgetAsVariable",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widget": {
+          "refPath": "${node.root.returnValue.widget.refPath}"
+        },
+        "bIsVariable": false
+      }
+    },
+    {
+      "stepId": "list-widget-properties-root",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.root.returnValue.widget.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-widget-properties-root",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.root.returnValue.widget.refPath}"
+        },
+        "properties": [
+          "visibility"
+        ]
+      }
+    },
+    {
+      "stepId": "set-widget-properties-root",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.root.returnValue.widget.refPath}"
+        },
+        "values": {
+          "visibility": "SelfHitTestInvisible"
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "add-header-region",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "AddWidget",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widgetClass": {
+          "refPath": "/Script/UMG.CanvasPanel"
+        },
+        "widgetDisplayName": "PanelHeader",
+        "childIndex": -1,
+        "parentWidget": {
+          "refPath": "${node.root.returnValue.widget.refPath}"
+        }
+      },
+      "saveResultAs": "node.header-region"
+    },
+    {
+      "stepId": "toggle-widget-variable-header-region",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "ToggleWidgetAsVariable",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widget": {
+          "refPath": "${node.header-region.returnValue.widget.refPath}"
+        },
+        "bIsVariable": false
+      }
+    },
+    {
+      "stepId": "list-widget-properties-header-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.header-region.returnValue.widget.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-widget-properties-header-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.header-region.returnValue.widget.refPath}"
+        },
+        "properties": [
+          "visibility"
+        ]
+      }
+    },
+    {
+      "stepId": "set-widget-properties-header-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.header-region.returnValue.widget.refPath}"
+        },
+        "values": {
+          "visibility": "SelfHitTestInvisible"
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "list-slot-properties-header-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.header-region.returnValue.slot.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-slot-properties-header-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.header-region.returnValue.slot.refPath}"
+        },
+        "properties": [
+          "layoutData",
+          "bAutoSize",
+          "zOrder"
+        ]
+      }
+    },
+    {
+      "stepId": "set-slot-properties-header-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.header-region.returnValue.slot.refPath}"
+        },
+        "values": {
+          "layoutData": {
+            "offsets": {
+              "left": 0.0,
+              "top": 57.6,
+              "right": 1024.0,
+              "bottom": 201.60000000000002
+            },
+            "anchors": {
+              "minimum": {
+                "x": 0.5,
+                "y": 0.0
+              },
+              "maximum": {
+                "x": 0.5,
+                "y": 0.0
+              }
+            },
+            "alignment": {
+              "x": 0.5,
+              "y": 0.0
+            }
+          },
+          "bAutoSize": false,
+          "zOrder": 0
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "add-title",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "AddWidget",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widgetClass": {
+          "refPath": "/Script/UMG.TextBlock"
+        },
+        "widgetDisplayName": "TxtTitle",
+        "childIndex": -1,
+        "parentWidget": {
+          "refPath": "${node.header-region.returnValue.widget.refPath}"
+        }
+      },
+      "saveResultAs": "node.title"
+    },
+    {
+      "stepId": "toggle-widget-variable-title",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "ToggleWidgetAsVariable",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widget": {
+          "refPath": "${node.title.returnValue.widget.refPath}"
+        },
+        "bIsVariable": false
+      }
+    },
+    {
+      "stepId": "list-widget-properties-title",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.title.returnValue.widget.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-widget-properties-title",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.title.returnValue.widget.refPath}"
+        },
+        "properties": [
+          "text",
+          "font",
+          "colorAndOpacity",
+          "visibility"
+        ]
+      }
+    },
+    {
+      "stepId": "set-widget-properties-title",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.title.returnValue.widget.refPath}"
+        },
+        "values": {
+          "text": "Prototype UI",
+          "font": {
+            "size": 32
+          },
+          "colorAndOpacity": {
+            "specifiedColor": {
+              "r": 1,
+              "g": 1,
+              "b": 1,
+              "a": 1
+            },
+            "colorUseRule": "UseColor_Specified"
+          },
+          "visibility": "SelfHitTestInvisible"
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "list-slot-properties-title",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.title.returnValue.slot.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-slot-properties-title",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.title.returnValue.slot.refPath}"
+        },
+        "properties": [
+          "layoutData",
+          "bAutoSize",
+          "zOrder"
+        ]
+      }
+    },
+    {
+      "stepId": "set-slot-properties-title",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.title.returnValue.slot.refPath}"
+        },
+        "values": {
+          "layoutData": {
+            "offsets": {
+              "left": -1.1368683772161603e-13,
+              "top": 14.399999999999995,
+              "right": 767.9999999999999,
+              "bottom": 115.2
+            },
+            "anchors": {
+              "minimum": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "maximum": {
+                "x": 0.5,
+                "y": 0.5
+              }
+            },
+            "alignment": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          },
+          "bAutoSize": false,
+          "zOrder": 0
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "add-action-region",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "AddWidget",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widgetClass": {
+          "refPath": "/Script/UMG.CanvasPanel"
+        },
+        "widgetDisplayName": "PanelActions",
+        "childIndex": -1,
+        "parentWidget": {
+          "refPath": "${node.root.returnValue.widget.refPath}"
+        }
+      },
+      "saveResultAs": "node.action-region"
+    },
+    {
+      "stepId": "toggle-widget-variable-action-region",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "ToggleWidgetAsVariable",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widget": {
+          "refPath": "${node.action-region.returnValue.widget.refPath}"
+        },
+        "bIsVariable": false
+      }
+    },
+    {
+      "stepId": "list-widget-properties-action-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.action-region.returnValue.widget.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-widget-properties-action-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.action-region.returnValue.widget.refPath}"
+        },
+        "properties": [
+          "visibility"
+        ]
+      }
+    },
+    {
+      "stepId": "set-widget-properties-action-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.action-region.returnValue.widget.refPath}"
+        },
+        "values": {
+          "visibility": "SelfHitTestInvisible"
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "list-slot-properties-action-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.action-region.returnValue.slot.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-slot-properties-action-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.action-region.returnValue.slot.refPath}"
+        },
+        "properties": [
+          "layoutData",
+          "bAutoSize",
+          "zOrder"
+        ]
+      }
+    },
+    {
+      "stepId": "set-slot-properties-action-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.action-region.returnValue.slot.refPath}"
+        },
+        "values": {
+          "layoutData": {
+            "offsets": {
+              "left": -153.60000000000014,
+              "top": -86.39999999999992,
+              "right": 563.2,
+              "bottom": 201.60000000000002
+            },
+            "anchors": {
+              "minimum": {
+                "x": 1.0,
+                "y": 1.0
+              },
+              "maximum": {
+                "x": 1.0,
+                "y": 1.0
+              }
+            },
+            "alignment": {
+              "x": 1.0,
+              "y": 1.0
+            }
+          },
+          "bAutoSize": false,
+          "zOrder": 0
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "add-confirm",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "AddWidget",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widgetClass": {
+          "refPath": "/Script/UMG.Button"
+        },
+        "widgetDisplayName": "BtnConfirm",
+        "childIndex": -1,
+        "parentWidget": {
+          "refPath": "${node.action-region.returnValue.widget.refPath}"
+        }
+      },
+      "saveResultAs": "node.confirm"
+    },
+    {
+      "stepId": "toggle-widget-variable-confirm",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "ToggleWidgetAsVariable",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widget": {
+          "refPath": "${node.confirm.returnValue.widget.refPath}"
+        },
+        "bIsVariable": false
+      }
+    },
+    {
+      "stepId": "list-widget-properties-confirm",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.confirm.returnValue.widget.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-widget-properties-confirm",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.confirm.returnValue.widget.refPath}"
+        },
+        "properties": [
+          "bIsEnabled"
+        ]
+      }
+    },
+    {
+      "stepId": "set-widget-properties-confirm",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.confirm.returnValue.widget.refPath}"
+        },
+        "values": {
+          "bIsEnabled": true
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "list-slot-properties-confirm",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.confirm.returnValue.slot.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-slot-properties-confirm",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.confirm.returnValue.slot.refPath}"
+        },
+        "properties": [
+          "layoutData",
+          "bAutoSize",
+          "zOrder"
+        ]
+      }
+    },
+    {
+      "stepId": "set-slot-properties-confirm",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.confirm.returnValue.slot.refPath}"
+        },
+        "values": {
+          "layoutData": {
+            "offsets": {
+              "left": 25.600000000000104,
+              "top": 14.399999999999883,
+              "right": 409.6,
+              "bottom": 115.2
+            },
+            "anchors": {
+              "minimum": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "maximum": {
+                "x": 0.5,
+                "y": 0.5
+              }
+            },
+            "alignment": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          },
+          "bAutoSize": false,
+          "zOrder": 0
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "add-status-region",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "AddWidget",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widgetClass": {
+          "refPath": "/Script/UMG.CanvasPanel"
+        },
+        "widgetDisplayName": "PanelStatus",
+        "childIndex": -1,
+        "parentWidget": {
+          "refPath": "${node.root.returnValue.widget.refPath}"
+        }
+      },
+      "saveResultAs": "node.status-region"
+    },
+    {
+      "stepId": "toggle-widget-variable-status-region",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "ToggleWidgetAsVariable",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widget": {
+          "refPath": "${node.status-region.returnValue.widget.refPath}"
+        },
+        "bIsVariable": false
+      }
+    },
+    {
+      "stepId": "list-widget-properties-status-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.status-region.returnValue.widget.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-widget-properties-status-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.status-region.returnValue.widget.refPath}"
+        },
+        "properties": [
+          "visibility"
+        ]
+      }
+    },
+    {
+      "stepId": "set-widget-properties-status-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.status-region.returnValue.widget.refPath}"
+        },
+        "values": {
+          "visibility": "SelfHitTestInvisible"
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "list-slot-properties-status-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.status-region.returnValue.slot.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-slot-properties-status-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.status-region.returnValue.slot.refPath}"
+        },
+        "properties": [
+          "layoutData",
+          "bAutoSize",
+          "zOrder"
+        ]
+      }
+    },
+    {
+      "stepId": "set-slot-properties-status-region",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.status-region.returnValue.slot.refPath}"
+        },
+        "values": {
+          "layoutData": {
+            "offsets": {
+              "left": 153.6,
+              "top": -14.400000000000013,
+              "right": 179.20000000000002,
+              "bottom": 547.2
+            },
+            "anchors": {
+              "minimum": {
+                "x": 0.0,
+                "y": 0.5
+              },
+              "maximum": {
+                "x": 0.0,
+                "y": 0.5
+              }
+            },
+            "alignment": {
+              "x": 0.0,
+              "y": 0.5
+            }
+          },
+          "bAutoSize": false,
+          "zOrder": 0
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "add-progress",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "AddWidget",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widgetClass": {
+          "refPath": "/Script/UMG.ProgressBar"
+        },
+        "widgetDisplayName": "BarDemo",
+        "childIndex": -1,
+        "parentWidget": {
+          "refPath": "${node.status-region.returnValue.widget.refPath}"
+        }
+      },
+      "saveResultAs": "node.progress"
+    },
+    {
+      "stepId": "toggle-widget-variable-progress",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "ToggleWidgetAsVariable",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widget": {
+          "refPath": "${node.progress.returnValue.widget.refPath}"
+        },
+        "bIsVariable": false
+      }
+    },
+    {
+      "stepId": "list-widget-properties-progress",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.progress.returnValue.widget.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-widget-properties-progress",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.progress.returnValue.widget.refPath}"
+        },
+        "properties": [
+          "percent",
+          "barFillType",
+          "fillColorAndOpacity",
+          "visibility"
+        ]
+      }
+    },
+    {
+      "stepId": "set-widget-properties-progress",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.progress.returnValue.widget.refPath}"
+        },
+        "values": {
+          "percent": 0.75,
+          "barFillType": "BottomToTop",
+          "fillColorAndOpacity": {
+            "r": 0.25,
+            "g": 0.85,
+            "b": 0.45,
+            "a": 1
+          },
+          "visibility": "SelfHitTestInvisible"
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "list-slot-properties-progress",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.progress.returnValue.slot.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-slot-properties-progress",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.progress.returnValue.slot.refPath}"
+        },
+        "properties": [
+          "layoutData",
+          "bAutoSize",
+          "zOrder"
+        ]
+      }
+    },
+    {
+      "stepId": "set-slot-properties-progress",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.progress.returnValue.slot.refPath}"
+        },
+        "values": {
+          "layoutData": {
+            "offsets": {
+              "left": -6.399999999999998,
+              "top": 6.075140390748857e-14,
+              "right": 64.00000000000001,
+              "bottom": 432.00000000000006
+            },
+            "anchors": {
+              "minimum": {
+                "x": 0.5,
+                "y": 0.5
+              },
+              "maximum": {
+                "x": 0.5,
+                "y": 0.5
+              }
+            },
+            "alignment": {
+              "x": 0.5,
+              "y": 0.5
+            }
+          },
+          "bAutoSize": false,
+          "zOrder": 0
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "compile",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "CompileWidgetBlueprint",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        }
+      },
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "get-blueprint-default-object",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.blueprint.BlueprintTools",
+      "toolName": "get_default_object",
+      "arguments": {
+        "blueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        }
+      },
+      "saveResultAs": "blueprintDefaultObject",
+      "assertion": "returnValue must resolve to the generated UUserWidget class default object"
+    },
+    {
+      "stepId": "list-design-size-mode-property",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${blueprintDefaultObject.returnValue.refPath}"
+        }
+      },
+      "assertion": "The generated class CDO must expose designSizeMode (UUserWidget::DesignSizeMode)."
+    },
+    {
+      "stepId": "get-design-size-mode-before",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${blueprintDefaultObject.returnValue.refPath}"
+        },
+        "properties": [
+          "designSizeMode"
+        ]
+      }
+    },
+    {
+      "stepId": "set-design-size-mode",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${blueprintDefaultObject.returnValue.refPath}"
+        },
+        "values": {
+          "designSizeMode": "FillScreen"
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string. Set the generated UUserWidget CDO after the final compile and before save; never write this property on the WidgetBlueprint asset object.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "save",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.asset.AssetTools",
+      "toolName": "save_assets",
+      "arguments": {
+        "asset_paths": [
+          "/Game/UI/AIPrototype/umg_ai_reference_demo"
+        ]
+      },
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "get-saved-blueprint-default-object",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.blueprint.BlueprintTools",
+      "toolName": "get_default_object",
+      "arguments": {
+        "blueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        }
+      },
+      "saveResultAs": "savedBlueprintDefaultObject",
+      "assertion": "returnValue must resolve to the saved generated UUserWidget class default object"
+    },
+    {
+      "stepId": "verify-design-size-mode",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${savedBlueprintDefaultObject.returnValue.refPath}"
+        },
+        "properties": [
+          "designSizeMode"
+        ]
+      },
+      "assertion": "Saved generated-class CDO designSizeMode must equal FillScreen."
+    },
+    {
+      "stepId": "verify-tree",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "GetWidgets",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        }
+      }
+    }
+  ]
+}

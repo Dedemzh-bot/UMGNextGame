@@ -1,0 +1,27 @@
+{
+  "version": "0.1",
+  "requestId": "role-tab-states-20260803",
+  "agentRole": "project-pattern",
+  "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640",
+  "sourceScope": ["source-project-rules"],
+  "findings": [
+    {
+      "localId": "local-screen-resolution",
+      "category": "explicit-requirement",
+      "statement": "Complete screens use a 2560 by 1440 design canvas.",
+      "evidenceRefs": ["local-project-resolution"],
+      "confidence": 1.0,
+      "impact": "high"
+    }
+  ],
+  "evidence": [
+    {
+      "localId": "local-project-resolution",
+      "sourceKey": "source-project-rules",
+      "kind": "project-reference",
+      "description": "The project rule source defines the complete-screen design resolution.",
+      "confidence": 1.0
+    }
+  ],
+  "questionCandidates": []
+}

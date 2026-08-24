@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NextGame UI Build Acceptance",
+  "type": "object",
+  "required": [
+    "version",
+    "acceptanceId",
+    "phase",
+    "status",
+    "reviewer",
+    "reviewedAt",
+    "requirementBinding",
+    "bundleBinding",
+    "readbackBinding",
+    "reviewedAssetIds",
+    "reviewedAssetPaths"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "0.1"},
+    "acceptanceId": {"$ref": "#/$defs/id"},
+    "phase": {"const": "post-build-ui-review"},
+    "status": {"enum": ["pending", "accepted", "rejected"]},
+    "reviewer": {"$ref": "#/$defs/reviewer"},
+    "reviewedAt": {"type": "string", "minLength": 1},
+    "requirementBinding": {"$ref": "#/$defs/requirementBinding"},
+    "bundleBinding": {"$ref": "#/$defs/bundleBinding"},
+    "readbackBinding": {"$ref": "#/$defs/readbackBinding"},
+    "reviewedAssetIds": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/id"}
+    },
+    "reviewedAssetPaths": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/assetPath"}
+    }
+  },
+  "$defs": {
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "assetPath": {"type": "string", "pattern": "^/Game/UI/UMG/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)+$"},
+    "reviewer": {
+      "type": "object",
+      "required": ["actorType", "confirmationSource"],
+      "additionalProperties": false,
+      "properties": {
+        "actorType": {"const": "user"},
+        "confirmationSource": {"const": "direct-user-message"}
+      }
+    },
+    "requirementBinding": {
+      "type": "object",
+      "required": ["requestId", "revision", "approvedContentSha256", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "requestId": {"type": "string", "minLength": 1},
+        "revision": {"type": "integer", "minimum": 1},
+        "approvedContentSha256": {"$ref": "#/$defs/sha256"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "bundleBinding": {
+      "type": "object",
+      "required": ["bundleId", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "bundleId": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "readbackBinding": {
+      "type": "object",
+      "required": ["readbackId", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "readbackId": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

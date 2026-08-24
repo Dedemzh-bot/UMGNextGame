@@ -1,0 +1,27 @@
+{
+  "version": "0.1",
+  "acceptanceId": "acceptance:fixture",
+  "phase": "post-build-ui-review",
+  "status": "accepted",
+  "reviewer": {
+    "actorType": "user",
+    "confirmationSource": "direct-user-message"
+  },
+  "reviewedAt": "2026-08-10T12:01:00+08:00",
+  "requirementBinding": {
+    "requestId": "fixture-request",
+    "revision": 1,
+    "approvedContentSha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    "sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+  },
+  "bundleBinding": {
+    "bundleId": "fixture-bundle",
+    "sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "readbackBinding": {
+    "readbackId": "readback:fixture",
+    "sha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+  },
+  "reviewedAssetIds": ["build-screen-role"],
+  "reviewedAssetPaths": ["/Game/UI/UMG/Role/umg_role"]
+}

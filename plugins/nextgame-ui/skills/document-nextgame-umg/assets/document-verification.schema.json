@@ -1,0 +1,146 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NextGame UMG Program Document Verification",
+  "type": "object",
+  "required": ["version", "verificationId", "verifiedAt", "status", "handoff", "document", "render", "coverage", "visualReview"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "0.2"},
+    "verificationId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "verifiedAt": {"type": "string", "minLength": 1},
+    "status": {"const": "passed"},
+    "handoff": {
+      "type": "object",
+      "required": ["handoffId", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "handoffId": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "document": {
+      "type": "object",
+      "required": ["fileName", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "fileName": {"type": "string", "pattern": "^[0-9]{8}_UGame[A-Za-z0-9_]+\u754c\u9762\u8bf4\u660e\\.docx$"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "render": {
+      "type": "object",
+      "required": ["renderer", "rendererVersion", "sofficeAvailable", "evidenceSha256", "canonicalPdf", "canonicalPageRender", "pageCount", "pages"],
+      "additionalProperties": false,
+      "properties": {
+        "renderer": {"const": "LibreOffice/soffice"},
+        "rendererVersion": {"type": "string", "minLength": 1},
+        "sofficeAvailable": {"const": true},
+        "evidenceSha256": {"$ref": "#/$defs/sha256"},
+        "canonicalPdf": {"$ref": "#/$defs/canonicalPdf"},
+        "canonicalPageRender": {"$ref": "#/$defs/canonicalPageRender"},
+        "pageCount": {"type": "integer", "minimum": 1},
+        "pages": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/page"}}
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "targetAssetPaths",
+        "programVariableIdentifiers",
+        "collectionIdentifiers",
+        "collectionEntryClasses",
+        "stateModelIdentifiers",
+        "stateAxisIdentifiers",
+        "stateIdentifiers",
+        "stateControlIdentifiers",
+        "stateControlKinds",
+        "stateControlDescriptions",
+        "stateControlTargetStateIdentifiers",
+        "stateBranchWidgetIdentifiers",
+        "stateOutcomeWidgetIdentifiers",
+        "acceptedDeviationIdentifiers",
+        "stateControlGapIdentifiers",
+        "semanticRelationshipStatements"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "targetAssetPaths": {"$ref": "#/$defs/stringList"},
+        "programVariableIdentifiers": {"$ref": "#/$defs/stringList"},
+        "collectionIdentifiers": {"$ref": "#/$defs/stringList"},
+        "collectionEntryClasses": {"$ref": "#/$defs/stringList"},
+        "stateModelIdentifiers": {"$ref": "#/$defs/stringList"},
+        "stateAxisIdentifiers": {"$ref": "#/$defs/stringList"},
+        "stateIdentifiers": {"$ref": "#/$defs/stringList"},
+        "stateControlIdentifiers": {"$ref": "#/$defs/stringList"},
+        "stateControlKinds": {"$ref": "#/$defs/stringList"},
+        "stateControlDescriptions": {"$ref": "#/$defs/stringList"},
+        "stateControlTargetStateIdentifiers": {"$ref": "#/$defs/stringList"},
+        "stateBranchWidgetIdentifiers": {"$ref": "#/$defs/stringList"},
+        "stateOutcomeWidgetIdentifiers": {"$ref": "#/$defs/stringList"},
+        "acceptedDeviationIdentifiers": {"$ref": "#/$defs/stringList"},
+        "stateControlGapIdentifiers": {"$ref": "#/$defs/stringList"},
+        "semanticRelationshipStatements": {"$ref": "#/$defs/semanticStatementList"}
+      }
+    },
+    "visualReview": {
+      "type": "object",
+      "required": ["reviewedBy", "reviewedAt", "reviewedPageFiles", "allPagesReviewed"],
+      "additionalProperties": false,
+      "properties": {
+        "reviewedBy": {"type": "string", "minLength": 1},
+        "reviewedAt": {"type": "string", "minLength": 1},
+        "reviewedPageFiles": {"type": "array", "minItems": 1, "items": {"type": "string", "pattern": ".+\\.png$"}},
+        "allPagesReviewed": {"const": true},
+        "notes": {"type": "array", "items": {"type": "string", "minLength": 1}}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "stringList": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "semanticStatementList": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(Target asset|Program variable|Collection EntryClass|State control|State branch|State outcome|Accepted deviation|State-control gap): .+$"
+      }
+    },
+    "canonicalPdf": {
+      "type": "object",
+      "required": ["fileName", "sha256", "byteSize"],
+      "additionalProperties": false,
+      "properties": {
+        "fileName": {"type": "string", "pattern": "^[0-9]{8}_UGame[A-Za-z0-9_]+\u754c\u9762\u8bf4\u660e\\.canonical\\.pdf$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "byteSize": {"type": "integer", "minimum": 32}
+      }
+    },
+    "canonicalPageRender": {
+      "type": "object",
+      "required": ["tool", "version", "dpi", "pageCount", "authoritativePagesGenerated"],
+      "additionalProperties": false,
+      "properties": {
+        "tool": {"const": "pdftoppm"},
+        "version": {"type": "string", "minLength": 1},
+        "dpi": {"const": 150},
+        "pageCount": {"type": "integer", "minimum": 1},
+        "authoritativePagesGenerated": {"const": true}
+      }
+    },
+    "page": {
+      "type": "object",
+      "required": ["pageNumber", "fileName", "sha256", "byteSize", "width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "pageNumber": {"type": "integer", "minimum": 1},
+        "fileName": {"type": "string", "pattern": ".+\\.png$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "byteSize": {"type": "integer", "minimum": 1},
+        "width": {"type": "integer", "minimum": 64},
+        "height": {"type": "integer", "minimum": 64}
+      }
+    }
+  }
+}

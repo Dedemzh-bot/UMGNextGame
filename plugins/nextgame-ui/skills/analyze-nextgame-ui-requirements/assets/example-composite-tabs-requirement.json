@@ -1,0 +1,809 @@
+{
+  "version": "0.1",
+  "revision": 1,
+  "requestId": "role-tab-states-20260803",
+  "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640",
+  "request": {
+    "purpose": "Build the complete Role navigation-tab structure while explicitly deferring per-instance preview state to later program control.",
+    "language": "en-US",
+    "originalText": [
+      "Use the supplied Role reference and preserve the selected and unselected tab appearance as composite states.",
+      "Do not create Lua, C++, or Blueprint switching logic."
+    ],
+    "scope": [
+      "Role screen navigation region",
+      "Reusable navigation tab child widget",
+      "Selected and unselected visual states"
+    ],
+    "exclusions": ["Hover, pressed, disabled, Lua, C++, and Blueprint behavior"],
+    "completionCriteria": [
+      "The selected and unselected tab states use complete panel branches.",
+      "The screen layout uses a 2560 by 1440 design canvas.",
+      "Static preview verification records that per-instance selected and unselected visuals are intentionally excluded."
+    ]
+  },
+  "sources": [
+    {
+      "id": "source-role-image",
+      "sourceKey": "source-role-image",
+      "kind": "image",
+      "locatorKind": "inline",
+      "description": "Role screen reference showing one selected tab and three unselected tabs.",
+      "path": "C:/References/role-screen.png",
+      "content": "inline-role-reference-fixture",
+      "mediaType": "image/png",
+      "dimensions": [2048, 1152],
+      "contentSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "id": "source-user-request",
+      "sourceKey": "source-user-request",
+      "kind": "user-text",
+      "locatorKind": "inline",
+      "description": "User scope and exclusion requirements.",
+      "content": "Use the supplied Role reference and preserve the selected and unselected tab appearance as composite states."
+    },
+    {
+      "id": "source-user-request-2",
+      "sourceKey": "source-user-request-2",
+      "kind": "user-text",
+      "locatorKind": "inline",
+      "description": "User exclusion requirement.",
+      "content": "Do not create Lua, C++, or Blueprint switching logic."
+    },
+    {
+      "id": "source-project-rules",
+      "sourceKey": "source-project-rules",
+      "kind": "project-rule",
+      "locatorKind": "inline",
+      "description": "NextGame UMG naming, resolution, variable, visibility, and button hierarchy rules.",
+      "path": "E:/UGameDev/AGENTS.md",
+      "content": "inline-nextgame-project-rule-fixture",
+      "contentSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "normalization": {
+    "findingsInputs": [
+      {
+        "agentRole": "visual-structure",
+        "findingsRef": "findings/visual-structure.json",
+        "findingsSha256": "0e9993c7c4abd3e6dd1e928980b68fa4bc51497e5962defb2af19166ec53ae49",
+        "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640"
+      },
+      {
+        "agentRole": "text-requirements",
+        "findingsRef": "findings/text-requirements.json",
+        "findingsSha256": "ae7d13e9829308c77062be6fd18ae7c78315d95b0d604b20fb7530e38469575e",
+        "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640"
+      },
+      {
+        "agentRole": "project-pattern",
+        "findingsRef": "findings/project-pattern.json",
+        "findingsSha256": "579a626579d1c518e970123d0209cddec8abaaceee7f50328263d1ff977cf9f6",
+        "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640"
+      },
+      {
+        "agentRole": "state-modeling",
+        "findingsRef": "findings/state-modeling.json",
+        "findingsSha256": "48836fcd7e4734f5227b8704ca4c82127b383352828bb6d0a3507f3ebbbaa936",
+        "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640",
+        "contextRef": "findings/normalized-context.json",
+        "contextSha256": "295b7517746b24d360a1c077bbda3510ca4f91d9a8be7b1761c0011b767225b2"
+      },
+      {
+        "agentRole": "data-adaptation",
+        "findingsRef": "findings/data-adaptation.json",
+        "findingsSha256": "4719f9ade9970c100b652ffb7e20120a6f0f30e8dd281b32588934eeb0912c4e",
+        "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640",
+        "contextRef": "findings/normalized-context.json",
+        "contextSha256": "295b7517746b24d360a1c077bbda3510ca4f91d9a8be7b1761c0011b767225b2"
+      },
+      {
+        "agentRole": "asset-decomposition",
+        "findingsRef": "findings/asset-decomposition.json",
+        "findingsSha256": "49a59033765def4f3dceb4482733cc8718af7c190b823eb5396ec0fff7f46bce",
+        "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640",
+        "contextRef": "findings/normalized-context.json",
+        "contextSha256": "295b7517746b24d360a1c077bbda3510ca4f91d9a8be7b1761c0011b767225b2"
+      },
+      {
+        "agentRole": "state-visual-review",
+        "findingsRef": "findings/state-visual-review.json",
+        "findingsSha256": "933271bb6f686acfce7d55fd29c545b2c7cdfafad8c15718533c44f731feb29d",
+        "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640",
+        "contextRef": "findings/normalized-context.json",
+        "contextSha256": "295b7517746b24d360a1c077bbda3510ca4f91d9a8be7b1761c0011b767225b2"
+      },
+      {
+        "agentRole": "schema-feasibility-review",
+        "findingsRef": "findings/schema-feasibility-review.json",
+        "findingsSha256": "6569740546343c2b0dc086291d611ec8aae1a788d8b045e270009f9133e7dd67",
+        "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640",
+        "contextRef": "findings/normalized-context.json",
+        "contextSha256": "295b7517746b24d360a1c077bbda3510ca4f91d9a8be7b1761c0011b767225b2"
+      },
+      {
+        "agentRole": "coverage-review",
+        "findingsRef": "findings/coverage-review.json",
+        "findingsSha256": "6566ce137f3a5fa04fca3fa5f13ddd3dd2bc7182f1e23b5140678dbadb6f7025",
+        "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640",
+        "contextRef": "findings/normalized-context.json",
+        "contextSha256": "295b7517746b24d360a1c077bbda3510ca4f91d9a8be7b1761c0011b767225b2"
+      }
+    ],
+    "aliases": [
+      {
+        "agentRole": "visual-structure",
+        "findingsRef": "findings/visual-structure.json",
+        "localId": "local-navigation-tab-family",
+        "canonicalId": "family-navigation-tab"
+      },
+      {
+        "agentRole": "text-requirements",
+        "findingsRef": "findings/text-requirements.json",
+        "localId": "local-no-runtime-code",
+        "canonicalId": "claim-no-runtime-code"
+      },
+      {
+        "agentRole": "project-pattern",
+        "findingsRef": "findings/project-pattern.json",
+        "localId": "local-screen-resolution",
+        "canonicalId": "claim-screen-resolution"
+      },
+      {
+        "agentRole": "visual-structure",
+        "findingsRef": "findings/visual-structure.json",
+        "localId": "local-visual-tabs",
+        "canonicalId": "evidence-selected-tab"
+      },
+      {
+        "agentRole": "text-requirements",
+        "findingsRef": "findings/text-requirements.json",
+        "localId": "local-user-code-exclusion",
+        "canonicalId": "evidence-user-static"
+      },
+      {
+        "agentRole": "project-pattern",
+        "findingsRef": "findings/project-pattern.json",
+        "localId": "local-project-resolution",
+        "canonicalId": "evidence-project-resolution"
+      }
+    ],
+    "discardedLocalIds": []
+  },
+  "target": {
+    "system": "role",
+    "systemFolder": "Role",
+    "mode": "production",
+    "assetKind": "screen",
+    "designCanvas": [2560, 1440],
+    "targetAssetPaths": [
+      "/Game/UI/UMG/Role/Widgets/uw_role_navigation_tab",
+      "/Game/UI/UMG/Role/umg_role"
+    ],
+    "productionAuthorized": true
+  },
+  "evidence": [
+    {
+      "id": "evidence-selected-tab",
+      "sourceId": "source-role-image",
+      "kind": "direct-observation",
+      "description": "The Role tab has a brighter panel, accent bar, larger label treatment, and different dimensions.",
+      "bounds": [0.11, 0.12, 0.09, 0.11]
+    },
+    {
+      "id": "evidence-unselected-tabs",
+      "sourceId": "source-role-image",
+      "kind": "cross-instance",
+      "description": "Weapon, Talent, and Neural tabs repeat the same subdued unselected composition.",
+      "bounds": [0.11, 0.22, 0.09, 0.52]
+    },
+    {
+      "id": "evidence-user-static",
+      "sourceId": "source-user-request-2",
+      "kind": "user-requirement",
+      "description": "The user excludes runtime state switching implementation."
+    },
+    {
+      "id": "evidence-project-state-rules",
+      "sourceId": "source-project-rules",
+      "kind": "project-reference",
+      "description": "Runtime-controlled visual branches must be variables; inactive branches are Collapsed."
+    },
+    {
+      "id": "evidence-project-resolution",
+      "sourceId": "source-project-rules",
+      "kind": "project-reference",
+      "description": "Complete NextGame screens use a 2560 by 1440 design canvas."
+    },
+    {
+      "id": "evidence-hover-unknown",
+      "sourceId": "source-role-image",
+      "kind": "inference",
+      "description": "A static image provides no evidence for hover, pressed, or disabled states."
+    }
+  ],
+  "claims": [
+    {
+      "id": "claim-screen-resolution",
+      "type": "project-rule",
+      "statement": "The complete Role screen uses a 2560 by 1440 layout.",
+      "evidenceIds": ["evidence-project-resolution"],
+      "confidence": 1.0,
+      "impact": "high",
+      "status": "accepted",
+      "blocksBuild": false,
+      "subjectRefs": ["asset-screen-role", "region-screen", "element-screen-root", "criterion-screen-resolution"]
+    },
+    {
+      "id": "claim-navigation-region",
+      "type": "region-structure",
+      "statement": "The tabs form one left navigation region.",
+      "evidenceIds": ["evidence-selected-tab", "evidence-unselected-tabs"],
+      "confidence": 0.99,
+      "impact": "high",
+      "status": "accepted",
+      "blocksBuild": false,
+      "subjectRefs": ["region-navigation", "element-navigation-panel", "responsive-navigation-left", "asset-screen-role"]
+    },
+    {
+      "id": "claim-tab-family",
+      "type": "component-family",
+      "statement": "All four visible tabs are instances of one reusable navigation-tab family.",
+      "evidenceIds": ["evidence-selected-tab", "evidence-unselected-tabs"],
+      "confidence": 0.98,
+      "impact": "high",
+      "status": "accepted",
+      "blocksBuild": false,
+      "subjectRefs": [
+        "family-navigation-tab",
+        "element-tab-template-button",
+        "element-tab-role-instance",
+        "element-tab-weapon-instance",
+        "element-tab-talent-instance",
+        "element-tab-neural-instance",
+        "asset-screen-role"
+      ]
+    },
+    {
+      "id": "claim-tab-composite-state",
+      "type": "state-behavior",
+      "statement": "Selected and unselected appearances require separate complete panel branches because their structure, decoration, typography, and dimensions differ.",
+      "evidenceIds": ["evidence-selected-tab", "evidence-unselected-tabs"],
+      "confidence": 0.97,
+      "impact": "high",
+      "status": "accepted",
+      "blocksBuild": false,
+      "subjectRefs": [
+        "state-model-navigation-tab",
+        "axis-tab-selection",
+        "state-tab-selected",
+        "state-tab-unselected",
+        "element-tab-content-panel",
+        "element-tab-selected-panel",
+        "element-tab-selected-background",
+        "element-tab-selected-accent",
+        "element-tab-selected-label",
+        "element-tab-unselected-panel",
+        "element-tab-unselected-background",
+        "element-tab-unselected-label",
+        "element-tab-role-instance",
+        "element-tab-weapon-instance",
+        "element-tab-talent-instance",
+        "element-tab-neural-instance",
+        "asset-child-navigation-tab",
+        "criterion-composite-branches"
+      ]
+    },
+    {
+      "id": "claim-state-branches-variable",
+      "type": "runtime-behavior",
+      "statement": "Both state panels are runtime-controlled variables even though switching code is excluded.",
+      "evidenceIds": ["evidence-project-state-rules", "evidence-user-static"],
+      "confidence": 1.0,
+      "impact": "high",
+      "status": "accepted",
+      "blocksBuild": false,
+      "subjectRefs": [
+        "state-model-navigation-tab",
+        "element-tab-selected-panel",
+        "element-tab-unselected-panel",
+        "runtime-tab-selected-visibility",
+        "runtime-tab-unselected-visibility"
+      ]
+    },
+    {
+      "id": "claim-asset-decomposition",
+      "type": "asset-decomposition",
+      "statement": "Build the reusable tab child widget before integrating instances into the Role screen.",
+      "evidenceIds": ["evidence-project-state-rules", "evidence-selected-tab", "evidence-unselected-tabs"],
+      "confidence": 0.96,
+      "impact": "high",
+      "status": "accepted",
+      "blocksBuild": false,
+      "subjectRefs": ["asset-child-navigation-tab", "asset-screen-role"]
+    },
+    {
+      "id": "claim-no-runtime-code",
+      "type": "explicit-requirement",
+      "statement": "Do not create Lua, C++, or Blueprint state-switching behavior.",
+      "evidenceIds": ["evidence-user-static"],
+      "confidence": 1.0,
+      "impact": "high",
+      "status": "accepted",
+      "blocksBuild": false,
+      "subjectRefs": []
+    },
+    {
+      "id": "claim-hover-state",
+      "type": "state-behavior",
+      "statement": "The tabs may later require a hover state.",
+      "evidenceIds": ["evidence-hover-unknown"],
+      "confidence": 0.25,
+      "impact": "medium",
+      "status": "proposed",
+      "blocksBuild": false,
+      "subjectRefs": []
+    }
+  ],
+  "reviewGate": {
+    "required": true,
+    "status": "accepted",
+    "reviewedBy": "user",
+    "reviewedAt": "2026-08-03T15:00:00+08:00",
+    "approvedContentSha256": "057e0dcd93e76e790834f6a54a35a078265dc004bde1a0ad1f46f301c221fae5",
+    "acceptedClaimIds": [
+      "claim-screen-resolution",
+      "claim-navigation-region",
+      "claim-tab-family",
+      "claim-tab-composite-state",
+      "claim-state-branches-variable",
+      "claim-asset-decomposition",
+      "claim-no-runtime-code"
+    ],
+    "rejectedClaimIds": [],
+    "notes": ["Composite selected and unselected branches were reviewed before build planning."]
+  },
+  "uiModel": {
+    "regions": [
+      {
+        "id": "region-screen",
+        "nameHint": "PanelRoot",
+        "purpose": "screen",
+        "parentRegionId": null,
+        "bounds": [0.0, 0.0, 1.0, 1.0],
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-project-resolution"],
+        "claimIds": ["claim-screen-resolution"]
+      },
+      {
+        "id": "region-navigation",
+        "nameHint": "PanelNavigation",
+        "purpose": "navigation",
+        "parentRegionId": "region-screen",
+        "bounds": [0.08, 0.08, 0.14, 0.72],
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-selected-tab", "evidence-unselected-tabs"],
+        "claimIds": ["claim-navigation-region"]
+      }
+    ],
+    "componentFamilies": [
+      {
+        "id": "family-navigation-tab",
+        "name": "Role navigation tab",
+        "regionId": "region-navigation",
+        "memberElementIds": [
+          "element-tab-role-instance",
+          "element-tab-weapon-instance",
+          "element-tab-talent-instance",
+          "element-tab-neural-instance"
+        ],
+        "evidenceIds": ["evidence-selected-tab", "evidence-unselected-tabs"],
+        "claimIds": ["claim-tab-family"]
+      }
+    ],
+    "elements": [
+      {
+        "id": "element-screen-root",
+        "kind": "panel",
+        "nameHint": "PanelRoot",
+        "regionId": "region-screen",
+        "parentElementId": null,
+        "familyId": null,
+        "runtimeControlled": false,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-project-resolution"],
+        "claimIds": ["claim-screen-resolution"],
+        "properties": {"layout": "full-screen"}
+      },
+      {
+        "id": "element-navigation-panel",
+        "kind": "panel",
+        "nameHint": "PanelNavigation",
+        "regionId": "region-navigation",
+        "parentElementId": "element-screen-root",
+        "familyId": null,
+        "runtimeControlled": false,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-selected-tab", "evidence-unselected-tabs"],
+        "claimIds": ["claim-navigation-region"],
+        "properties": {"anchor": "left-center"}
+      },
+      {
+        "id": "element-tab-role-instance",
+        "kind": "other",
+        "nameHint": "UwRoleTabRole",
+        "regionId": "region-navigation",
+        "parentElementId": "element-navigation-panel",
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": true,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-selected-tab"],
+        "claimIds": ["claim-tab-family", "claim-tab-composite-state"],
+        "properties": {"label": "角色"}
+      },
+      {
+        "id": "element-tab-weapon-instance",
+        "kind": "other",
+        "nameHint": "UwRoleTabWeapon",
+        "regionId": "region-navigation",
+        "parentElementId": "element-navigation-panel",
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": true,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-unselected-tabs"],
+        "claimIds": ["claim-tab-family", "claim-tab-composite-state"],
+        "properties": {"label": "武器"}
+      },
+      {
+        "id": "element-tab-talent-instance",
+        "kind": "other",
+        "nameHint": "UwRoleTabTalent",
+        "regionId": "region-navigation",
+        "parentElementId": "element-navigation-panel",
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": true,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-unselected-tabs"],
+        "claimIds": ["claim-tab-family", "claim-tab-composite-state"],
+        "properties": {"label": "天启"}
+      },
+      {
+        "id": "element-tab-neural-instance",
+        "kind": "other",
+        "nameHint": "UwRoleTabNeural",
+        "regionId": "region-navigation",
+        "parentElementId": "element-navigation-panel",
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": true,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-unselected-tabs"],
+        "claimIds": ["claim-tab-family", "claim-tab-composite-state"],
+        "properties": {"label": "神经"}
+      },
+      {
+        "id": "element-tab-template-button",
+        "kind": "button",
+        "nameHint": "BtnTab",
+        "regionId": "region-navigation",
+        "parentElementId": null,
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": false,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-selected-tab", "evidence-unselected-tabs"],
+        "claimIds": ["claim-tab-family"],
+        "properties": {"singleChild": "PanelTabContent"}
+      },
+      {
+        "id": "element-tab-content-panel",
+        "kind": "panel",
+        "nameHint": "PanelTabContent",
+        "regionId": "region-navigation",
+        "parentElementId": "element-tab-template-button",
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": false,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-selected-tab", "evidence-unselected-tabs"],
+        "claimIds": ["claim-tab-composite-state"],
+        "properties": {"buttonSlotPadding": 0, "fill": true}
+      },
+      {
+        "id": "element-tab-selected-panel",
+        "kind": "panel",
+        "nameHint": "PanelSelected",
+        "regionId": "region-navigation",
+        "parentElementId": "element-tab-content-panel",
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": true,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-selected-tab", "evidence-project-state-rules"],
+        "claimIds": ["claim-tab-composite-state", "claim-state-branches-variable"],
+        "properties": {"visibility": "Collapsed"}
+      },
+      {
+        "id": "element-tab-selected-background",
+        "kind": "image",
+        "nameHint": "ImgSelectedBackground",
+        "regionId": "region-navigation",
+        "parentElementId": "element-tab-selected-panel",
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": false,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-selected-tab"],
+        "claimIds": ["claim-tab-composite-state"],
+        "properties": {"visibility": "SelfHitTestInvisible"}
+      },
+      {
+        "id": "element-tab-selected-accent",
+        "kind": "image",
+        "nameHint": "ImgSelectedAccent",
+        "regionId": "region-navigation",
+        "parentElementId": "element-tab-selected-panel",
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": false,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-selected-tab"],
+        "claimIds": ["claim-tab-composite-state"],
+        "properties": {"visibility": "SelfHitTestInvisible"}
+      },
+      {
+        "id": "element-tab-selected-label",
+        "kind": "text",
+        "nameHint": "TxtSelectedLabel",
+        "regionId": "region-navigation",
+        "parentElementId": "element-tab-selected-panel",
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": true,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-selected-tab"],
+        "claimIds": ["claim-tab-composite-state"],
+        "properties": {"fontSize": 36, "justification": "Left", "visibility": "SelfHitTestInvisible"}
+      },
+      {
+        "id": "element-tab-unselected-panel",
+        "kind": "panel",
+        "nameHint": "PanelUnselected",
+        "regionId": "region-navigation",
+        "parentElementId": "element-tab-content-panel",
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": true,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-unselected-tabs", "evidence-project-state-rules"],
+        "claimIds": ["claim-tab-composite-state", "claim-state-branches-variable"],
+        "properties": {"visibility": "SelfHitTestInvisible"}
+      },
+      {
+        "id": "element-tab-unselected-background",
+        "kind": "image",
+        "nameHint": "ImgUnselectedBackground",
+        "regionId": "region-navigation",
+        "parentElementId": "element-tab-unselected-panel",
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": false,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-unselected-tabs"],
+        "claimIds": ["claim-tab-composite-state"],
+        "properties": {"visibility": "SelfHitTestInvisible"}
+      },
+      {
+        "id": "element-tab-unselected-label",
+        "kind": "text",
+        "nameHint": "TxtUnselectedLabel",
+        "regionId": "region-navigation",
+        "parentElementId": "element-tab-unselected-panel",
+        "familyId": "family-navigation-tab",
+        "runtimeControlled": true,
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-unselected-tabs"],
+        "claimIds": ["claim-tab-composite-state"],
+        "properties": {"fontSize": 28, "justification": "Left", "visibility": "SelfHitTestInvisible"}
+      }
+    ],
+    "collections": [],
+    "runtimeFields": [
+      {
+        "id": "runtime-tab-selected-visibility",
+        "elementId": "element-tab-selected-panel",
+        "valueKind": "visibility",
+        "reason": "Program code will activate the selected branch later.",
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-project-state-rules", "evidence-user-static"],
+        "claimIds": ["claim-state-branches-variable"]
+      },
+      {
+        "id": "runtime-tab-unselected-visibility",
+        "elementId": "element-tab-unselected-panel",
+        "valueKind": "visibility",
+        "reason": "Program code will activate the unselected branch later.",
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-project-state-rules", "evidence-user-static"],
+        "claimIds": ["claim-state-branches-variable"]
+      }
+    ],
+    "responsiveIntent": [
+      {
+        "id": "responsive-navigation-left",
+        "regionId": "region-navigation",
+        "horizontal": "left",
+        "vertical": "stretch",
+        "reason": "The navigation remains attached to the left edge while preserving top and bottom margins.",
+        "inBuildScope": true,
+        "evidenceIds": ["evidence-selected-tab", "evidence-project-resolution"],
+        "claimIds": ["claim-navigation-region"]
+      }
+    ]
+  },
+  "stateModels": [
+    {
+      "id": "state-model-navigation-tab",
+      "componentFamilyId": "family-navigation-tab",
+      "evidenceIds": ["evidence-selected-tab", "evidence-unselected-tabs", "evidence-project-state-rules"],
+      "claimIds": ["claim-tab-composite-state", "claim-state-branches-variable"],
+      "axes": [
+        {
+          "id": "axis-tab-selection",
+          "kind": "selection",
+          "exclusive": true,
+          "claimIds": ["claim-tab-composite-state"],
+          "states": [
+            {
+              "id": "state-tab-unselected",
+              "name": "unselected",
+              "isDefault": true,
+              "source": "cross-instance",
+              "inBuildScope": true,
+              "evidenceIds": ["evidence-unselected-tabs"],
+              "claimIds": ["claim-tab-composite-state"],
+              "composition": {
+                "mode": "full-branch",
+                "elementIds": [
+                  "element-tab-unselected-panel",
+                  "element-tab-unselected-background",
+                  "element-tab-unselected-label"
+                ]
+              }
+            },
+            {
+              "id": "state-tab-selected",
+              "name": "selected",
+              "isDefault": false,
+              "source": "observed",
+              "inBuildScope": true,
+              "evidenceIds": ["evidence-selected-tab"],
+              "claimIds": ["claim-tab-composite-state"],
+              "composition": {
+                "mode": "full-branch",
+                "elementIds": [
+                  "element-tab-selected-panel",
+                  "element-tab-selected-background",
+                  "element-tab-selected-accent",
+                  "element-tab-selected-label"
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "implementation": {
+        "strategy": "exclusive-panel-branches",
+        "axisId": "axis-tab-selection",
+        "branches": [
+          {
+            "stateId": "state-tab-unselected",
+            "panelElementId": "element-tab-unselected-panel",
+            "visibility": "SelfHitTestInvisible",
+            "completeElementIds": [
+              "element-tab-unselected-panel",
+              "element-tab-unselected-background",
+              "element-tab-unselected-label"
+            ]
+          },
+          {
+            "stateId": "state-tab-selected",
+            "panelElementId": "element-tab-selected-panel",
+            "visibility": "Collapsed",
+            "completeElementIds": [
+              "element-tab-selected-panel",
+              "element-tab-selected-background",
+              "element-tab-selected-accent",
+              "element-tab-selected-label"
+            ]
+          }
+        ]
+      },
+      "stateAssignments": [
+        {"elementId": "element-tab-role-instance", "axisStateIds": ["state-tab-selected"]},
+        {"elementId": "element-tab-weapon-instance", "axisStateIds": ["state-tab-unselected"]},
+        {"elementId": "element-tab-talent-instance", "axisStateIds": ["state-tab-unselected"]},
+        {"elementId": "element-tab-neural-instance", "axisStateIds": ["state-tab-unselected"]}
+      ]
+    }
+  ],
+  "assetPlan": [
+    {
+      "id": "asset-child-navigation-tab",
+      "assetPath": "/Game/UI/UMG/Role/Widgets/uw_role_navigation_tab",
+      "assetKind": "child-widget",
+      "referenceSize": [307, 130],
+      "layoutSpecPath": "example-composite-tabs-child-layout-spec.json",
+      "dependsOnAssetIds": [],
+      "buildOrder": 0,
+      "inBuildScope": true,
+      "coversRegionIds": ["region-navigation"],
+      "coversElementIds": [
+        "element-tab-template-button",
+        "element-tab-content-panel",
+        "element-tab-selected-panel",
+        "element-tab-selected-background",
+        "element-tab-selected-accent",
+        "element-tab-selected-label",
+        "element-tab-unselected-panel",
+        "element-tab-unselected-background",
+        "element-tab-unselected-label"
+      ],
+      "coversCollectionIds": [],
+      "coversStateModelIds": ["state-model-navigation-tab"],
+      "evidenceIds": ["evidence-selected-tab", "evidence-unselected-tabs", "evidence-project-state-rules"],
+      "claimIds": ["claim-asset-decomposition", "claim-tab-composite-state"]
+    },
+    {
+      "id": "asset-screen-role",
+      "assetPath": "/Game/UI/UMG/Role/umg_role",
+      "assetKind": "screen",
+      "referenceSize": [2560, 1440],
+      "layoutSpecPath": "example-composite-tabs-screen-layout-spec.json",
+      "dependsOnAssetIds": ["asset-child-navigation-tab"],
+      "buildOrder": 1,
+      "inBuildScope": true,
+      "coversRegionIds": ["region-screen", "region-navigation"],
+      "coversElementIds": [
+        "element-screen-root",
+        "element-navigation-panel",
+        "element-tab-role-instance",
+        "element-tab-weapon-instance",
+        "element-tab-talent-instance",
+        "element-tab-neural-instance"
+      ],
+      "coversCollectionIds": [],
+      "coversStateModelIds": [],
+      "evidenceIds": ["evidence-project-resolution", "evidence-selected-tab", "evidence-unselected-tabs"],
+      "claimIds": ["claim-screen-resolution", "claim-navigation-region", "claim-tab-family", "claim-asset-decomposition"]
+    }
+  ],
+  "assumptions": [
+    {
+      "id": "assumption-no-hover-model",
+      "statement": "Hover, pressed, and disabled states remain unmodeled until direct evidence or a user requirement exists.",
+      "status": "proposed",
+      "confidence": 0.9,
+      "impact": "medium",
+      "consequenceIfWrong": "A later interaction pass may need to add another state axis and update the tab asset.",
+      "affectsClaimIds": ["claim-hover-state"],
+      "evidenceIds": ["evidence-hover-unknown"]
+    }
+  ],
+  "questions": [
+    {
+      "id": "question-hover-states",
+      "question": "Should a later interaction pass define hover, pressed, or disabled tab states?",
+      "status": "open",
+      "impact": "medium",
+      "blocksBuild": false,
+      "affectsClaimIds": ["claim-hover-state"]
+    }
+  ],
+  "acceptanceCriteria": [
+    {
+      "id": "criterion-composite-branches",
+      "description": "Selected and unselected visuals are complete sibling panel branches, not one image swap.",
+      "inBuildScope": true,
+      "claimIds": ["claim-tab-composite-state"]
+    },
+    {
+      "id": "criterion-screen-resolution",
+      "description": "The Role screen UILayoutSpec uses 2560 by 1440.",
+      "inBuildScope": true,
+      "claimIds": ["claim-screen-resolution"]
+    }
+  ]
+}

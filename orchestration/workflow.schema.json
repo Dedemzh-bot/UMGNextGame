@@ -1,0 +1,307 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:nextgame-ui:portable-workflow:1.0.0",
+  "title": "NextGame UI portable multi-agent workflow",
+  "description": "Vendor-neutral orchestration contract. Runtime messages are advisory; filesystem artifacts are authoritative.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaRef",
+    "contractVersion",
+    "workflowId",
+    "workflowVersion",
+    "requestPacketRef",
+    "artifactExchange",
+    "requiredFindingsRoles",
+    "parallelGroups",
+    "steps",
+    "requirementsTerminal",
+    "protectedContinuation"
+  ],
+  "properties": {
+    "schemaRef": {
+      "const": "workflow.schema.json"
+    },
+    "contractVersion": {
+      "const": "1.0.0"
+    },
+    "workflowId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9-]+$"
+    },
+    "workflowVersion": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "requestPacketRef": {
+      "$ref": "#/$defs/relativePath"
+    },
+    "artifactExchange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority",
+        "messagesAreAuthoritative",
+        "completionRule",
+        "integrityAlgorithm",
+        "failClosedOnMissingOrDigestMismatch",
+        "provenanceRule",
+        "pathStyle",
+        "allowedOutputPrefixes",
+        "allowedRootOutputs"
+      ],
+      "properties": {
+        "authority": {
+          "const": "filesystem-artifacts"
+        },
+        "messagesAreAuthoritative": {
+          "const": false
+        },
+        "completionRule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "integrityAlgorithm": {
+          "const": "sha256"
+        },
+        "failClosedOnMissingOrDigestMismatch": {
+          "const": true
+        },
+        "provenanceRule": {
+          "type": "string",
+          "minLength": 1
+        },
+        "pathStyle": {
+          "const": "artifact-root-relative-posix"
+        },
+        "allowedOutputPrefixes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9-]*$"
+          }
+        },
+        "allowedRootOutputs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9.-]*\\.json$"
+          }
+        }
+      }
+    },
+    "requiredFindingsRoles": {
+      "type": "array",
+      "minItems": 9,
+      "maxItems": 9,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/findingsRole"
+      }
+    },
+    "parallelGroups": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "$ref": "#/$defs/parallelGroup"
+      }
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/step"
+      }
+    },
+    "requirementsTerminal": {
+      "type": "string",
+      "minLength": 1
+    },
+    "protectedContinuation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "dispatchByDefault",
+        "schedulerPolicy",
+        "description",
+        "steps"
+      ],
+      "properties": {
+        "dispatchByDefault": {
+          "const": false
+        },
+        "schedulerPolicy": {
+          "const": "manual-resume-after-verified-gate-artifact"
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "steps": {
+          "type": "array",
+          "minItems": 5,
+          "items": {
+            "$ref": "#/$defs/step"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?![A-Za-z]:)(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"
+    },
+    "findingsRole": {
+      "type": "string",
+      "enum": [
+        "visual-structure",
+        "text-requirements",
+        "project-pattern",
+        "state-modeling",
+        "data-adaptation",
+        "asset-decomposition",
+        "state-visual-review",
+        "schema-feasibility-review",
+        "coverage-review"
+      ]
+    },
+    "parallelGroup": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "members"],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]+$"
+        },
+        "members": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        }
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "actor",
+        "manualAdvance",
+        "decisionArtifact",
+        "acceptanceCondition"
+      ],
+      "properties": {
+        "actor": {
+          "const": "user"
+        },
+        "manualAdvance": {
+          "const": true
+        },
+        "decisionArtifact": {
+          "$ref": "#/$defs/relativePath"
+        },
+        "acceptanceCondition": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "step": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "kind",
+        "execution",
+        "dependsOn",
+        "inputs",
+        "outputs",
+        "instruction"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]+$"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "validation",
+            "findings",
+            "normalization",
+            "synthesis",
+            "gate",
+            "build",
+            "readback",
+            "presentation",
+            "document"
+          ]
+        },
+        "execution": {
+          "type": "string",
+          "enum": ["coordinator", "worker", "human"]
+        },
+        "dependsOn": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "inputs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          }
+        },
+        "outputs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          }
+        },
+        "instruction": {
+          "type": "string",
+          "minLength": 1
+        },
+        "agentRole": {
+          "$ref": "#/$defs/findingsRole"
+        },
+        "parallelGroup": {
+          "type": "string",
+          "minLength": 1
+        },
+        "contractValidator": {
+          "type": "string",
+          "enum": [
+            "request-packet",
+            "agent-findings-batch",
+            "requirement-spec-strict",
+            "build-bundle",
+            "unreal-widget-readback",
+            "ui-build-acceptance",
+            "program-handoff",
+            "document-verification"
+          ]
+        },
+        "gate": {
+          "$ref": "#/$defs/gate"
+        }
+      }
+    }
+  }
+}

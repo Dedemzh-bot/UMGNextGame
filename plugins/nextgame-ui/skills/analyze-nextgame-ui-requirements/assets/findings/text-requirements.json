@@ -1,0 +1,27 @@
+{
+  "version": "0.1",
+  "requestId": "role-tab-states-20260803",
+  "agentRole": "text-requirements",
+  "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640",
+  "sourceScope": ["source-user-request", "source-user-request-2"],
+  "findings": [
+    {
+      "localId": "local-no-runtime-code",
+      "category": "exclusion",
+      "statement": "Lua, C++, and Blueprint switching logic are excluded.",
+      "evidenceRefs": ["local-user-code-exclusion"],
+      "confidence": 1.0,
+      "impact": "high"
+    }
+  ],
+  "evidence": [
+    {
+      "localId": "local-user-code-exclusion",
+      "sourceKey": "source-user-request-2",
+      "kind": "user-statement",
+      "description": "The second user statement explicitly excludes state-switching code.",
+      "confidence": 1.0
+    }
+  ],
+  "questionCandidates": []
+}

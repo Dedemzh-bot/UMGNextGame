@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/shared-widget-bootstrap.json",
+  "title": "NextGame SharedWidgetBootstrapSnapshot 0.1",
+  "type": "object",
+  "required": ["version", "snapshotId", "snapshotRevision", "baseRegistry", "entries"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "0.1"},
+    "snapshotId": {"const": "nextgame-shared-widget-bootstrap"},
+    "snapshotRevision": {"type": "integer", "minimum": 1},
+    "baseRegistry": {"$ref": "#/$defs/baseRegistry"},
+    "entries": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/plannedBootstrapEntry"}
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{2,95}$"},
+    "gameAssetPath": {"type": "string", "pattern": "^/Game/UI/UMG/Widgets/[A-Za-z0-9_]+$"},
+    "classPath": {
+      "type": "string",
+      "pattern": "^(?:/Game(?:/[A-Za-z0-9_]+)+\\.[A-Za-z0-9_]+_C|/Script/[A-Za-z0-9_]+\\.[A-Za-z0-9_]+)$"
+    },
+    "size": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer", "minimum": 1},
+        {"type": "integer", "minimum": 1}
+      ],
+      "items": false,
+      "minItems": 2,
+      "maxItems": 2
+    },
+    "baseRegistry": {
+      "type": "object",
+      "required": ["registryId", "registryVersion", "registryRevision", "registrySha256"],
+      "additionalProperties": false,
+      "properties": {
+        "registryId": {"const": "nextgame-shared-widgets"},
+        "registryVersion": {"const": "0.4"},
+        "registryRevision": {"type": "integer", "minimum": 1},
+        "registrySha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "authorization": {
+      "type": "object",
+      "required": ["status", "actorType", "source", "evidenceRef"],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"const": "accepted"},
+        "actorType": {"const": "user"},
+        "source": {"const": "direct-user-message"},
+        "evidenceRef": {"type": "string", "minLength": 1}
+      }
+    },
+    "plannedBootstrapEntry": {
+      "type": "object",
+      "required": [
+        "id",
+        "status",
+        "assetPlanId",
+        "assetPath",
+        "assetKind",
+        "scope",
+        "layoutSpecPath",
+        "layoutSpecSha256",
+        "expectedObjectPath",
+        "expectedGeneratedClassPath",
+        "expectedParentClassPath",
+        "expectedReferenceSize",
+        "capabilityIds",
+        "extensionSlotsStatus",
+        "authorization",
+        "bootstrapContractSha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string", "pattern": "^shared\\.[a-z][a-z0-9.-]{2,95}$"},
+        "status": {"const": "planned-bootstrap"},
+        "assetPlanId": {"$ref": "#/$defs/id"},
+        "assetPath": {"$ref": "#/$defs/gameAssetPath"},
+        "assetKind": {"enum": ["list-entry", "child-widget"]},
+        "scope": {"const": "project-common"},
+        "layoutSpecPath": {"type": "string", "minLength": 1},
+        "layoutSpecSha256": {"$ref": "#/$defs/sha256"},
+        "expectedObjectPath": {
+          "type": "string",
+          "pattern": "^/Game/UI/UMG/Widgets/[A-Za-z0-9_]+\\.[A-Za-z0-9_]+$"
+        },
+        "expectedGeneratedClassPath": {"$ref": "#/$defs/classPath"},
+        "expectedParentClassPath": {"$ref": "#/$defs/classPath"},
+        "expectedReferenceSize": {"$ref": "#/$defs/size"},
+        "capabilityIds": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/id"}
+        },
+        "extensionSlotsStatus": {"const": "required-before-activation"},
+        "authorization": {"$ref": "#/$defs/authorization"},
+        "bootstrapContractSha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

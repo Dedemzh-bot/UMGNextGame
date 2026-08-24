@@ -1,0 +1,458 @@
+{
+  "version": "0.2",
+  "sourceSpec": "Tools\\CodexMarketplace\\plugins\\nextgame-ui\\skills\\build-nextgame-umg\\assets\\example-fight-child-layout-spec.json",
+  "assetPath": "/Game/UI/AIPrototype/umg_ai_fight_stamina",
+  "objectPath": "/Game/UI/AIPrototype/umg_ai_fight_stamina.umg_ai_fight_stamina",
+  "intendedTarget": {
+    "folder": "/Game/UI/UMG/Fight/Widgets",
+    "name": "uw_fight_stamina",
+    "integrationAsset": "/Game/UI/UMG/Fight/umg_fight"
+  },
+  "designSizeMode": "Desired",
+  "selectedRuleIds": [
+    "layout.designer-size-mode",
+    "layout.adaptive-anchors",
+    "layout.decorative-image-adaptation",
+    "interaction.passive-self-only",
+    "widget.runtime-variable",
+    "component.project-game-image",
+    "visual.complete-image-composition",
+    "layout.content-driven-canvas-module",
+    "structure.region-modules",
+    "structure.overlay-minimal",
+    "structure.overlay-slot-alignment",
+    "naming.widget-component-instance",
+    "structure.standard-system",
+    "folder.system-widget-blueprints",
+    "naming.child-widget-blueprint",
+    "folder.child-widget",
+    "fight.reference-authority",
+    "fight.child-module",
+    "fight.reference-layout",
+    "prototype.asset-path",
+    "prototype.asset-name",
+    "prototype.native-components",
+    "layout.normalized-rects"
+  ],
+  "selectedRuleIdsBySourceType": {
+    "explicit": [
+      "layout.designer-size-mode",
+      "layout.adaptive-anchors",
+      "layout.decorative-image-adaptation",
+      "interaction.passive-self-only",
+      "widget.runtime-variable",
+      "component.project-game-image",
+      "visual.complete-image-composition",
+      "layout.content-driven-canvas-module",
+      "structure.region-modules",
+      "structure.overlay-minimal",
+      "structure.overlay-slot-alignment",
+      "naming.widget-component-instance",
+      "structure.standard-system",
+      "folder.system-widget-blueprints",
+      "naming.child-widget-blueprint",
+      "folder.child-widget",
+      "fight.reference-authority",
+      "fight.child-module"
+    ],
+    "observed": [
+      "fight.reference-layout"
+    ],
+    "baseline": [
+      "prototype.asset-path",
+      "prototype.asset-name",
+      "prototype.native-components",
+      "layout.normalized-rects"
+    ]
+  },
+  "warnings": [
+    "Prototype representation of the intended fight stamina child widget."
+  ],
+  "executorContract": {
+    "referenceSyntax": "${savedResult.json.path}",
+    "propertyWriteSequence": [
+      "list_properties",
+      "get_properties",
+      "set_properties"
+    ],
+    "setPropertiesValuesEncoding": "compact JSON string",
+    "designSizeModeWrite": {
+      "primary": "official-unreal-mcp generated-CDO ObjectTools list/get/set",
+      "fallback": "nxue manage-property only when the official route does not expose the protected CDO field",
+      "cdoObjectPath": "/Game/UI/AIPrototype/umg_ai_fight_stamina.Default__umg_ai_fight_stamina_C",
+      "propertyPath": "DesignSizeMode",
+      "expectedValue": "Desired",
+      "requiresPostSaveReadback": true
+    }
+  },
+  "steps": [
+    {
+      "stepId": "check-destination",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "ListWidgetBlueprints",
+      "arguments": {
+        "folderPath": "/Game/UI/AIPrototype"
+      },
+      "assertion": "Stop if /Game/UI/AIPrototype/umg_ai_fight_stamina.umg_ai_fight_stamina already exists unless update was explicitly authorized."
+    },
+    {
+      "stepId": "create-blueprint",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "CreateWidgetBlueprint",
+      "arguments": {
+        "folderPath": "/Game/UI/AIPrototype",
+        "assetName": "umg_ai_fight_stamina",
+        "parentClass": {
+          "refPath": "/Script/UMG.UserWidget"
+        }
+      },
+      "saveResultAs": "blueprint"
+    },
+    {
+      "stepId": "add-root",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "AddWidget",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widgetClass": {
+          "refPath": "/Script/UMG.CanvasPanel"
+        },
+        "widgetDisplayName": "PanelRoot",
+        "childIndex": -1
+      },
+      "saveResultAs": "node.root"
+    },
+    {
+      "stepId": "toggle-widget-variable-root",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "ToggleWidgetAsVariable",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widget": {
+          "refPath": "${node.root.returnValue.widget.refPath}"
+        },
+        "bIsVariable": false
+      }
+    },
+    {
+      "stepId": "list-widget-properties-root",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.root.returnValue.widget.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-widget-properties-root",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.root.returnValue.widget.refPath}"
+        },
+        "properties": [
+          "visibility"
+        ]
+      }
+    },
+    {
+      "stepId": "set-widget-properties-root",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.root.returnValue.widget.refPath}"
+        },
+        "values": {
+          "visibility": "SelfHitTestInvisible"
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "add-stamina",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "AddWidget",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widgetClass": {
+          "refPath": "/Script/UMG.ProgressBar"
+        },
+        "widgetDisplayName": "BarStamina",
+        "childIndex": -1,
+        "parentWidget": {
+          "refPath": "${node.root.returnValue.widget.refPath}"
+        }
+      },
+      "saveResultAs": "node.stamina"
+    },
+    {
+      "stepId": "toggle-widget-variable-stamina",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "ToggleWidgetAsVariable",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        },
+        "widget": {
+          "refPath": "${node.stamina.returnValue.widget.refPath}"
+        },
+        "bIsVariable": true
+      }
+    },
+    {
+      "stepId": "list-widget-properties-stamina",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.stamina.returnValue.widget.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-widget-properties-stamina",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.stamina.returnValue.widget.refPath}"
+        },
+        "properties": [
+          "percent",
+          "barFillType",
+          "fillColorAndOpacity",
+          "visibility"
+        ]
+      }
+    },
+    {
+      "stepId": "set-widget-properties-stamina",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.stamina.returnValue.widget.refPath}"
+        },
+        "values": {
+          "percent": 0.75,
+          "barFillType": "BottomToTop",
+          "fillColorAndOpacity": {
+            "r": 0.25,
+            "g": 0.85,
+            "b": 0.45,
+            "a": 1
+          },
+          "visibility": "SelfHitTestInvisible"
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "list-slot-properties-stamina",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.stamina.returnValue.slot.refPath}"
+        }
+      }
+    },
+    {
+      "stepId": "get-slot-properties-stamina",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.stamina.returnValue.slot.refPath}"
+        },
+        "properties": [
+          "layoutData",
+          "bAutoSize",
+          "zOrder"
+        ]
+      }
+    },
+    {
+      "stepId": "set-slot-properties-stamina",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${node.stamina.returnValue.slot.refPath}"
+        },
+        "values": {
+          "layoutData": {
+            "offsets": {
+              "left": 192.0,
+              "top": -1.199988000000034,
+              "right": 50.000064,
+              "bottom": 300.000024
+            },
+            "anchors": {
+              "minimum": {
+                "x": 0.0,
+                "y": 0.5
+              },
+              "maximum": {
+                "x": 0.0,
+                "y": 0.5
+              }
+            },
+            "alignment": {
+              "x": 0.0,
+              "y": 0.5
+            }
+          },
+          "bAutoSize": false,
+          "zOrder": 0
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string after confirming exact property names.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "compile",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "CompileWidgetBlueprint",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        }
+      },
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "get-blueprint-default-object",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.blueprint.BlueprintTools",
+      "toolName": "get_default_object",
+      "arguments": {
+        "blueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        }
+      },
+      "saveResultAs": "blueprintDefaultObject",
+      "assertion": "returnValue must resolve to the generated UUserWidget class default object"
+    },
+    {
+      "stepId": "list-design-size-mode-property",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "list_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${blueprintDefaultObject.returnValue.refPath}"
+        }
+      },
+      "assertion": "The generated class CDO must expose designSizeMode (UUserWidget::DesignSizeMode)."
+    },
+    {
+      "stepId": "get-design-size-mode-before",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${blueprintDefaultObject.returnValue.refPath}"
+        },
+        "properties": [
+          "designSizeMode"
+        ]
+      }
+    },
+    {
+      "stepId": "set-design-size-mode",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "set_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${blueprintDefaultObject.returnValue.refPath}"
+        },
+        "values": {
+          "designSizeMode": "Desired"
+        }
+      },
+      "instruction": "Serialize values as a compact JSON string. Set the generated UUserWidget CDO after the final compile and before save; never write this property on the WidgetBlueprint asset object.",
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "save",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.asset.AssetTools",
+      "toolName": "save_assets",
+      "arguments": {
+        "asset_paths": [
+          "/Game/UI/AIPrototype/umg_ai_fight_stamina"
+        ]
+      },
+      "assertion": "returnValue must be true"
+    },
+    {
+      "stepId": "get-saved-blueprint-default-object",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.blueprint.BlueprintTools",
+      "toolName": "get_default_object",
+      "arguments": {
+        "blueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        }
+      },
+      "saveResultAs": "savedBlueprintDefaultObject",
+      "assertion": "returnValue must resolve to the saved generated UUserWidget class default object"
+    },
+    {
+      "stepId": "verify-design-size-mode",
+      "operation": "call_tool",
+      "toolsetName": "editor_toolset.toolsets.object.ObjectTools",
+      "toolName": "get_properties",
+      "arguments": {
+        "instance": {
+          "refPath": "${savedBlueprintDefaultObject.returnValue.refPath}"
+        },
+        "properties": [
+          "designSizeMode"
+        ]
+      },
+      "assertion": "Saved generated-class CDO designSizeMode must equal Desired."
+    },
+    {
+      "stepId": "verify-tree",
+      "operation": "call_tool",
+      "toolsetName": "UMGToolSet.UMGToolSet",
+      "toolName": "GetWidgets",
+      "arguments": {
+        "widgetBlueprint": {
+          "refPath": "${blueprint.returnValue.refPath}"
+        }
+      }
+    }
+  ]
+}

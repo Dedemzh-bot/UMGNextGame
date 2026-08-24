@@ -1,0 +1,28 @@
+{
+  "version": "0.1",
+  "requestId": "role-tab-states-20260803",
+  "agentRole": "visual-structure",
+  "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640",
+  "sourceScope": ["source-role-image"],
+  "findings": [
+    {
+      "localId": "local-navigation-tab-family",
+      "category": "component-family",
+      "statement": "The four navigation tabs form one visual component family.",
+      "evidenceRefs": ["local-visual-tabs"],
+      "confidence": 0.98,
+      "impact": "high"
+    }
+  ],
+  "evidence": [
+    {
+      "localId": "local-visual-tabs",
+      "sourceKey": "source-role-image",
+      "kind": "cross-instance",
+      "description": "One selected tab and three unselected tabs repeat at matching positions.",
+      "bounds": [0.1, 0.1, 0.15, 0.6],
+      "confidence": 0.98
+    }
+  ],
+  "questionCandidates": []
+}

@@ -1,0 +1,74 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NextGame UMG DOCX Render Evidence",
+  "type": "object",
+  "required": ["version", "renderedAt", "renderer", "sourceDocument", "canonicalPdf", "canonicalPageRender", "pages"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "0.1"},
+    "renderedAt": {"type": "string", "minLength": 1},
+    "renderer": {
+      "type": "object",
+      "required": ["name", "version"],
+      "additionalProperties": false,
+      "properties": {
+        "name": {"const": "LibreOffice/soffice"},
+        "version": {"type": "string", "minLength": 1}
+      }
+    },
+    "sourceDocument": {
+      "type": "object",
+      "required": ["fileName", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "fileName": {"type": "string", "pattern": "^[0-9]{8}_UGame[A-Za-z0-9_]+\u754c\u9762\u8bf4\u660e\\.docx$"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "canonicalPdf": {"$ref": "#/$defs/canonicalPdf"},
+    "canonicalPageRender": {"$ref": "#/$defs/canonicalPageRender"},
+    "pages": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/page"}
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "canonicalPdf": {
+      "type": "object",
+      "required": ["fileName", "sha256", "byteSize"],
+      "additionalProperties": false,
+      "properties": {
+        "fileName": {"type": "string", "pattern": "^[0-9]{8}_UGame[A-Za-z0-9_]+\u754c\u9762\u8bf4\u660e\\.canonical\\.pdf$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "byteSize": {"type": "integer", "minimum": 32}
+      }
+    },
+    "canonicalPageRender": {
+      "type": "object",
+      "required": ["tool", "version", "dpi", "pageCount", "authoritativePagesGenerated"],
+      "additionalProperties": false,
+      "properties": {
+        "tool": {"const": "pdftoppm"},
+        "version": {"type": "string", "minLength": 1},
+        "dpi": {"const": 150},
+        "pageCount": {"type": "integer", "minimum": 1},
+        "authoritativePagesGenerated": {"const": true}
+      }
+    },
+    "page": {
+      "type": "object",
+      "required": ["pageNumber", "fileName", "sha256", "byteSize", "width", "height"],
+      "additionalProperties": false,
+      "properties": {
+        "pageNumber": {"type": "integer", "minimum": 1},
+        "fileName": {"type": "string", "pattern": ".+\\.png$"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "byteSize": {"type": "integer", "minimum": 1},
+        "width": {"type": "integer", "minimum": 64},
+        "height": {"type": "integer", "minimum": 64}
+      }
+    }
+  }
+}

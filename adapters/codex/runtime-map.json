@@ -1,0 +1,20 @@
+{
+  "runtime": "codex",
+  "workflowId": "nextgame-ui-requirements",
+  "dispatch": "spawn_agent",
+  "wait": "wait_agent",
+  "inspect": "list_agents",
+  "correctActive": "send_message",
+  "retryIdle": "followup_task",
+  "stop": "interrupt_agent",
+  "coordinatorOnly": [
+    "normalize-context",
+    "synthesize-draft",
+    "adjudicate-review",
+    "strict-requirement-validation",
+    "ask-user",
+    "accept-human-gate"
+  ],
+  "receiptIsAuthoritative": false,
+  "artifactAndValidatorAreAuthoritative": true
+}

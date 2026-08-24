@@ -1,0 +1,20 @@
+{
+  "name": "umg-nextgame",
+  "interface": {
+    "displayName": "UMG NextGame"
+  },
+  "plugins": [
+    {
+      "name": "nextgame-ui",
+      "source": {
+        "source": "local",
+        "path": "./plugins/nextgame-ui"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    }
+  ]
+}

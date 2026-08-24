@@ -1,0 +1,414 @@
+{
+  "schemaRef": "workflow.schema.json",
+  "contractVersion": "1.0.0",
+  "workflowId": "nextgame-ui-requirements",
+  "workflowVersion": "1.0.0",
+  "requestPacketRef": "request-packet.json",
+  "artifactExchange": {
+    "authority": "filesystem-artifacts",
+    "messagesAreAuthoritative": false,
+    "completionRule": "A step completes only when every declared artifact exists and the declared contract validator succeeds; chat summaries and vendor task status are advisory.",
+    "integrityAlgorithm": "sha256",
+    "failClosedOnMissingOrDigestMismatch": true,
+    "provenanceRule": "Every validation record and human-gate artifact binds the exact upstream logical paths and canonical SHA-256 digests; missing or stale evidence blocks dispatch.",
+    "pathStyle": "artifact-root-relative-posix",
+    "allowedOutputPrefixes": [
+      "findings",
+      "contexts",
+      "status"
+    ],
+    "allowedRootOutputs": [
+      "ui-requirement.draft.json",
+      "ui-requirement.pending.json",
+      "ui-requirement.json",
+      "ui-build-bundle.json",
+      "unreal-widget-readback.json",
+      "ui-build-acceptance.json",
+      "ui-program-handoff.json",
+      "program-document-content.json",
+      "document-verification.json"
+    ]
+  },
+  "requiredFindingsRoles": [
+    "visual-structure",
+    "text-requirements",
+    "project-pattern",
+    "state-modeling",
+    "data-adaptation",
+    "asset-decomposition",
+    "state-visual-review",
+    "schema-feasibility-review",
+    "coverage-review"
+  ],
+  "parallelGroups": [
+    {
+      "id": "discovery",
+      "members": [
+        "discover-visual-structure",
+        "discover-text-requirements",
+        "discover-project-pattern"
+      ]
+    },
+    {
+      "id": "focused-analysis",
+      "members": [
+        "analyze-state-modeling",
+        "analyze-data-adaptation",
+        "analyze-asset-decomposition"
+      ]
+    },
+    {
+      "id": "independent-review",
+      "members": [
+        "review-state-visual",
+        "review-schema-feasibility",
+        "review-coverage"
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "id": "validate-packet",
+      "kind": "validation",
+      "execution": "coordinator",
+      "dependsOn": [],
+      "inputs": ["request-packet.json"],
+      "outputs": ["status/request-packet.validated.json"],
+      "instruction": "Validate the immutable RequestPacket and record its canonical digest before any evidence is delegated.",
+      "contractValidator": "request-packet"
+    },
+    {
+      "id": "discover-visual-structure",
+      "kind": "findings",
+      "execution": "worker",
+      "dependsOn": ["validate-packet"],
+      "inputs": ["request-packet.json"],
+      "outputs": ["findings/visual-structure.json"],
+      "instruction": "Use only the packet image sources. Emit one AgentFindings document; do not author requirements or consume another agent's output.",
+      "agentRole": "visual-structure",
+      "parallelGroup": "discovery"
+    },
+    {
+      "id": "discover-text-requirements",
+      "kind": "findings",
+      "execution": "worker",
+      "dependsOn": ["validate-packet"],
+      "inputs": ["request-packet.json"],
+      "outputs": ["findings/text-requirements.json"],
+      "instruction": "Use only the packet user-text sources. Emit explicit purpose, scope, exclusions, naming, paths, interactions, and acceptance as AgentFindings without visual inference.",
+      "agentRole": "text-requirements",
+      "parallelGroup": "discovery"
+    },
+    {
+      "id": "discover-project-pattern",
+      "kind": "findings",
+      "execution": "worker",
+      "dependsOn": ["validate-packet"],
+      "inputs": ["request-packet.json"],
+      "outputs": ["findings/project-pattern.json"],
+      "instruction": "Use only project-rule and project-asset sources, including the shared-widget registry. Emit observed precedent as AgentFindings, not as final authority.",
+      "agentRole": "project-pattern",
+      "parallelGroup": "discovery"
+    },
+    {
+      "id": "validate-discovery",
+      "kind": "validation",
+      "execution": "coordinator",
+      "dependsOn": [
+        "discover-visual-structure",
+        "discover-text-requirements",
+        "discover-project-pattern"
+      ],
+      "inputs": [
+        "request-packet.json",
+        "findings/visual-structure.json",
+        "findings/text-requirements.json",
+        "findings/project-pattern.json"
+      ],
+      "outputs": ["status/discovery-findings.validated.json"],
+      "instruction": "Validate all three discovery findings against the same RequestPacket. Reject stale digests and cross-source leakage.",
+      "contractValidator": "agent-findings-batch"
+    },
+    {
+      "id": "normalize-identities",
+      "kind": "normalization",
+      "execution": "coordinator",
+      "dependsOn": ["validate-discovery"],
+      "inputs": [
+        "request-packet.json",
+        "findings/visual-structure.json",
+        "findings/text-requirements.json",
+        "findings/project-pattern.json"
+      ],
+      "outputs": ["contexts/normalized-context.json"],
+      "instruction": "Assign stable canonical IDs and preserve a complete alias-or-discard outcome for every discovery local ID. The normalizer is not an AgentFindings role."
+    },
+    {
+      "id": "analyze-state-modeling",
+      "kind": "findings",
+      "execution": "worker",
+      "dependsOn": ["normalize-identities"],
+      "inputs": [
+        "request-packet.json",
+        "contexts/normalized-context.json"
+      ],
+      "outputs": ["findings/state-modeling.json"],
+      "instruction": "Analyze supported state axes, compositions, deltas, evidence, implementation strategy, and high-level control intent against the shared canonical context.",
+      "agentRole": "state-modeling",
+      "parallelGroup": "focused-analysis"
+    },
+    {
+      "id": "analyze-data-adaptation",
+      "kind": "findings",
+      "execution": "worker",
+      "dependsOn": ["normalize-identities"],
+      "inputs": [
+        "request-packet.json",
+        "contexts/normalized-context.json"
+      ],
+      "outputs": ["findings/data-adaptation.json"],
+      "instruction": "Analyze runtime collections, overflow, responsive intent, text behavior, and immediate-parent panel Slot intent against the shared canonical context.",
+      "agentRole": "data-adaptation",
+      "parallelGroup": "focused-analysis"
+    },
+    {
+      "id": "analyze-asset-decomposition",
+      "kind": "findings",
+      "execution": "worker",
+      "dependsOn": ["normalize-identities"],
+      "inputs": [
+        "request-packet.json",
+        "contexts/normalized-context.json"
+      ],
+      "outputs": ["findings/asset-decomposition.json"],
+      "instruction": "Analyze semantic asset boundaries, shared-widget reuse, Parent Class children, SlotDown/SlotUp additions, assetKind, dependencies, and build order against the shared canonical context.",
+      "agentRole": "asset-decomposition",
+      "parallelGroup": "focused-analysis"
+    },
+    {
+      "id": "validate-focused",
+      "kind": "validation",
+      "execution": "coordinator",
+      "dependsOn": [
+        "analyze-state-modeling",
+        "analyze-data-adaptation",
+        "analyze-asset-decomposition"
+      ],
+      "inputs": [
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "findings/state-modeling.json",
+        "findings/data-adaptation.json",
+        "findings/asset-decomposition.json"
+      ],
+      "outputs": ["status/focused-findings.validated.json"],
+      "instruction": "Validate the focused findings against both the RequestPacket and the identical canonical context.",
+      "contractValidator": "agent-findings-batch"
+    },
+    {
+      "id": "synthesize-draft",
+      "kind": "synthesis",
+      "execution": "coordinator",
+      "dependsOn": ["validate-focused"],
+      "inputs": [
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "findings/visual-structure.json",
+        "findings/text-requirements.json",
+        "findings/project-pattern.json",
+        "findings/state-modeling.json",
+        "findings/data-adaptation.json",
+        "findings/asset-decomposition.json"
+      ],
+      "outputs": ["ui-requirement.draft.json"],
+      "instruction": "The sole Requirement Synthesizer creates the draft UIRequirementSpec with provenance, confidence, impact, and pending user-review semantics."
+    },
+    {
+      "id": "review-state-visual",
+      "kind": "findings",
+      "execution": "worker",
+      "dependsOn": ["synthesize-draft"],
+      "inputs": [
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "ui-requirement.draft.json"
+      ],
+      "outputs": ["findings/state-visual-review.json"],
+      "instruction": "Adversarially review state completeness and visual evidence. Emit findings only; do not edit the authoritative draft.",
+      "agentRole": "state-visual-review",
+      "parallelGroup": "independent-review"
+    },
+    {
+      "id": "review-schema-feasibility",
+      "kind": "findings",
+      "execution": "worker",
+      "dependsOn": ["synthesize-draft"],
+      "inputs": [
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "ui-requirement.draft.json"
+      ],
+      "outputs": ["findings/schema-feasibility-review.json"],
+      "instruction": "Review schema validity, references, and downstream buildability. Emit findings only; do not edit the authoritative draft.",
+      "agentRole": "schema-feasibility-review",
+      "parallelGroup": "independent-review"
+    },
+    {
+      "id": "review-coverage",
+      "kind": "findings",
+      "execution": "worker",
+      "dependsOn": ["synthesize-draft"],
+      "inputs": [
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "ui-requirement.draft.json"
+      ],
+      "outputs": ["findings/coverage-review.json"],
+      "instruction": "Review raster-to-requirement and requirement-to-node coverage, including static images, families, state branches, and asset coverage. Emit findings only.",
+      "agentRole": "coverage-review",
+      "parallelGroup": "independent-review"
+    },
+    {
+      "id": "finalize-review-resolutions",
+      "kind": "synthesis",
+      "execution": "coordinator",
+      "dependsOn": [
+        "review-state-visual",
+        "review-schema-feasibility",
+        "review-coverage"
+      ],
+      "inputs": [
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "ui-requirement.draft.json",
+        "findings/state-visual-review.json",
+        "findings/schema-feasibility-review.json",
+        "findings/coverage-review.json"
+      ],
+      "outputs": ["ui-requirement.pending.json"],
+      "instruction": "The same sole Requirement Synthesizer adjudicates every review finding, records reviewResolutions, and writes the pending authoritative UIRequirementSpec with exactly nine linked AgentFindings."
+    },
+    {
+      "id": "strict-validate-requirement",
+      "kind": "validation",
+      "execution": "coordinator",
+      "dependsOn": ["finalize-review-resolutions"],
+      "inputs": [
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "ui-requirement.pending.json",
+        "findings/visual-structure.json",
+        "findings/text-requirements.json",
+        "findings/project-pattern.json",
+        "findings/state-modeling.json",
+        "findings/data-adaptation.json",
+        "findings/asset-decomposition.json",
+        "findings/state-visual-review.json",
+        "findings/schema-feasibility-review.json",
+        "findings/coverage-review.json"
+      ],
+      "outputs": ["status/ui-requirement.strict-valid.json"],
+      "instruction": "Run strict requirement validation with linked-file rehashing, deep AgentFindings validation, role/context checks, and complete alias-or-discard coverage before presenting the user review.",
+      "contractValidator": "requirement-spec-strict"
+    },
+    {
+      "id": "requirements-confirmation",
+      "kind": "gate",
+      "execution": "human",
+      "dependsOn": ["strict-validate-requirement"],
+      "inputs": [
+        "ui-requirement.pending.json",
+        "status/ui-requirement.strict-valid.json"
+      ],
+      "outputs": [],
+      "instruction": "The primary coordinator presents the planned assets, state matrix, assumptions, and up to three high-impact questions, then stops. Only after a later direct user acceptance may the primary write the accepted UIRequirementSpec decision artifact.",
+      "gate": {
+        "actor": "user",
+        "manualAdvance": true,
+        "decisionArtifact": "ui-requirement.json",
+        "acceptanceCondition": "A later direct user message accepts or amends this reviewed requirement revision; the primary then records the accepted reviewGate fields and canonical approval digest."
+      }
+    }
+  ],
+  "requirementsTerminal": "requirements-confirmation",
+  "protectedContinuation": {
+    "dispatchByDefault": false,
+    "schedulerPolicy": "manual-resume-after-verified-gate-artifact",
+    "description": "These stages are intentionally outside the default requirements dispatch. A runtime may resume them only after validating the preceding user-authored gate evidence; it may never infer acceptance from a task request, agent completion, or chat summary.",
+    "steps": [
+      {
+        "id": "build-verified-umg",
+        "kind": "build",
+        "execution": "coordinator",
+        "dependsOn": ["requirements-confirmation"],
+        "inputs": ["ui-requirement.json"],
+        "outputs": ["ui-build-bundle.json"],
+        "instruction": "Only after validating the accepted requirement decision artifact, build, compile, save, and verify the authorized UMG assets. Do not treat this portable scheduler as Unreal mutation authority.",
+        "contractValidator": "build-bundle"
+      },
+      {
+        "id": "post-save-unreal-readback",
+        "kind": "readback",
+        "execution": "coordinator",
+        "dependsOn": ["build-verified-umg"],
+        "inputs": [
+          "ui-requirement.json",
+          "ui-build-bundle.json"
+        ],
+        "outputs": ["unreal-widget-readback.json"],
+        "instruction": "After the final save, read the actual Unreal Widget state through the approved Editor tool path and validate the normalized readback.",
+        "contractValidator": "unreal-widget-readback"
+      },
+      {
+        "id": "present-build-results",
+        "kind": "presentation",
+        "execution": "coordinator",
+        "dependsOn": ["post-save-unreal-readback"],
+        "inputs": [
+          "ui-build-bundle.json",
+          "unreal-widget-readback.json"
+        ],
+        "outputs": ["status/build-results.presented.json"],
+        "instruction": "Present asset paths, preview evidence, WidgetTree, key properties, and deviations, then stop for an independent post-build user decision."
+      },
+      {
+        "id": "build-results-confirmation",
+        "kind": "gate",
+        "execution": "human",
+        "dependsOn": ["present-build-results"],
+        "inputs": [
+          "ui-requirement.json",
+          "ui-build-bundle.json",
+          "unreal-widget-readback.json",
+          "status/build-results.presented.json"
+        ],
+        "outputs": [],
+        "instruction": "Stop until a later direct user message accepts the displayed final build. Any asset, Bundle, readback, or preview change invalidates this decision.",
+        "gate": {
+          "actor": "user",
+          "manualAdvance": true,
+          "decisionArtifact": "ui-build-acceptance.json",
+          "acceptanceCondition": "A later direct user message accepts the exact displayed Requirement, Bundle, and Unreal readback identities and hashes."
+        }
+      },
+      {
+        "id": "document-program-handoff",
+        "kind": "document",
+        "execution": "coordinator",
+        "dependsOn": ["build-results-confirmation"],
+        "inputs": [
+          "ui-requirement.json",
+          "ui-build-bundle.json",
+          "unreal-widget-readback.json",
+          "ui-build-acceptance.json"
+        ],
+        "outputs": [
+          "ui-program-handoff.json",
+          "program-document-content.json",
+          "document-verification.json"
+        ],
+        "instruction": "Generate and validate the programmer handoff only after validating all three authoritative sources and the independent post-build acceptance artifact."
+      }
+    ]
+  }
+}

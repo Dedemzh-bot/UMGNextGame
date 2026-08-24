@@ -1,0 +1,6 @@
+# The contract validators and portable orchestrator use the Python standard library.
+# Install these packages only for the corresponding optional plugin stages.
+numpy
+Pillow
+python-docx
+requests

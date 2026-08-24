@@ -1,0 +1,7 @@
+interface:
+  display_name: "NextGame UMG 界面说明"
+  short_description: "Create verified NextGame UMG program handoff documents"
+  icon_large: "./assets/preview.png"
+  default_prompt: "Use $artifact-template-nextgame-umg only after current post-build user acceptance to create a programmer-facing UMG document from verified handoff content."
+policy:
+  allow_implicit_invocation: true

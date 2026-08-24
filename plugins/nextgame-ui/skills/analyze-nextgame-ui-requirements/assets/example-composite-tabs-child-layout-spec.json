@@ -1,0 +1,168 @@
+{
+  "version": "0.2",
+  "mode": "production",
+  "asset": {
+    "folder": "/Game/UI/UMG/Role/Widgets",
+    "name": "uw_role_navigation_tab"
+  },
+  "referenceSize": [307, 130],
+  "profile": {
+    "screenType": "navigation-tab",
+    "adaptive": true,
+    "interactive": true,
+    "hasText": true,
+    "containsRepeatedElements": false,
+    "regionGrouping": true,
+    "assetKind": "child-widget",
+    "designSizeMode": "Desired",
+    "system": "role",
+    "systemFolder": "Role",
+    "subsystem": null,
+    "function": "navigation",
+    "secondaryFunction": "tab",
+    "targetAsset": {
+      "folder": "/Game/UI/UMG/Role/Widgets",
+      "name": "uw_role_navigation_tab",
+      "integrationAsset": "/Game/UI/UMG/Role/umg_role"
+    }
+  },
+  "notes": [
+    "The Button directly owns a CanvasPanel; no redundant Overlay is used.",
+    "Only the selected and unselected states supported by evidence are modeled."
+  ],
+  "nodes": [
+    {
+      "id": "node-child-root",
+      "name": "PanelRoot",
+      "role": "screen.root",
+      "parent": null,
+      "rect": [0.0, 0.0, 1.0, 1.0],
+      "anchor": "left-top",
+      "properties": {"visibility": "SelfHitTestInvisible"}
+    },
+    {
+      "id": "node-child-region",
+      "name": "PanelTabRegion",
+      "role": "container.canvas",
+      "parent": "node-child-root",
+      "rect": [0.0, 0.0, 1.0, 1.0],
+      "anchor": "left-top",
+      "regionPurpose": "navigation-tab",
+      "properties": {"visibility": "SelfHitTestInvisible"}
+    },
+    {
+      "id": "node-tab-button",
+      "name": "BtnTab",
+      "role": "input.button",
+      "parent": "node-child-region",
+      "rect": [0.0, 0.0, 1.0, 1.0],
+      "anchor": "left-top",
+      "properties": {"enabled": true}
+    },
+    {
+      "id": "node-tab-content-panel",
+      "name": "PanelTabContent",
+      "role": "container.canvas",
+      "parent": "node-tab-button",
+      "rect": [0.0, 0.0, 1.0, 1.0],
+      "anchor": "left-top",
+      "regionPurpose": "tab-content",
+      "properties": {"visibility": "SelfHitTestInvisible"}
+    },
+    {
+      "id": "node-tab-selected-panel",
+      "name": "PanelSelected",
+      "isVariable": true,
+      "role": "container.canvas",
+      "parent": "node-tab-content-panel",
+      "rect": [0.0, 0.0, 1.0, 1.0],
+      "anchor": "left-top",
+      "regionPurpose": "selected-state",
+      "properties": {"visibility": "Collapsed"}
+    },
+    {
+      "id": "node-tab-selected-background",
+      "name": "ImgSelectedBackground",
+      "role": "visual.image",
+      "parent": "node-tab-selected-panel",
+      "rect": [0.0, 0.0, 1.0, 1.0],
+      "anchor": "left-top",
+      "zOrder": 0,
+      "properties": {
+        "visibility": "SelfHitTestInvisible",
+        "color": {"r": 0.78, "g": 0.84, "b": 0.96, "a": 0.96}
+      }
+    },
+    {
+      "id": "node-tab-selected-accent",
+      "name": "ImgSelectedAccent",
+      "role": "visual.image",
+      "parent": "node-tab-selected-panel",
+      "rect": [0.03, 0.82, 0.94, 0.08],
+      "anchor": "left-bottom",
+      "zOrder": 1,
+      "properties": {
+        "visibility": "SelfHitTestInvisible",
+        "color": {"r": 1.0, "g": 0.55, "b": 0.12, "a": 1.0}
+      }
+    },
+    {
+      "id": "node-tab-selected-label",
+      "name": "TxtSelectedLabel",
+      "isVariable": true,
+      "role": "text.label",
+      "parent": "node-tab-selected-panel",
+      "rect": [0.14, 0.18, 0.72, 0.58],
+      "anchor": "left-center",
+      "zOrder": 2,
+      "properties": {
+        "visibility": "SelfHitTestInvisible",
+        "text": "角色",
+        "font": {"size": 36},
+        "justification": "Left",
+        "color": {"r": 0.12, "g": 0.14, "b": 0.18, "a": 1.0}
+      }
+    },
+    {
+      "id": "node-tab-unselected-panel",
+      "name": "PanelUnselected",
+      "isVariable": true,
+      "role": "container.canvas",
+      "parent": "node-tab-content-panel",
+      "rect": [0.0, 0.0, 1.0, 1.0],
+      "anchor": "left-top",
+      "regionPurpose": "unselected-state",
+      "properties": {"visibility": "SelfHitTestInvisible"}
+    },
+    {
+      "id": "node-tab-unselected-background",
+      "name": "ImgUnselectedBackground",
+      "role": "visual.image",
+      "parent": "node-tab-unselected-panel",
+      "rect": [0.06, 0.06, 0.88, 0.88],
+      "anchor": "left-top",
+      "zOrder": 0,
+      "properties": {
+        "visibility": "SelfHitTestInvisible",
+        "color": {"r": 0.62, "g": 0.68, "b": 0.78, "a": 0.35}
+      }
+    },
+    {
+      "id": "node-tab-unselected-label",
+      "name": "TxtUnselectedLabel",
+      "isVariable": true,
+      "role": "text.label",
+      "parent": "node-tab-unselected-panel",
+      "rect": [0.17, 0.22, 0.66, 0.5],
+      "anchor": "left-center",
+      "zOrder": 1,
+      "properties": {
+        "visibility": "SelfHitTestInvisible",
+        "text": "武器",
+        "font": {"size": 28},
+        "justification": "Left",
+        "color": {"r": 0.3, "g": 0.33, "b": 0.39, "a": 1.0}
+      }
+    }
+  ]
+}

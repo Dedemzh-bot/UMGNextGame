@@ -1,0 +1,15 @@
+interface:
+  display_name: "Build NextGame UMG"
+  short_description: "Build UMG from reviewed UI requirements"
+  default_prompt: "Use $build-nextgame-umg to build this reviewed UI requirement, or analyze first when no accepted requirement exists. After production build, compile/save/verify/read back, present asset paths, previews, WidgetTree, key properties and deviations, then stop for a later explicit user acceptance before documentation."
+
+dependencies:
+  tools:
+    - type: "mcp"
+      value: "unreal-editor"
+      description: "Local Unreal Editor MCP server exposing UMG and Object toolsets"
+      transport: "streamable_http"
+      url: "http://127.0.0.1:8000/mcp"
+
+policy:
+  allow_implicit_invocation: true

@@ -1,0 +1,67 @@
+{
+  "version": "0.1",
+  "requestId": "role-tab-states-20260803",
+  "inputDigest": "843c5562492ee7a28c5c00456222c227ceddfa2f57054a7cfa9419b6ec098640",
+  "userRequest": {
+    "originalText": [
+      "Use the supplied Role reference and preserve the selected and unselected tab appearance as composite states.",
+      "Do not create Lua, C++, or Blueprint switching logic."
+    ],
+    "language": "en-US"
+  },
+  "sources": [
+    {
+      "sourceKey": "source-role-image",
+      "kind": "image",
+      "locatorKind": "inline",
+      "description": "Role screen reference showing one selected tab and three unselected tabs.",
+      "path": "C:/References/role-screen.png",
+      "content": "inline-role-reference-fixture",
+      "mediaType": "image/png",
+      "imageSize": [2048, 1152],
+      "contentSha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+    },
+    {
+      "sourceKey": "source-user-request",
+      "kind": "user-text",
+      "locatorKind": "inline",
+      "description": "User scope and exclusion requirements.",
+      "content": "Use the supplied Role reference and preserve the selected and unselected tab appearance as composite states."
+    },
+    {
+      "sourceKey": "source-user-request-2",
+      "kind": "user-text",
+      "locatorKind": "inline",
+      "description": "User exclusion requirement.",
+      "content": "Do not create Lua, C++, or Blueprint switching logic."
+    },
+    {
+      "sourceKey": "source-project-rules",
+      "kind": "project-rule",
+      "locatorKind": "inline",
+      "description": "NextGame UMG naming, resolution, variable, visibility, and button hierarchy rules.",
+      "path": "E:/UGameDev/AGENTS.md",
+      "content": "inline-nextgame-project-rule-fixture",
+      "contentSha256": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    }
+  ],
+  "targetHints": {
+    "system": "role",
+    "systemFolder": "Role",
+    "assetKind": "screen",
+    "mode": "production",
+    "designCanvas": [2560, 1440],
+    "targetAssetPaths": [
+      "/Game/UI/UMG/Role/Widgets/uw_role_navigation_tab",
+      "/Game/UI/UMG/Role/umg_role"
+    ],
+    "productionAuthorized": true
+  },
+  "projectRuleRefs": [
+    {
+      "path": "E:/UGameDev/AGENTS.md",
+      "section": "NextGame UMG rules",
+      "required": true
+    }
+  ]
+}

@@ -1,0 +1,316 @@
+{
+  "version": "0.1",
+  "bundleId": "bundle-role-tabs",
+  "requirement": {
+    "path": "example-composite-tabs-requirement.json",
+    "sha256": "a03e9ef2edb3dbbb03f3024e74e1fa69b3823483729c93ae56c3fd8e7b2c568c",
+    "requestId": "role-tab-states-20260803",
+    "revision": 1,
+    "reviewStatus": "accepted",
+    "approvedContentSha256": "057e0dcd93e76e790834f6a54a35a078265dc004bde1a0ad1f46f301c221fae5"
+  },
+  "assets": [
+    {
+      "id": "build-child-navigation-tab",
+      "assetPlanId": "asset-child-navigation-tab",
+      "assetPath": "/Game/UI/UMG/Role/Widgets/uw_role_navigation_tab",
+      "assetKind": "child-widget",
+      "referenceSize": [307, 130],
+      "layoutSpecPath": "example-composite-tabs-child-layout-spec.json",
+      "layoutSpecSha256": "5f23dfa65d464f9bbb7e6a1e14e1a650e970ec776df776ef5a6696fdee66528f",
+      "dependsOnAssetIds": [],
+      "buildOrder": 0,
+      "status": "planned"
+    },
+    {
+      "id": "build-screen-role",
+      "assetPlanId": "asset-screen-role",
+      "assetPath": "/Game/UI/UMG/Role/umg_role",
+      "assetKind": "screen",
+      "referenceSize": [2560, 1440],
+      "layoutSpecPath": "example-composite-tabs-screen-layout-spec.json",
+      "layoutSpecSha256": "b360522ad58aa35e035c05bf6300389bd9967e22c9ff7a22238bcc4d2147f55f",
+      "dependsOnAssetIds": ["build-child-navigation-tab"],
+      "buildOrder": 1,
+      "status": "planned"
+    }
+  ],
+  "nodeMappings": [
+    {
+      "id": "mapping-child-root",
+      "assetId": "build-child-navigation-tab",
+      "layoutNodeId": "node-child-root",
+      "mappingKind": "generated-support",
+      "requirementRefs": ["element-tab-template-button", "region-navigation"],
+      "claimIds": ["claim-tab-family", "claim-navigation-region"],
+      "stateRefs": []
+    },
+    {
+      "id": "mapping-child-region",
+      "assetId": "build-child-navigation-tab",
+      "layoutNodeId": "node-child-region",
+      "mappingKind": "generated-support",
+      "requirementRefs": ["element-tab-template-button"],
+      "claimIds": ["claim-tab-family"],
+      "stateRefs": []
+    },
+    {
+      "id": "mapping-tab-button",
+      "assetId": "build-child-navigation-tab",
+      "layoutNodeId": "node-tab-button",
+      "mappingKind": "direct",
+      "requirementRefs": ["element-tab-template-button"],
+      "claimIds": ["claim-tab-family"],
+      "stateRefs": []
+    },
+    {
+      "id": "mapping-tab-content-panel",
+      "assetId": "build-child-navigation-tab",
+      "layoutNodeId": "node-tab-content-panel",
+      "mappingKind": "composite-state",
+      "requirementRefs": ["element-tab-content-panel"],
+      "claimIds": ["claim-tab-composite-state"],
+      "stateRefs": []
+    },
+    {
+      "id": "mapping-tab-selected-panel",
+      "assetId": "build-child-navigation-tab",
+      "layoutNodeId": "node-tab-selected-panel",
+      "mappingKind": "composite-state",
+      "requirementRefs": ["element-tab-selected-panel", "runtime-tab-selected-visibility"],
+      "claimIds": ["claim-tab-composite-state", "claim-state-branches-variable"],
+      "stateRefs": ["state-tab-selected"]
+    },
+    {
+      "id": "mapping-tab-selected-background",
+      "assetId": "build-child-navigation-tab",
+      "layoutNodeId": "node-tab-selected-background",
+      "mappingKind": "composite-state",
+      "requirementRefs": ["element-tab-selected-background"],
+      "claimIds": ["claim-tab-composite-state"],
+      "stateRefs": []
+    },
+    {
+      "id": "mapping-tab-selected-accent",
+      "assetId": "build-child-navigation-tab",
+      "layoutNodeId": "node-tab-selected-accent",
+      "mappingKind": "composite-state",
+      "requirementRefs": ["element-tab-selected-accent"],
+      "claimIds": ["claim-tab-composite-state"],
+      "stateRefs": []
+    },
+    {
+      "id": "mapping-tab-selected-label",
+      "assetId": "build-child-navigation-tab",
+      "layoutNodeId": "node-tab-selected-label",
+      "mappingKind": "composite-state",
+      "requirementRefs": ["element-tab-selected-label"],
+      "claimIds": ["claim-tab-composite-state"],
+      "stateRefs": []
+    },
+    {
+      "id": "mapping-tab-unselected-panel",
+      "assetId": "build-child-navigation-tab",
+      "layoutNodeId": "node-tab-unselected-panel",
+      "mappingKind": "composite-state",
+      "requirementRefs": ["element-tab-unselected-panel", "runtime-tab-unselected-visibility"],
+      "claimIds": ["claim-tab-composite-state", "claim-state-branches-variable"],
+      "stateRefs": ["state-tab-unselected"]
+    },
+    {
+      "id": "mapping-tab-unselected-background",
+      "assetId": "build-child-navigation-tab",
+      "layoutNodeId": "node-tab-unselected-background",
+      "mappingKind": "composite-state",
+      "requirementRefs": ["element-tab-unselected-background"],
+      "claimIds": ["claim-tab-composite-state"],
+      "stateRefs": []
+    },
+    {
+      "id": "mapping-tab-unselected-label",
+      "assetId": "build-child-navigation-tab",
+      "layoutNodeId": "node-tab-unselected-label",
+      "mappingKind": "composite-state",
+      "requirementRefs": ["element-tab-unselected-label"],
+      "claimIds": ["claim-tab-composite-state"],
+      "stateRefs": []
+    },
+    {
+      "id": "mapping-screen-root",
+      "assetId": "build-screen-role",
+      "layoutNodeId": "node-screen-root",
+      "mappingKind": "direct",
+      "requirementRefs": ["element-screen-root", "region-screen"],
+      "claimIds": ["claim-screen-resolution"],
+      "stateRefs": []
+    },
+    {
+      "id": "mapping-navigation-panel",
+      "assetId": "build-screen-role",
+      "layoutNodeId": "node-navigation-panel",
+      "mappingKind": "direct",
+      "requirementRefs": ["element-navigation-panel", "region-navigation", "responsive-navigation-left"],
+      "claimIds": ["claim-navigation-region"],
+      "stateRefs": []
+    },
+    {
+      "id": "mapping-tab-role-instance",
+      "assetId": "build-screen-role",
+      "layoutNodeId": "node-tab-role-instance",
+      "mappingKind": "direct",
+      "requirementRefs": ["element-tab-role-instance"],
+      "claimIds": ["claim-tab-family", "claim-tab-composite-state"],
+      "stateRefs": ["state-tab-selected"]
+    },
+    {
+      "id": "mapping-tab-weapon-instance",
+      "assetId": "build-screen-role",
+      "layoutNodeId": "node-tab-weapon-instance",
+      "mappingKind": "direct",
+      "requirementRefs": ["element-tab-weapon-instance"],
+      "claimIds": ["claim-tab-family", "claim-tab-composite-state"],
+      "stateRefs": ["state-tab-unselected"]
+    },
+    {
+      "id": "mapping-tab-talent-instance",
+      "assetId": "build-screen-role",
+      "layoutNodeId": "node-tab-talent-instance",
+      "mappingKind": "direct",
+      "requirementRefs": ["element-tab-talent-instance"],
+      "claimIds": ["claim-tab-family", "claim-tab-composite-state"],
+      "stateRefs": ["state-tab-unselected"]
+    },
+    {
+      "id": "mapping-tab-neural-instance",
+      "assetId": "build-screen-role",
+      "layoutNodeId": "node-tab-neural-instance",
+      "mappingKind": "direct",
+      "requirementRefs": ["element-tab-neural-instance"],
+      "claimIds": ["claim-tab-family", "claim-tab-composite-state"],
+      "stateRefs": ["state-tab-unselected"]
+    }
+  ],
+  "crossAssetOperations": [
+    {
+      "id": "operation-integrate-role-tab",
+      "type": "child-widget-integration",
+      "integrationStrategy": "create-child-widget",
+      "sourceAssetId": "build-child-navigation-tab",
+      "targetAssetId": "build-screen-role",
+      "targetLayoutNodeId": "node-tab-role-instance",
+      "claimIds": ["claim-asset-decomposition", "claim-tab-family"],
+      "placementContract": {"hostNormalizedRect": [0.09, 0.11, 0.12, 0.09], "hostSize": [307, 130], "slot": {"containerType": "CanvasPanel", "horizontalAlignment": "Fill", "verticalAlignment": "Fill", "padding": [0, 0, 0, 0]}, "zOrder": 0, "sizingStrategy": "fill-host", "childSizingCompatibility": {"mode": "host-equals-child-reference", "axes": ["horizontal", "vertical"], "sourceLayoutNodeIds": ["node-child-root"]}},
+      "stateHandling": {
+        "strategy": "runtime-dependent",
+        "stateRefs": ["state-tab-selected"],
+        "previewExclusionReason": "The project applies per-instance tab state in program code after static UMG construction.",
+        "deviationId": "deviation-runtime-tab-state"
+      }
+    },
+    {
+      "id": "operation-integrate-weapon-tab",
+      "type": "child-widget-integration",
+      "integrationStrategy": "create-child-widget",
+      "sourceAssetId": "build-child-navigation-tab",
+      "targetAssetId": "build-screen-role",
+      "targetLayoutNodeId": "node-tab-weapon-instance",
+      "claimIds": ["claim-asset-decomposition", "claim-tab-family"],
+      "placementContract": {"hostNormalizedRect": [0.09, 0.22, 0.12, 0.09], "hostSize": [307, 130], "slot": {"containerType": "CanvasPanel", "horizontalAlignment": "Fill", "verticalAlignment": "Fill", "padding": [0, 0, 0, 0]}, "zOrder": 0, "sizingStrategy": "fill-host", "childSizingCompatibility": {"mode": "host-equals-child-reference", "axes": ["horizontal", "vertical"], "sourceLayoutNodeIds": ["node-child-root"]}},
+      "stateHandling": {
+        "strategy": "runtime-dependent",
+        "stateRefs": ["state-tab-unselected"],
+        "previewExclusionReason": "The project applies per-instance tab state in program code after static UMG construction.",
+        "deviationId": "deviation-runtime-tab-state"
+      }
+    },
+    {
+      "id": "operation-integrate-talent-tab",
+      "type": "child-widget-integration",
+      "integrationStrategy": "create-child-widget",
+      "sourceAssetId": "build-child-navigation-tab",
+      "targetAssetId": "build-screen-role",
+      "targetLayoutNodeId": "node-tab-talent-instance",
+      "claimIds": ["claim-asset-decomposition", "claim-tab-family"],
+      "placementContract": {"hostNormalizedRect": [0.09, 0.33, 0.12, 0.09], "hostSize": [307, 130], "slot": {"containerType": "CanvasPanel", "horizontalAlignment": "Fill", "verticalAlignment": "Fill", "padding": [0, 0, 0, 0]}, "zOrder": 0, "sizingStrategy": "fill-host", "childSizingCompatibility": {"mode": "host-equals-child-reference", "axes": ["horizontal", "vertical"], "sourceLayoutNodeIds": ["node-child-root"]}},
+      "stateHandling": {
+        "strategy": "runtime-dependent",
+        "stateRefs": ["state-tab-unselected"],
+        "previewExclusionReason": "The project applies per-instance tab state in program code after static UMG construction.",
+        "deviationId": "deviation-runtime-tab-state"
+      }
+    },
+    {
+      "id": "operation-integrate-neural-tab",
+      "type": "child-widget-integration",
+      "integrationStrategy": "create-child-widget",
+      "sourceAssetId": "build-child-navigation-tab",
+      "targetAssetId": "build-screen-role",
+      "targetLayoutNodeId": "node-tab-neural-instance",
+      "claimIds": ["claim-asset-decomposition", "claim-tab-family"],
+      "placementContract": {"hostNormalizedRect": [0.09, 0.44, 0.12, 0.09], "hostSize": [307, 130], "slot": {"containerType": "CanvasPanel", "horizontalAlignment": "Fill", "verticalAlignment": "Fill", "padding": [0, 0, 0, 0]}, "zOrder": 0, "sizingStrategy": "fill-host", "childSizingCompatibility": {"mode": "host-equals-child-reference", "axes": ["horizontal", "vertical"], "sourceLayoutNodeIds": ["node-child-root"]}},
+      "stateHandling": {
+        "strategy": "runtime-dependent",
+        "stateRefs": ["state-tab-unselected"],
+        "previewExclusionReason": "The project applies per-instance tab state in program code after static UMG construction.",
+        "deviationId": "deviation-runtime-tab-state"
+      }
+    }
+  ],
+  "execution": {
+    "status": "pending",
+    "buildOrderAssetIds": ["build-child-navigation-tab", "build-screen-role"]
+  },
+  "verification": {
+    "status": "pending",
+    "checks": [
+      {
+        "id": "check-child-schema",
+        "type": "schema",
+        "assetId": "build-child-navigation-tab",
+        "status": "pending",
+        "details": "Validate the child UILayoutSpec before build.",
+        "requirementRefs": [],
+        "claimIds": []
+      },
+      {
+        "id": "check-screen-schema",
+        "type": "schema",
+        "assetId": "build-screen-role",
+        "status": "pending",
+        "details": "Validate the 2560 by 1440 screen UILayoutSpec before build.",
+        "requirementRefs": ["criterion-screen-resolution"],
+        "claimIds": ["claim-screen-resolution"]
+      },
+      {
+        "id": "check-state-tree",
+        "type": "widget-tree",
+        "assetId": "build-child-navigation-tab",
+        "status": "pending",
+        "details": "Verify both complete panel branches, variables, and initial visibility; per-instance preview differences remain explicitly excluded.",
+        "requirementRefs": ["criterion-composite-branches"],
+        "claimIds": ["claim-tab-composite-state"]
+      }
+    ],
+    "deviations": [
+      {
+        "id": "deviation-runtime-tab-state",
+        "affectedRequirementRefs": [
+          "element-tab-role-instance",
+          "element-tab-weapon-instance",
+          "element-tab-talent-instance",
+          "element-tab-neural-instance",
+          "state-tab-selected",
+          "state-tab-unselected"
+        ],
+        "affectedAssetIds": ["build-child-navigation-tab", "build-screen-role"],
+        "expected": "Each screen instance shows its assigned selected or unselected branch in the final runtime UI.",
+        "actual": "Static UMG preview uses the child widget default; per-instance differences require later program control.",
+        "reason": "The approved scope excludes Lua, C++, and Blueprint switching behavior.",
+        "impact": "medium",
+        "status": "accepted",
+        "approvedBy": "user",
+        "approvedAt": "2026-08-03T15:00:00+08:00"
+      }
+    ]
+  }
+}

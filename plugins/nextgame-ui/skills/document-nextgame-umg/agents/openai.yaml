@@ -1,0 +1,4 @@
+interface:
+  display_name: "Document NextGame UMG"
+  short_description: "Validate and document NextGame UMG handoffs"
+  default_prompt: "Use $document-nextgame-umg only after post-build user acceptance. Revalidate the current Requirement, Bundle, Readback and acceptance at every document gate, then deliver the render-verified handoff DOCX."

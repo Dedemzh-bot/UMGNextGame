@@ -1,0 +1,203 @@
+{
+  "schemaVersion": "1.0",
+  "workflowId": "nextgame-ui-requirements",
+  "artifactAuthority": {
+    "authoritative": [
+      "validated request packet",
+      "validated AgentFindings files",
+      "validated normalized context files",
+      "strictly validated UIRequirementSpec"
+    ],
+    "nonAuthoritative": [
+      "subagent final messages",
+      "chat summaries",
+      "runtime task status"
+    ],
+    "rule": "A runtime receipt only announces an artifact; it never replaces the artifact or its validator."
+  },
+  "artifactLayout": {
+    "runRoot": "<run-root>",
+    "requestPacket": "request-packet.json",
+    "normalizedContext": "contexts/normalized-context.json",
+    "draftRequirement": "ui-requirement.draft.json",
+    "pendingRequirement": "ui-requirement.pending.json",
+    "acceptedRequirement": "ui-requirement.json"
+  },
+  "preflight": "capability-contract.json",
+  "roles": [
+    {
+      "role": "visual-structure",
+      "stage": "discovery",
+      "output": "findings/visual-structure.json",
+      "contextPath": null
+    },
+    {
+      "role": "text-requirements",
+      "stage": "discovery",
+      "output": "findings/text-requirements.json",
+      "contextPath": null
+    },
+    {
+      "role": "project-pattern",
+      "stage": "discovery",
+      "output": "findings/project-pattern.json",
+      "contextPath": null
+    },
+    {
+      "role": "state-modeling",
+      "stage": "focused-analysis",
+      "output": "findings/state-modeling.json",
+      "contextPath": "contexts/normalized-context.json"
+    },
+    {
+      "role": "data-adaptation",
+      "stage": "focused-analysis",
+      "output": "findings/data-adaptation.json",
+      "contextPath": "contexts/normalized-context.json"
+    },
+    {
+      "role": "asset-decomposition",
+      "stage": "focused-analysis",
+      "output": "findings/asset-decomposition.json",
+      "contextPath": "contexts/normalized-context.json"
+    },
+    {
+      "role": "state-visual-review",
+      "stage": "independent-review",
+      "output": "findings/state-visual-review.json",
+      "contextPath": "contexts/normalized-context.json",
+      "additionalReadOnlyInput": "ui-requirement.draft.json"
+    },
+    {
+      "role": "schema-feasibility-review",
+      "stage": "independent-review",
+      "output": "findings/schema-feasibility-review.json",
+      "contextPath": "contexts/normalized-context.json",
+      "additionalReadOnlyInput": "ui-requirement.draft.json"
+    },
+    {
+      "role": "coverage-review",
+      "stage": "independent-review",
+      "output": "findings/coverage-review.json",
+      "contextPath": "contexts/normalized-context.json",
+      "additionalReadOnlyInput": "ui-requirement.draft.json"
+    }
+  ],
+  "stages": [
+    {
+      "id": "validate-request",
+      "owner": "coordinator",
+      "dependsOn": []
+    },
+    {
+      "id": "discovery",
+      "owner": "delegated-roles",
+      "parallel": true,
+      "roles": [
+        "visual-structure",
+        "text-requirements",
+        "project-pattern"
+      ],
+      "dependsOn": [
+        "validate-request"
+      ]
+    },
+    {
+      "id": "validate-discovery",
+      "owner": "coordinator",
+      "dependsOn": [
+        "discovery"
+      ]
+    },
+    {
+      "id": "normalize-context",
+      "owner": "coordinator",
+      "dependsOn": [
+        "validate-discovery"
+      ]
+    },
+    {
+      "id": "focused-analysis",
+      "owner": "delegated-roles",
+      "parallel": true,
+      "roles": [
+        "state-modeling",
+        "data-adaptation",
+        "asset-decomposition"
+      ],
+      "dependsOn": [
+        "normalize-context"
+      ]
+    },
+    {
+      "id": "validate-focused",
+      "owner": "coordinator",
+      "dependsOn": [
+        "focused-analysis"
+      ]
+    },
+    {
+      "id": "synthesize-draft",
+      "owner": "coordinator",
+      "dependsOn": [
+        "validate-focused"
+      ]
+    },
+    {
+      "id": "independent-review",
+      "owner": "delegated-roles",
+      "parallel": true,
+      "roles": [
+        "state-visual-review",
+        "schema-feasibility-review",
+        "coverage-review"
+      ],
+      "dependsOn": [
+        "synthesize-draft"
+      ]
+    },
+    {
+      "id": "adjudicate-review",
+      "owner": "coordinator",
+      "dependsOn": [
+        "independent-review"
+      ]
+    },
+    {
+      "id": "strict-requirement-validation",
+      "owner": "coordinator",
+      "dependsOn": [
+        "adjudicate-review"
+      ]
+    },
+    {
+      "id": "requirement-review-gate",
+      "owner": "coordinator",
+      "type": "human-gate",
+      "mustStop": true,
+      "dependsOn": [
+        "strict-requirement-validation"
+      ]
+    }
+  ],
+  "humanGates": [
+    {
+      "id": "requirement-review",
+      "workflowStep": "requirements-confirmation",
+      "mustStop": true,
+      "afterStep": "strict-validate-requirement",
+      "before": "any Unreal mutation",
+      "decisionArtifact": "ui-requirement.json",
+      "acceptance": "a later direct user message accepting or amending the presented requirement"
+    },
+    {
+      "id": "build-acceptance",
+      "workflowStep": "build-results-confirmation",
+      "mustStop": true,
+      "afterStep": "present-build-results",
+      "before": "ui-build-acceptance creation or formal documentation",
+      "decisionArtifact": "ui-build-acceptance.json",
+      "acceptance": "a later direct user message accepting that exact presented build"
+    }
+  ]
+}
