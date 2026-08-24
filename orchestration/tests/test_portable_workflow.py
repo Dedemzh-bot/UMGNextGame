@@ -55,6 +55,28 @@ class PortableWorkflowContractTests(unittest.TestCase):
         self.assertEqual(9, len(self.workflow["requiredFindingsRoles"]))
         self.assertEqual(3, len(self.workflow["parallelGroups"]))
 
+    def test_asset_decomposition_dispatch_preserves_design_mode_contract(self) -> None:
+        step = next(
+            item for item in self.workflow["steps"]
+            if item["id"] == "analyze-asset-decomposition"
+        )
+        instruction = step["instruction"]
+        for token in (
+            "designSizeModeDecision",
+            "mode",
+            "basis",
+            "reason",
+            "evidenceIds",
+            "claimId",
+            "asset-decomposition claim",
+            "fallback-unclear",
+            "FillScreen",
+            "Desired",
+            "umg_/uw_",
+            "assetKind",
+        ):
+            self.assertIn(token, instruction)
+
     def test_schema_is_parseable_and_versioned(self) -> None:
         schema = load_json(SCHEMA_PATH)
         self.assertEqual(

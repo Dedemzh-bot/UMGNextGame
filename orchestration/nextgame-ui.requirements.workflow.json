@@ -181,7 +181,7 @@
         "contexts/normalized-context.json"
       ],
       "outputs": ["findings/asset-decomposition.json"],
-      "instruction": "Analyze semantic asset boundaries, shared-widget reuse, Parent Class children, SlotDown/SlotUp additions, assetKind, dependencies, and build order against the shared canonical context. Independently decide each in-scope asset's DesignSizeMode from interface evidence: viewport-filling uses FillScreen, positively proven local/content-sized controls may use Desired with non-zero root-size evidence, and unclear cases explicitly use fallback-unclear with FillScreen. Never derive this decision from umg_/uw_ naming or assetKind.",
+      "instruction": "Analyze semantic asset boundaries, shared-widget reuse, Parent Class children, SlotDown/SlotUp additions, assetKind, dependencies, and build order against the shared canonical context. Independently decide each in-scope asset's DesignSizeMode from interface evidence and persist the closed designSizeModeDecision fields mode, basis, reason, evidenceIds, and claimId; bind claimId to that same asset's reviewed asset-decomposition claim and its evidence. Viewport-filling uses FillScreen, positively proven local/content-sized controls may use Desired with non-zero root-size evidence, and unclear cases explicitly use fallback-unclear with FillScreen. Never derive this decision from umg_/uw_ naming or assetKind.",
       "agentRole": "asset-decomposition",
       "parallelGroup": "focused-analysis"
     },
