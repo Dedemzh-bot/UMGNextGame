@@ -11,7 +11,9 @@ from typing import Any
 from _document_contract_common import (
     BUILD_ACCEPTANCE_SCHEMA,
     HANDOFF_SCHEMA,
+    PROGRAM_DOCUMENT_CONTENT_SCHEMA,
     load_json,
+    project_widget_tree_tables,
     sha256_file,
     validate_schema_instance,
     write_json,
@@ -56,15 +58,23 @@ def build_document_content_contract(
         raise ValueError("Document content requires the exact current three sources and accepted post-build user-review artifact.")
     coverage = expected_coverage(handoff)
     statements = coverage.pop("semanticRelationshipStatements")
-    return {
-        "version": "0.2",
+    widget_tree_tables, tree_errors = project_widget_tree_tables(readback, handoff.get("assets", []))
+    if tree_errors:
+        raise ValueError("Document content requires a valid, fully connected WidgetTree topology.")
+    contract = {
+        "version": "0.4",
         "handoff": {
             "fileName": handoff_path.name,
             "sha256": sha256_file(handoff_path),
         },
         "requiredIdentifiers": coverage,
         "requiredSemanticRelationshipStatements": statements,
+        "widgetTreeTables": widget_tree_tables,
     }
+    schema_errors = validate_schema_instance(contract, load_json(PROGRAM_DOCUMENT_CONTENT_SCHEMA))
+    if schema_errors:
+        raise ValueError("Generated program-document-content 0.4 does not match its schema.")
+    return contract
 
 
 def main() -> int:

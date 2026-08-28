@@ -1,7 +1,7 @@
 interface:
   display_name: "NextGame UMG 界面说明"
-  short_description: "Create verified NextGame UMG program handoff documents"
+  short_description: "Create asset-scoped NextGame UMG 0.4 handoffs"
   icon_large: "./assets/preview.png"
-  default_prompt: "Use $artifact-template-nextgame-umg only after current post-build user acceptance to create a programmer-facing UMG document from verified handoff content."
+  default_prompt: "Use $artifact-template-nextgame-umg after current post-build user acceptance to create an asset-scoped programmer handoff with native four-column WidgetTree tables from the verified 0.4 contract."
 policy:
   allow_implicit_invocation: true

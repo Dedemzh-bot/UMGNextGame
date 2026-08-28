@@ -14,8 +14,11 @@ from unittest.mock import patch
 from xml.sax.saxutils import escape
 
 from _document_contract_common import write_json
+from prepare_program_document_contract import build_document_content_contract
 from test_document_contracts import FinalizedSources, RENDERER_VERSION, make_png, write_minimal_docx
 from validate_program_docx import (
+    WIDGET_TREE_EMPTY_LABEL,
+    _check_embedded_identifier_styles,
     _check_forbidden_visibility_evidence,
     _detect_pdftoppm,
     create_document_verification,
@@ -23,10 +26,129 @@ from validate_program_docx import (
     expected_coverage,
     extract_docx_policy_text,
     extract_docx_text,
+    inspect_widget_tree_tables,
     probe_soffice,
     validate_document_verification,
     validate_render_evidence,
 )
+
+
+LEGACY_WIDGET_TREE_TEST_WIDTHS = (3969, 3061, 1247)
+WIDGET_TREE_TEST_WIDTHS = (2948, 1928, 1134, 2268)
+V04_TEST_PARENT_CLASS = "/Script/UMG.UserWidget"
+V04_TEST_FUNCTIONAL_SUMMARY = "用于严格验证测试。"
+V04_TEST_PROGRAM_RELATIONSHIP = "由程序读取和控制已验证节点。"
+
+
+def word_paragraph_xml(text: str, style_id: str | None = None) -> str:
+    properties = f'<w:pPr><w:pStyle w:val="{escape(style_id)}"/></w:pPr>' if style_id else ""
+    return f"<w:p>{properties}<w:r><w:t>{escape(text)}</w:t></w:r></w:p>"
+
+
+def write_styled_identifier_docx(path: Path, text: str, style_id: str) -> None:
+    document_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">'
+        f'<w:body><w:p><w:pPr><w:pStyle w:val="{escape(style_id)}"/></w:pPr>'
+        f'<w:r><w:t>{escape(text)}</w:t></w:r></w:p></w:body></w:document>'
+    )
+    with zipfile.ZipFile(path, "w") as archive:
+        archive.writestr(
+            "[Content_Types].xml",
+            '<?xml version="1.0"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>',
+        )
+        archive.writestr("word/document.xml", document_xml)
+
+
+def write_widget_tree_table_docx(
+    path: Path,
+    tree_contract: dict,
+    *,
+    include_drawing: bool = False,
+    extra_text: str = "",
+    xml_transform=None,
+    v04_structure: bool = False,
+    body_transform=None,
+) -> None:
+    namespace = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+    widths = (
+        LEGACY_WIDGET_TREE_TEST_WIDTHS
+        if tree_contract["format"] == "word-native-three-column-table-v1"
+        else WIDGET_TREE_TEST_WIDTHS
+    )
+    total_width = sum(widths)
+
+    def cell(value: str, width: int, *, indent: int = 0, span: int | None = None) -> str:
+        span_property = f'<w:gridSpan w:val="{span}"/>' if span is not None else ""
+        properties = f'<w:tcPr><w:tcW w:w="{width}" w:type="dxa"/>{span_property}</w:tcPr>'
+        paragraph_properties = f'<w:pPr><w:ind w:left="{indent}"/></w:pPr>' if indent else ""
+        drawing = "<w:r><w:drawing/></w:r>" if include_drawing else ""
+        return f"<w:tc>{properties}<w:p>{paragraph_properties}<w:r><w:t>{escape(value)}</w:t></w:r>{drawing}</w:p></w:tc>"
+
+    tables: list[str] = []
+    headers = tree_contract["headers"]
+    for asset in tree_contract["assets"]:
+        header = (
+            "<w:tr><w:trPr><w:tblHeader/><w:cantSplit/></w:trPr>"
+            + "".join(cell(item, widths[index]) for index, item in enumerate(headers))
+            + "</w:tr>"
+        )
+        rows: list[str] = []
+        for row in asset["treeRows"]:
+            values = [row["widgetName"], row["className"], "true" if row["isVariable"] else "false"]
+            if tree_contract["format"] == "word-native-four-column-asset-detail-table-v2":
+                values.append(row["programPurpose"])
+            rows.append(
+                "<w:tr><w:trPr><w:cantSplit/></w:trPr>"
+                + cell(values[0], widths[0], indent=row["depth"] * tree_contract["indentTwipsPerDepth"])
+                + "".join(cell(value, widths[index]) for index, value in enumerate(values[1:], start=1))
+                + "</w:tr>"
+            )
+        if not rows:
+            rows.append(
+                f"<w:tr><w:trPr><w:cantSplit/></w:trPr>"
+                f"{cell(WIDGET_TREE_EMPTY_LABEL, total_width, span=len(widths))}</w:tr>"
+            )
+        table_properties = (
+            f'<w:tblPr><w:tblW w:w="{total_width}" w:type="dxa"/>'
+            '<w:tblLayout w:type="fixed"/></w:tblPr>'
+        )
+        table_grid = "<w:tblGrid>" + "".join(
+            f'<w:gridCol w:w="{width}"/>' for width in widths
+        ) + "</w:tblGrid>"
+        tables.append(f"<w:tbl>{table_properties}{table_grid}{header}{''.join(rows)}</w:tbl>")
+    extra_paragraphs = "".join(word_paragraph_xml(line) for line in extra_text.splitlines())
+    if v04_structure:
+        if tree_contract["format"] != "word-native-four-column-asset-detail-table-v2":
+            raise ValueError("v04_structure requires the production four-column table format.")
+        body_parts = [word_paragraph_xml("1. 资产详细说明", "ToolSection")]
+        for asset, table in zip(tree_contract["assets"], tables):
+            asset_path = asset["assetPath"]
+            basename = asset_path.rsplit("/", 1)[-1]
+            parent_class = asset.get("parentClassPath", V04_TEST_PARENT_CLASS)
+            body_parts.extend(
+                (
+                    word_paragraph_xml(f"{basename}测试控件", "Heading2"),
+                    word_paragraph_xml(f"资产路径：{asset_path}"),
+                    word_paragraph_xml(f"Parent Class：{parent_class}"),
+                    word_paragraph_xml(f"功能说明：{V04_TEST_FUNCTIONAL_SUMMARY}"),
+                    table,
+                    word_paragraph_xml(f"程序接入关系：{V04_TEST_PROGRAM_RELATIONSHIP}"),
+                )
+            )
+        body_xml = "".join(body_parts) + extra_paragraphs
+    else:
+        body_xml = extra_paragraphs + "".join(tables)
+    if body_transform is not None:
+        body_xml = body_transform(body_xml)
+    document_xml = (
+        '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
+        f'<w:document xmlns:w="{namespace}"><w:body>{body_xml}</w:body></w:document>'
+    )
+    if xml_transform is not None:
+        document_xml = xml_transform(document_xml)
+    with zipfile.ZipFile(path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        archive.writestr("word/document.xml", document_xml)
 
 
 def codes(errors: list[dict[str, str]]) -> set[str]:
@@ -53,6 +175,13 @@ def timestamp_at_or_after_iso8601(value: str) -> str:
 class DocumentDocxStrictnessTest(unittest.TestCase):
     def setUp(self) -> None:
         self.sources = FinalizedSources()
+        for asset in self.sources.readback["assets"]:
+            asset.setdefault("parentClassPath", V04_TEST_PARENT_CLASS)
+        write_json(self.sources.readback_path, self.sources.readback)
+        self.sources.acceptance["readbackBinding"]["sha256"] = hashlib.sha256(
+            self.sources.readback_path.read_bytes()
+        ).hexdigest()
+        write_json(self.sources.acceptance_path, self.sources.acceptance)
         self.handoff = self.sources.build_handoff()
         state_model = next(
             state
@@ -90,7 +219,12 @@ class DocumentDocxStrictnessTest(unittest.TestCase):
         write_json(self.handoff_path, self.handoff)
         self.docx_path = self.sources.root / self.handoff["output"]["fileName"]
         coverage = expected_coverage(self.handoff)
-        self.identifiers = [identifier for values in coverage.values() for identifier in values]
+        self.identifiers = [
+            identifier
+            for field, values in coverage.items()
+            if field != "semanticRelationshipStatements"
+            for identifier in values
+        ]
         write_minimal_docx(self.docx_path, "\n".join(self.identifiers))
         self.render_dir = self.sources.root / "pages"
         self.render_dir.mkdir()
@@ -191,7 +325,16 @@ class DocumentDocxStrictnessTest(unittest.TestCase):
         write_json(path, evidence)
         return evidence, path
 
-    def _verify(self, evidence: dict, evidence_path: Path, reviewed_pages: list[str], *, output_root: Path | None = None):
+    def _verify(
+        self,
+        evidence: dict,
+        evidence_path: Path,
+        reviewed_pages: list[str],
+        *,
+        output_root: Path | None = None,
+        document_content: dict | None = None,
+        document_content_path: Path | None = None,
+    ):
         reviewed_at = timestamp_at_or_after_iso8601(evidence["renderedAt"])
         verified_at = timestamp_at_or_after_iso8601(reviewed_at)
         with (
@@ -221,12 +364,42 @@ class DocumentDocxStrictnessTest(unittest.TestCase):
                 soffice_path=self.soffice,
                 verified_at=verified_at,
                 pdftoppm_path=self.pdftoppm,
+                document_content=document_content,
+                document_content_path=document_content_path,
             )
+
+    def _build_document_content(self) -> dict:
+        return build_document_content_contract(
+            self.handoff,
+            self.handoff_path,
+            self.sources.acceptance,
+            self.sources.acceptance_path,
+            self.sources.requirement,
+            self.sources.requirement_path,
+            self.sources.bundle,
+            self.sources.bundle_path,
+            self.sources.readback,
+            self.sources.readback_path,
+        )
 
     def test_fake_soffice_file_is_not_accepted(self) -> None:
         errors: list[dict[str, str]] = []
         self.assertIsNone(probe_soffice(self.soffice, errors))
         self.assertIn("render.soffice_probe", codes(errors))
+
+    def test_collection_and_state_identifiers_cannot_use_title_styles(self) -> None:
+        for identifier in ("collection.teammate.entries", "state-model.teammate-life"):
+            for style_id in ("ToolAsset", "ToolSection", "Heading2", "Title"):
+                with self.subTest(identifier=identifier, style_id=style_id):
+                    write_styled_identifier_docx(self.docx_path, f"动态集合：{identifier}", style_id)
+                    errors: list[dict[str, str]] = []
+                    _check_embedded_identifier_styles(self.docx_path, errors)
+                    self.assertIn("document.embedded_identifier_title_style", codes(errors))
+
+            write_styled_identifier_docx(self.docx_path, f"动态集合：{identifier}", "Normal")
+            errors = []
+            _check_embedded_identifier_styles(self.docx_path, errors)
+            self.assertEqual([], errors)
 
     def test_final_create_and_validate_recheck_each_current_source_file(self) -> None:
         evidence, evidence_path = self._render_evidence()
@@ -407,17 +580,531 @@ class DocumentDocxStrictnessTest(unittest.TestCase):
         self.assertIsNone(verification)
         self.assertIn("document.identifier_coverage", codes(errors))
 
-    def test_exact_semantic_relationship_statement_cannot_be_replaced_by_loose_identifiers(self) -> None:
-        coverage = expected_coverage(self.handoff)
-        statement = next(
-            value for value in coverage["semanticRelationshipStatements"] if value.startswith("State control: ")
+    def test_v03_requires_exact_native_widget_tree_tables(self) -> None:
+        contract = {
+            "format": "word-native-three-column-table-v1",
+            "headers": ["层级 / Widget", "Class", "Is Variable"],
+            "indentTwipsPerDepth": 180,
+            "assets": [
+                {
+                    "assetId": "asset-tree",
+                    "assetPath": "/Game/UI/UMG/Fight/uw_tree",
+                    "treeRows": [
+                        {"depth": 0, "widgetName": "Root", "className": "CanvasPanel", "isVariable": False},
+                        {"depth": 1, "widgetName": "Child", "className": "TextBlock", "isVariable": True},
+                    ],
+                }
+            ],
+        }
+        content = {"widgetTreeTables": contract}
+        write_widget_tree_table_docx(self.docx_path, contract)
+        errors: list[dict[str, str]] = []
+        summaries = inspect_widget_tree_tables(self.docx_path, content, errors)
+        self.assertEqual([], errors)
+        self.assertEqual(2, summaries[0]["rowCount"])
+
+        write_minimal_docx(self.docx_path, "Root CanvasPanel false Child TextBlock true")
+        errors = []
+        inspect_widget_tree_tables(self.docx_path, content, errors)
+        self.assertIn("document.widget_tree_table_missing", codes(errors))
+
+    def test_v04_requires_exact_four_column_purpose_content_and_geometry(self) -> None:
+        contract = {
+            "format": "word-native-four-column-asset-detail-table-v2",
+            "headers": ["层级 / Widget", "Class", "Is Variable", "程序用途"],
+            "indentTwipsPerDepth": 180,
+            "assets": [
+                {
+                    "assetId": "asset-tree",
+                    "assetPath": "/Game/UI/UMG/Fight/uw_tree",
+                    "treeRows": [
+                        {
+                            "depth": 0,
+                            "widgetName": "Root",
+                            "className": "CanvasPanel",
+                            "isVariable": False,
+                            "programPurpose": "",
+                        },
+                        {
+                            "depth": 1,
+                            "widgetName": "Child",
+                            "className": "TextBlock",
+                            "isVariable": True,
+                            "programPurpose": "程序控制文本内容",
+                        },
+                    ],
+                }
+            ],
+        }
+        content = {"widgetTreeTables": contract}
+        write_widget_tree_table_docx(self.docx_path, contract)
+        errors: list[dict[str, str]] = []
+        summaries = inspect_widget_tree_tables(self.docx_path, content, errors)
+        self.assertEqual([], errors)
+        self.assertEqual(2, summaries[0]["rowCount"])
+
+        write_widget_tree_table_docx(
+            self.docx_path,
+            contract,
+            xml_transform=lambda xml: xml.replace("程序控制文本内容", "", 1),
         )
-        write_minimal_docx(self.docx_path, "\n".join(item for item in self.identifiers if item != statement))
+        errors = []
+        inspect_widget_tree_tables(self.docx_path, content, errors)
+        self.assertIn("document.widget_tree_row_content", codes(errors))
+
+        write_widget_tree_table_docx(
+            self.docx_path,
+            contract,
+            xml_transform=lambda xml: xml.replace('w:w="2268"', 'w:w="2267"', 1),
+        )
+        errors = []
+        inspect_widget_tree_tables(self.docx_path, content, errors)
+        self.assertIn("document.widget_tree_table_grid", codes(errors))
+
+        empty = copy.deepcopy(contract)
+        empty["assets"][0]["treeRows"] = []
+        empty["assets"][0]["emptyState"] = "reuse-only-no-owned-widgets"
+        write_widget_tree_table_docx(self.docx_path, empty)
+        errors = []
+        inspect_widget_tree_tables(self.docx_path, {"widgetTreeTables": empty}, errors)
+        self.assertEqual([], errors)
+
+    def test_v03_rejects_drawing_inside_table_and_accepts_fixed_empty_reuse_row(self) -> None:
+        non_empty = {
+            "format": "word-native-three-column-table-v1",
+            "headers": ["层级 / Widget", "Class", "Is Variable"],
+            "indentTwipsPerDepth": 180,
+            "assets": [
+                {
+                    "assetId": "asset-tree",
+                    "assetPath": "/Game/UI/UMG/Fight/uw_tree",
+                    "treeRows": [{"depth": 0, "widgetName": "Root", "className": "CanvasPanel", "isVariable": False}],
+                }
+            ],
+        }
+        write_widget_tree_table_docx(self.docx_path, non_empty, include_drawing=True)
+        errors: list[dict[str, str]] = []
+        inspect_widget_tree_tables(self.docx_path, {"widgetTreeTables": non_empty}, errors)
+        self.assertIn("document.widget_tree_image_substitution", codes(errors))
+
+        empty = copy.deepcopy(non_empty)
+        empty["assets"][0]["treeRows"] = []
+        empty["assets"][0]["emptyState"] = "reuse-only-no-owned-widgets"
+        write_widget_tree_table_docx(self.docx_path, empty)
+        errors = []
+        summaries = inspect_widget_tree_tables(self.docx_path, {"widgetTreeTables": empty}, errors)
+        self.assertEqual([], errors)
+        self.assertEqual("reuse-only-no-owned-widgets", summaries[0]["emptyState"])
+
+    def test_v03_enforces_exact_widget_tree_table_geometry(self) -> None:
+        contract = {
+            "format": "word-native-three-column-table-v1",
+            "headers": ["层级 / Widget", "Class", "Is Variable"],
+            "indentTwipsPerDepth": 180,
+            "assets": [
+                {
+                    "assetId": "asset-tree",
+                    "assetPath": "/Game/UI/UMG/Fight/uw_tree",
+                    "treeRows": [
+                        {"depth": 0, "widgetName": "Root", "className": "CanvasPanel", "isVariable": False},
+                        {"depth": 1, "widgetName": "Child", "className": "TextBlock", "isVariable": True},
+                    ],
+                }
+            ],
+        }
+        table_grid = (
+            '<w:tblGrid><w:gridCol w:w="3969"/><w:gridCol w:w="3061"/>'
+            '<w:gridCol w:w="1247"/></w:tblGrid>'
+        )
+        cases = [
+            (
+                "missing-layout",
+                lambda xml: xml.replace('<w:tblLayout w:type="fixed"/>', "", 1),
+                "document.widget_tree_table_layout",
+            ),
+            (
+                "wrong-layout",
+                lambda xml: xml.replace('<w:tblLayout w:type="fixed"/>', '<w:tblLayout w:type="autofit"/>', 1),
+                "document.widget_tree_table_layout",
+            ),
+            (
+                "missing-table-width",
+                lambda xml: xml.replace('<w:tblW w:w="8277" w:type="dxa"/>', "", 1),
+                "document.widget_tree_table_width",
+            ),
+            (
+                "wrong-table-width",
+                lambda xml: xml.replace('<w:tblW w:w="8277" w:type="dxa"/>', '<w:tblW w:w="8276" w:type="dxa"/>', 1),
+                "document.widget_tree_table_width",
+            ),
+            (
+                "missing-grid",
+                lambda xml: xml.replace(table_grid, "", 1),
+                "document.widget_tree_table_grid",
+            ),
+            (
+                "wrong-grid",
+                lambda xml: xml.replace(table_grid, table_grid.replace('w:w="3061"', 'w:w="3060"'), 1),
+                "document.widget_tree_table_grid",
+            ),
+            (
+                "missing-header-cell-width",
+                lambda xml: xml.replace('<w:tcW w:w="3969" w:type="dxa"/>', "", 1),
+                "document.widget_tree_cell_width",
+            ),
+            (
+                "wrong-header-cell-width",
+                lambda xml: xml.replace(
+                    '<w:tcW w:w="3969" w:type="dxa"/>',
+                    '<w:tcW w:w="3968" w:type="dxa"/>',
+                    1,
+                ),
+                "document.widget_tree_cell_width",
+            ),
+            (
+                "wrong-data-cell-width",
+                lambda xml: xml.replace(
+                    '<w:tcW w:w="3061" w:type="dxa"/>',
+                    '<w:tcW w:w="3060" w:type="dxa"/>',
+                    2,
+                ).replace('<w:tcW w:w="3060" w:type="dxa"/>', '<w:tcW w:w="3061" w:type="dxa"/>', 1),
+                "document.widget_tree_cell_width",
+            ),
+        ]
+        for name, transform, expected_code in cases:
+            with self.subTest(name=name):
+                write_widget_tree_table_docx(self.docx_path, contract, xml_transform=transform)
+                errors: list[dict[str, str]] = []
+                inspect_widget_tree_tables(self.docx_path, {"widgetTreeTables": contract}, errors)
+                self.assertIn(expected_code, codes(errors))
+
+    def test_v03_enforces_empty_row_width_header_split_and_no_row_heights(self) -> None:
+        non_empty = {
+            "format": "word-native-three-column-table-v1",
+            "headers": ["层级 / Widget", "Class", "Is Variable"],
+            "indentTwipsPerDepth": 180,
+            "assets": [
+                {
+                    "assetId": "asset-tree",
+                    "assetPath": "/Game/UI/UMG/Fight/uw_tree",
+                    "treeRows": [{"depth": 0, "widgetName": "Root", "className": "CanvasPanel", "isVariable": False}],
+                }
+            ],
+        }
+        cases = [
+            (
+                "header-cant-split",
+                non_empty,
+                lambda xml: xml.replace('<w:tblHeader/><w:cantSplit/>', '<w:tblHeader/>', 1),
+                "document.widget_tree_header_split",
+            ),
+            (
+                "header-height",
+                non_empty,
+                lambda xml: xml.replace('<w:tblHeader/><w:cantSplit/>', '<w:tblHeader/><w:cantSplit/><w:trHeight w:val="240"/>', 1),
+                "document.widget_tree_row_height",
+            ),
+            (
+                "data-height",
+                non_empty,
+                lambda xml: xml.replace('<w:trPr><w:cantSplit/></w:trPr>', '<w:trPr><w:cantSplit/><w:trHeight w:val="240"/></w:trPr>', 1),
+                "document.widget_tree_row_height",
+            ),
+        ]
+        empty = copy.deepcopy(non_empty)
+        empty["assets"][0]["treeRows"] = []
+        empty["assets"][0]["emptyState"] = "reuse-only-no-owned-widgets"
+        cases.extend(
+            [
+                (
+                    "empty-height",
+                    empty,
+                    lambda xml: xml.replace('<w:trPr><w:cantSplit/></w:trPr>', '<w:trPr><w:cantSplit/><w:trHeight w:val="240"/></w:trPr>', 1),
+                    "document.widget_tree_row_height",
+                ),
+                (
+                    "empty-cell-width",
+                    empty,
+                    lambda xml: xml.replace('<w:tcW w:w="8277" w:type="dxa"/>', '<w:tcW w:w="8276" w:type="dxa"/>', 1),
+                    "document.widget_tree_cell_width",
+                ),
+            ]
+        )
+        for name, contract, transform, expected_code in cases:
+            with self.subTest(name=name):
+                write_widget_tree_table_docx(self.docx_path, contract, xml_transform=transform)
+                errors: list[dict[str, str]] = []
+                inspect_widget_tree_tables(self.docx_path, {"widgetTreeTables": contract}, errors)
+                self.assertIn(expected_code, codes(errors))
+
+    def test_v03_rejects_negative_and_non_integer_widget_tree_indents(self) -> None:
+        contract = {
+            "format": "word-native-three-column-table-v1",
+            "headers": ["层级 / Widget", "Class", "Is Variable"],
+            "indentTwipsPerDepth": 180,
+            "assets": [
+                {
+                    "assetId": "asset-tree",
+                    "assetPath": "/Game/UI/UMG/Fight/uw_tree",
+                    "treeRows": [
+                        {"depth": 0, "widgetName": "Root", "className": "CanvasPanel", "isVariable": False},
+                        {"depth": 1, "widgetName": "Child", "className": "TextBlock", "isVariable": True},
+                    ],
+                }
+            ],
+        }
+        cases = [
+            (
+                "negative-root",
+                lambda xml: xml.replace(
+                    '<w:p><w:r><w:t>Root</w:t>',
+                    '<w:p><w:pPr><w:ind w:left="-180"/></w:pPr><w:r><w:t>Root</w:t>',
+                    1,
+                ),
+            ),
+            (
+                "non-integer-child",
+                lambda xml: xml.replace('<w:ind w:left="180"/>', '<w:ind w:left="18x"/>', 1),
+            ),
+        ]
+        for name, transform in cases:
+            with self.subTest(name=name):
+                write_widget_tree_table_docx(self.docx_path, contract, xml_transform=transform)
+                errors: list[dict[str, str]] = []
+                inspect_widget_tree_tables(self.docx_path, {"widgetTreeTables": contract}, errors)
+                self.assertIn("document.widget_tree_depth", codes(errors))
+
+    def test_v04_create_and_revalidate_with_real_content_contract_and_native_tables(self) -> None:
+        document_content = self._build_document_content()
+        document_content_path = self.sources.root / "program-document-content.json"
+        write_json(document_content_path, document_content)
+        write_widget_tree_table_docx(
+            self.docx_path,
+            document_content["widgetTreeTables"],
+            extra_text="\n".join(self.identifiers),
+            v04_structure=True,
+        )
+        evidence, evidence_path = self._render_evidence()
+        reviewed_pages = [page["fileName"] for page in evidence["pages"]]
+        verification, errors = self._verify(
+            evidence,
+            evidence_path,
+            reviewed_pages,
+            document_content=document_content,
+            document_content_path=document_content_path,
+        )
+        self.assertEqual([], errors)
+        self.assertIsNotNone(verification)
+        self.assertEqual("0.4", verification["version"])
+        self.assertEqual("word-native-four-column-asset-detail-table-v2", verification["structure"]["widgetTreeFormat"])
+        self.assertEqual(len(document_content["widgetTreeTables"]["assets"]), verification["structure"]["tableCount"])
+
+        with (
+            patch("validate_program_docx.probe_soffice", return_value=RENDERER_VERSION),
+            patch("validate_program_docx.convert_docx_to_pdf", side_effect=self._fake_pdf_conversion),
+            patch("validate_program_docx.render_pdf_to_review_pages", side_effect=self._fake_page_render),
+            patch.dict(os.environ, {"NEXTGAME_UI_PROGRAM_DOCS_ROOT": str(self.sources.root)}),
+        ):
+            report = validate_document_verification(
+                verification,
+                handoff=self.handoff,
+                handoff_path=self.handoff_path,
+                build_acceptance=self.sources.acceptance,
+                build_acceptance_path=self.sources.acceptance_path,
+                requirement=self.sources.requirement,
+                requirement_path=self.sources.requirement_path,
+                bundle=self.sources.bundle,
+                bundle_path=self.sources.bundle_path,
+                readback=self.sources.readback,
+                readback_path=self.sources.readback_path,
+                docx_path=self.docx_path,
+                render_dir=self.render_dir,
+                render_evidence=evidence,
+                render_evidence_path=evidence_path,
+                soffice_path=self.soffice,
+                pdftoppm_path=self.pdftoppm,
+                document_content=document_content,
+                document_content_path=document_content_path,
+            )
+        self.assertTrue(report["valid"], report["errors"])
+
+        first_asset = document_content["widgetTreeTables"]["assets"][0]
+        asset_path_paragraph = word_paragraph_xml(f"资产路径：{first_asset['assetPath']}")
+        parent_class = first_asset.get("parentClassPath", V04_TEST_PARENT_CLASS)
+        parent_class_paragraph = word_paragraph_xml(f"Parent Class：{parent_class}")
+        write_widget_tree_table_docx(
+            self.docx_path,
+            document_content["widgetTreeTables"],
+            extra_text="\n".join(self.identifiers),
+            v04_structure=True,
+            body_transform=lambda body: body.replace(
+                asset_path_paragraph + parent_class_paragraph,
+                parent_class_paragraph + asset_path_paragraph,
+                1,
+            ),
+        )
+        with (
+            patch("validate_program_docx.probe_soffice", return_value=RENDERER_VERSION),
+            patch("validate_program_docx.convert_docx_to_pdf", side_effect=self._fake_pdf_conversion),
+            patch("validate_program_docx.render_pdf_to_review_pages", side_effect=self._fake_page_render),
+            patch.dict(os.environ, {"NEXTGAME_UI_PROGRAM_DOCS_ROOT": str(self.sources.root)}),
+        ):
+            stale_report = validate_document_verification(
+                verification,
+                handoff=self.handoff,
+                handoff_path=self.handoff_path,
+                build_acceptance=self.sources.acceptance,
+                build_acceptance_path=self.sources.acceptance_path,
+                requirement=self.sources.requirement,
+                requirement_path=self.sources.requirement_path,
+                bundle=self.sources.bundle,
+                bundle_path=self.sources.bundle_path,
+                readback=self.sources.readback,
+                readback_path=self.sources.readback_path,
+                docx_path=self.docx_path,
+                render_dir=self.render_dir,
+                render_evidence=evidence,
+                render_evidence_path=evidence_path,
+                soffice_path=self.soffice,
+                pdftoppm_path=self.pdftoppm,
+                document_content=document_content,
+                document_content_path=document_content_path,
+            )
+        self.assertFalse(stale_report["valid"])
+        self.assertIn("document.asset_block_order", codes(stale_report["errors"]))
+
+    def test_v04_rejects_invalid_asset_detail_structure(self) -> None:
+        document_content = self._build_document_content()
+        document_content_path = self.sources.root / "program-document-content.json"
+        write_json(document_content_path, document_content)
+        first_asset = document_content["widgetTreeTables"]["assets"][0]
+        asset_path_paragraph = word_paragraph_xml(f"资产路径：{first_asset['assetPath']}")
+        parent_class = first_asset.get("parentClassPath", V04_TEST_PARENT_CLASS)
+        parent_class_paragraph = word_paragraph_xml(f"Parent Class：{parent_class}")
+        functional_summary_paragraph = word_paragraph_xml(f"功能说明：{V04_TEST_FUNCTIONAL_SUMMARY}")
+
+        cases = (
+            (
+                "wrong-order",
+                lambda body: body.replace(
+                    asset_path_paragraph + parent_class_paragraph,
+                    parent_class_paragraph + asset_path_paragraph,
+                    1,
+                ),
+                "document.asset_block_order",
+            ),
+            (
+                "missing-functional-summary",
+                lambda body: body.replace(functional_summary_paragraph, "", 1),
+                "document.functional_summary",
+            ),
+            (
+                "legacy-program-variable-heading",
+                lambda body: body + word_paragraph_xml("2. 程序变量清单", "ToolSection"),
+                "document.forbidden_heading",
+            ),
+            (
+                "empty-other-assets-module",
+                lambda body: body + word_paragraph_xml("2. 其他资产程序说明", "ToolSection"),
+                "document.other_assets_empty",
+            ),
+            (
+                "legacy-owner-field",
+                lambda body: body + word_paragraph_xml("所属资产：/Game/UI/UMG/Role/umg_role"),
+                "document.forbidden_asset_field",
+            ),
+        )
+        for name, transform, expected_code in cases:
+            with self.subTest(name=name):
+                write_widget_tree_table_docx(
+                    self.docx_path,
+                    document_content["widgetTreeTables"],
+                    extra_text="\n".join(self.identifiers),
+                    v04_structure=True,
+                    body_transform=transform,
+                )
+                evidence, evidence_path = self._render_evidence()
+                reviewed_pages = [page["fileName"] for page in evidence["pages"]]
+                verification, errors = self._verify(
+                    evidence,
+                    evidence_path,
+                    reviewed_pages,
+                    document_content=document_content,
+                    document_content_path=document_content_path,
+                )
+                self.assertIsNone(verification)
+                self.assertIn(expected_code, codes(errors))
+
+    def test_v03_content_and_verification_remain_revalidatable(self) -> None:
+        document_content = self._build_document_content()
+        document_content["version"] = "0.3"
+        document_content["widgetTreeTables"]["format"] = "word-native-three-column-table-v1"
+        document_content["widgetTreeTables"]["headers"] = ["层级 / Widget", "Class", "Is Variable"]
+        for asset in document_content["widgetTreeTables"]["assets"]:
+            asset.pop("parentClassPath", None)
+            for row in asset["treeRows"]:
+                row.pop("programPurpose")
+        document_content_path = self.sources.root / "program-document-content.json"
+        write_json(document_content_path, document_content)
+        write_widget_tree_table_docx(
+            self.docx_path,
+            document_content["widgetTreeTables"],
+            extra_text="\n".join(self.identifiers),
+        )
+        evidence, evidence_path = self._render_evidence()
+        reviewed_pages = [page["fileName"] for page in evidence["pages"]]
+        verification, errors = self._verify(
+            evidence,
+            evidence_path,
+            reviewed_pages,
+            document_content=document_content,
+            document_content_path=document_content_path,
+        )
+        self.assertEqual([], errors)
+        self.assertIsNotNone(verification)
+        self.assertEqual("0.3", verification["version"])
+        self.assertEqual("word-native-three-column-table-v1", verification["structure"]["widgetTreeFormat"])
+
+        with (
+            patch("validate_program_docx.probe_soffice", return_value=RENDERER_VERSION),
+            patch("validate_program_docx.convert_docx_to_pdf", side_effect=self._fake_pdf_conversion),
+            patch("validate_program_docx.render_pdf_to_review_pages", side_effect=self._fake_page_render),
+            patch.dict(os.environ, {"NEXTGAME_UI_PROGRAM_DOCS_ROOT": str(self.sources.root)}),
+        ):
+            report = validate_document_verification(
+                verification,
+                handoff=self.handoff,
+                handoff_path=self.handoff_path,
+                build_acceptance=self.sources.acceptance,
+                build_acceptance_path=self.sources.acceptance_path,
+                requirement=self.sources.requirement,
+                requirement_path=self.sources.requirement_path,
+                bundle=self.sources.bundle,
+                bundle_path=self.sources.bundle_path,
+                readback=self.sources.readback,
+                readback_path=self.sources.readback_path,
+                docx_path=self.docx_path,
+                render_dir=self.render_dir,
+                render_evidence=evidence,
+                render_evidence_path=evidence_path,
+                soffice_path=self.soffice,
+                pdftoppm_path=self.pdftoppm,
+                document_content=document_content,
+                document_content_path=document_content_path,
+            )
+        self.assertTrue(report["valid"], report["errors"])
+
+    def test_machine_semantic_relationship_statements_are_not_required_in_docx(self) -> None:
+        coverage = expected_coverage(self.handoff)
+        self.assertTrue(
+            any(value.startswith("State control: ") for value in coverage["semanticRelationshipStatements"])
+        )
+        write_minimal_docx(self.docx_path, "\n".join(self.identifiers))
         (self.render_dir / "page-1.png").write_bytes(make_png())
         evidence, evidence_path = self._render_evidence()
         verification, errors = self._verify(evidence, evidence_path, ["page-1.png"])
-        self.assertIsNone(verification)
-        self.assertIn("document.semantic_coverage", codes(errors))
+        self.assertEqual([], errors)
+        self.assertIsNotNone(verification)
 
     def test_comments_and_hidden_runs_do_not_satisfy_visible_document_coverage(self) -> None:
         hidden_contract = escape("\n".join(self.identifiers))
@@ -448,19 +1135,23 @@ class DocumentDocxStrictnessTest(unittest.TestCase):
         evidence, evidence_path = self._render_evidence()
         verification, errors = self._verify(evidence, evidence_path, ["page-1.png"])
         self.assertIsNone(verification)
-        self.assertTrue({"document.identifier_coverage", "document.semantic_coverage"} & codes(errors))
+        self.assertIn("document.identifier_coverage", codes(errors))
 
-    def test_accepted_deviation_and_state_control_gap_cannot_be_omitted(self) -> None:
-        excluded_prefixes = ("Accepted deviation: ", "State-control gap: ")
+    def test_accepted_deviation_and_state_control_gap_identifiers_cannot_be_omitted(self) -> None:
+        coverage = expected_coverage(self.handoff)
+        omitted = {
+            *coverage["acceptedDeviationIdentifiers"],
+            *coverage["stateControlGapIdentifiers"],
+        }
         write_minimal_docx(
             self.docx_path,
-            "\n".join(item for item in self.identifiers if not item.startswith(excluded_prefixes)),
+            "\n".join(item for item in self.identifiers if item not in omitted),
         )
         (self.render_dir / "page-1.png").write_bytes(make_png())
         evidence, evidence_path = self._render_evidence()
         verification, errors = self._verify(evidence, evidence_path, ["page-1.png"])
         self.assertIsNone(verification)
-        self.assertIn("document.semantic_coverage", codes(errors))
+        self.assertIn("document.identifier_coverage", codes(errors))
 
     def test_canonical_relationships_cover_every_required_relation(self) -> None:
         statements = expected_coverage(self.handoff)["semanticRelationshipStatements"]

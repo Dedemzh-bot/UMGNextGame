@@ -212,6 +212,33 @@ class BuildAcceptanceGateTest(unittest.TestCase):
                 ):
                     self.assertEqual(1, validate_docx_main())
 
+    def test_new_document_verification_output_cli_requires_document_content(self) -> None:
+        handoff_path = self.sources.root / "ui-program-handoff.json"
+        render_evidence_path = self.sources.root / "render-evidence.json"
+        write_json(handoff_path, self.sources.build_handoff())
+        write_json(render_evidence_path, {})
+        argv = [
+            "validate_program_docx.py",
+            "--handoff", str(handoff_path),
+            "--build-acceptance", str(self.sources.acceptance_path),
+            "--requirement", str(self.sources.requirement_path),
+            "--bundle", str(self.sources.bundle_path),
+            "--readback", str(self.sources.readback_path),
+            "--docx", str(self.sources.root / "placeholder.docx"),
+            "--render-dir", str(self.sources.root / "pages"),
+            "--render-evidence", str(render_evidence_path),
+            "--output", str(self.sources.root / "document-verification.json"),
+        ]
+        stdout = io.StringIO()
+        with (
+            patch.object(sys, "argv", argv),
+            patch("validate_program_docx._detect_soffice", return_value=None),
+            patch("validate_program_docx._detect_pdftoppm", return_value=None),
+            redirect_stdout(stdout),
+        ):
+            self.assertEqual(1, validate_docx_main())
+        self.assertIn("--document-content is required", stdout.getvalue())
+
     def test_document_content_cannot_bypass_or_reuse_stale_acceptance(self) -> None:
         handoff = self.sources.build_handoff()
         handoff_path = self.sources.root / "ui-program-handoff.json"
@@ -228,7 +255,7 @@ class BuildAcceptanceGateTest(unittest.TestCase):
             self.sources.readback,
             self.sources.readback_path,
         )
-        self.assertEqual("0.2", contract["version"])
+        self.assertEqual("0.4", contract["version"])
 
         stale = copy.deepcopy(self.sources.acceptance)
         stale["status"] = "rejected"

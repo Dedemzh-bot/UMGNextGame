@@ -39,6 +39,7 @@ READBACK_SCHEMA = ASSETS_ROOT / "unreal-widget-readback.schema.json"
 BUILD_ACCEPTANCE_SCHEMA = ASSETS_ROOT / "ui-build-acceptance.schema.json"
 HANDOFF_SCHEMA = ASSETS_ROOT / "ui-program-handoff.schema.json"
 DOCUMENT_VERIFICATION_SCHEMA = ASSETS_ROOT / "document-verification.schema.json"
+PROGRAM_DOCUMENT_CONTENT_SCHEMA = ASSETS_ROOT / "program-document-content.schema.json"
 SYSTEM_PATH_PATTERN = re.compile(r"^/Game/UI/UMG/([^/]+)/")
 PROJECT_COMMON_WIDGET_PATH_PATTERN = re.compile(
     r"^/Game/UI/UMG/Widgets/uw_common_[A-Za-z0-9_]+$"
@@ -424,6 +425,189 @@ def readback_indexes(readback: dict[str, Any], errors: list[dict[str, str]]) -> 
             if (asset_id, mapping.get("widgetName")) not in widgets:
                 errors.append(issue("readback.mapping_widget", f"$.assets[{asset_index}].nodeMappings[{mapping_index}].widgetName", "Mapped Widget is absent from this asset readback."))
     return {"assets": assets, "widgets": widgets, "mappings": mappings}
+
+
+LEGACY_WIDGET_TREE_TABLE_FORMAT = "word-native-three-column-table-v1"
+LEGACY_WIDGET_TREE_TABLE_HEADERS = ["层级 / Widget", "Class", "Is Variable"]
+WIDGET_TREE_TABLE_FORMAT = "word-native-four-column-asset-detail-table-v2"
+WIDGET_TREE_TABLE_HEADERS = ["层级 / Widget", "Class", "Is Variable", "程序用途"]
+WIDGET_TREE_INDENT_TWIPS = 180
+WIDGET_TREE_EMPTY_STATE = "reuse-only-no-owned-widgets"
+
+
+def widget_class_name(class_path: str) -> str:
+    """Return the compact class name carried into the token-minimal document contract."""
+
+    return class_path.rsplit(".", 1)[-1]
+
+
+def project_widget_tree_tables(
+    readback: dict[str, Any],
+    asset_order: list[dict[str, Any]],
+    *,
+    content_version: str = "0.4",
+) -> tuple[dict[str, Any], list[dict[str, str]]]:
+    """Project validated readback trees into stable, compact, document-facing rows."""
+
+    errors: list[dict[str, str]] = []
+    if content_version not in {"0.3", "0.4"}:
+        errors.append(
+            issue(
+                "document.widget_tree_contract_version",
+                "$.version",
+                f"Unsupported WidgetTree content contract version {content_version!r}.",
+            )
+        )
+    legacy_three_column = content_version == "0.3"
+    readback_assets = {
+        asset.get("assetId"): asset
+        for asset in readback.get("assets", [])
+        if isinstance(asset, dict) and isinstance(asset.get("assetId"), str)
+    }
+    projected_assets: list[dict[str, Any]] = []
+    for asset_index, ordered_asset in enumerate(asset_order):
+        asset_id = ordered_asset.get("assetId")
+        asset_path = ordered_asset.get("assetPath")
+        actual = readback_assets.get(asset_id)
+        path = f"$.widgetTreeTables.assets[{asset_index}]"
+        if not isinstance(actual, dict):
+            errors.append(issue("document.widget_tree_asset_missing", path, f"Readback asset {asset_id!r} is missing."))
+            continue
+        parent_class_path = actual.get("parentClassPath")
+        if not legacy_three_column and (not isinstance(parent_class_path, str) or not parent_class_path):
+            errors.append(
+                issue(
+                    "document.widget_tree_parent_class",
+                    f"{path}.parentClassPath",
+                    "Version 0.4 document content requires the verified readback Parent Class path.",
+                )
+            )
+        program_purposes: dict[str, str] = {}
+        if not legacy_three_column:
+            variables = ordered_asset.get("programVariables") if isinstance(ordered_asset.get("programVariables"), list) else []
+            for variable_index, variable in enumerate(variables):
+                variable_path = f"{path}.programVariables[{variable_index}]"
+                if not isinstance(variable, dict):
+                    errors.append(issue("document.widget_tree_program_variable", variable_path, "Program variable must be an object."))
+                    continue
+                widget_name = variable.get("widgetName")
+                purpose = variable.get("purpose")
+                if not isinstance(widget_name, str) or not isinstance(purpose, str):
+                    errors.append(
+                        issue(
+                            "document.widget_tree_program_variable",
+                            variable_path,
+                            "Program variable requires string widgetName and purpose values.",
+                        )
+                    )
+                    continue
+                if widget_name in program_purposes:
+                    errors.append(
+                        issue(
+                            "document.widget_tree_program_purpose_duplicate",
+                            f"{variable_path}.widgetName",
+                            f"Widget {widget_name!r} has more than one program-purpose mapping.",
+                        )
+                    )
+                    continue
+                program_purposes[widget_name] = purpose
+        widgets = actual.get("widgets") if isinstance(actual.get("widgets"), list) else []
+        by_name: dict[str, dict[str, Any]] = {}
+        children: dict[str | None, list[str]] = {}
+        for widget_index, widget in enumerate(widgets):
+            if not isinstance(widget, dict):
+                continue
+            name = widget.get("widgetName")
+            if not isinstance(name, str):
+                continue
+            if name in by_name:
+                errors.append(
+                    issue(
+                        "document.widget_tree_duplicate",
+                        f"{path}.treeRows[{widget_index}].widgetName",
+                        f"Duplicate Widget name {name!r}.",
+                    )
+                )
+                continue
+            by_name[name] = widget
+            parent = widget.get("parentWidgetName")
+            children.setdefault(parent, []).append(name)
+        if not legacy_three_column:
+            for widget_name in program_purposes:
+                if widget_name not in by_name:
+                    errors.append(
+                        issue(
+                            "document.widget_tree_program_widget_missing",
+                            path,
+                            f"Program variable Widget {widget_name!r} is absent from this asset readback.",
+                        )
+                    )
+        for name, widget in by_name.items():
+            parent = widget.get("parentWidgetName")
+            if parent is not None and parent not in by_name:
+                errors.append(
+                    issue(
+                        "document.widget_tree_parent_missing",
+                        path,
+                        f"Widget {name!r} names missing parent {parent!r}.",
+                    )
+                )
+
+        rows: list[dict[str, Any]] = []
+        state: dict[str, int] = {}
+
+        def visit(name: str, depth: int) -> None:
+            mark = state.get(name, 0)
+            if mark == 1:
+                errors.append(issue("document.widget_tree_cycle", path, f"Widget parent cycle reaches {name!r}."))
+                return
+            if mark == 2:
+                return
+            state[name] = 1
+            widget = by_name[name]
+            class_path = widget.get("classPath")
+            row = {
+                "depth": depth,
+                "widgetName": name,
+                "className": widget_class_name(class_path) if isinstance(class_path, str) else "",
+                "isVariable": widget.get("isVariable") is True,
+            }
+            if not legacy_three_column:
+                row["programPurpose"] = program_purposes.get(name, "")
+            rows.append(row)
+            for child_name in children.get(name, []):
+                visit(child_name, depth + 1)
+            state[name] = 2
+
+        for root_name in children.get(None, []):
+            visit(root_name, 0)
+        for name in by_name:
+            if state.get(name, 0) == 0:
+                visit(name, 0)
+        if len({row["widgetName"] for row in rows}) != len(by_name):
+            errors.append(issue("document.widget_tree_disconnected", path, "WidgetTree projection did not cover every Widget exactly once."))
+
+        projected: dict[str, Any] = {
+            "assetId": asset_id,
+            "assetPath": asset_path,
+            "treeRows": rows,
+        }
+        if not legacy_three_column and isinstance(parent_class_path, str) and parent_class_path:
+            projected["parentClassPath"] = parent_class_path
+        if not rows:
+            if actual.get("representationKind") != "reuse-only":
+                errors.append(issue("document.widget_tree_empty", path, "Only reuse-only assets may have an empty owned WidgetTree."))
+            projected["emptyState"] = WIDGET_TREE_EMPTY_STATE
+        projected_assets.append(projected)
+    return (
+        {
+            "format": LEGACY_WIDGET_TREE_TABLE_FORMAT if legacy_three_column else WIDGET_TREE_TABLE_FORMAT,
+            "headers": LEGACY_WIDGET_TREE_TABLE_HEADERS if legacy_three_column else WIDGET_TREE_TABLE_HEADERS,
+            "indentTwipsPerDepth": WIDGET_TREE_INDENT_TWIPS,
+            "assets": projected_assets,
+        },
+        errors,
+    )
 
 
 def layout_entry_class(node: dict[str, Any]) -> str | None:

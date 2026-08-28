@@ -24,10 +24,12 @@ from _document_contract_common import (
     BUILD_ACCEPTANCE_SCHEMA,
     DOCUMENT_VERIFICATION_SCHEMA,
     HANDOFF_SCHEMA,
+    PROGRAM_DOCUMENT_CONTENT_SCHEMA,
     READBACK_SCHEMA,
     SKILL_ROOT,
     compute_approved_content_sha256,
     load_json,
+    project_widget_tree_tables,
     sha256_file,
     validate_schema_instance,
     write_json,
@@ -215,6 +217,7 @@ class FinalizedSources:
                     "assetPath": asset["assetPath"],
                     "assetObjectPath": f"{asset['assetPath']}.{asset['assetPath'].rsplit('/', 1)[-1]}",
                     "assetClass": "/Script/UMGEditor.WidgetBlueprint",
+                    "parentClassPath": "/Script/UIFramework.GameUserWidget",
                     "status": "verified",
                     "widgets": widgets,
                     "nodeMappings": [
@@ -344,6 +347,36 @@ class DocumentContractsTest(unittest.TestCase):
         )
         for name, schema_path in pairs:
             self.assertEqual([], validate_schema_instance(load_json(FIXTURES / name), load_json(schema_path)), name)
+
+        verification_v03 = copy.deepcopy(load_json(FIXTURES / "minimal-document-verification.json"))
+        verification_v03["version"] = "0.3"
+        verification_v03["documentContent"] = {
+            "version": "0.3",
+            "fileName": "program-document-content.json",
+            "sha256": "f" * 64,
+        }
+        verification_v03["structure"] = {
+            "widgetTreeFormat": "word-native-three-column-table-v1",
+            "tableCount": 1,
+            "tables": [
+                {
+                    "assetId": "build-screen-role",
+                    "assetPath": "/Game/UI/UMG/Role/umg_role",
+                    "rowCount": 1,
+                    "rowsSha256": "e" * 64,
+                }
+            ],
+        }
+        self.assertEqual([], validate_schema_instance(verification_v03, load_json(DOCUMENT_VERIFICATION_SCHEMA)))
+
+        verification_v04 = copy.deepcopy(verification_v03)
+        verification_v04["version"] = "0.4"
+        verification_v04["documentContent"]["version"] = "0.4"
+        verification_v04["structure"]["widgetTreeFormat"] = "word-native-four-column-asset-detail-table-v2"
+        self.assertEqual([], validate_schema_instance(verification_v04, load_json(DOCUMENT_VERIFICATION_SCHEMA)))
+
+        verification_v04["documentContent"]["version"] = "0.3"
+        self.assertTrue(validate_schema_instance(verification_v04, load_json(DOCUMENT_VERIFICATION_SCHEMA)))
 
     def test_accepted_post_build_happy_path_filters_static_widgets_and_tracks_state_gap(self) -> None:
         report = self.sources.validate_readback()
@@ -641,7 +674,10 @@ class DocumentContractsTest(unittest.TestCase):
         )
         coverage = expected_coverage(handoff)
 
-        self.assertEqual("0.2", contract["version"])
+        self.assertEqual("0.4", contract["version"])
+        self.assertEqual("word-native-four-column-asset-detail-table-v2", contract["widgetTreeTables"]["format"])
+        self.assertEqual(["层级 / Widget", "Class", "Is Variable", "程序用途"], contract["widgetTreeTables"]["headers"])
+        self.assertTrue(contract["widgetTreeTables"]["assets"])
         self.assertEqual(sha256_file(handoff_path), contract["handoff"]["sha256"])
         self.assertEqual(
             coverage["semanticRelationshipStatements"],
@@ -651,6 +687,105 @@ class DocumentContractsTest(unittest.TestCase):
             {key: value for key, value in coverage.items() if key != "semanticRelationshipStatements"},
             contract["requiredIdentifiers"],
         )
+        self.assertEqual([], validate_schema_instance(contract, load_json(PROGRAM_DOCUMENT_CONTENT_SCHEMA)))
+        first_row = contract["widgetTreeTables"]["assets"][0]["treeRows"][0]
+        self.assertEqual({"depth", "widgetName", "className", "isVariable", "programPurpose"}, set(first_row))
+        self.assertNotIn("parentWidgetName", first_row)
+        self.assertNotIn("classPath", first_row)
+        handoff_assets = {asset["assetId"]: asset for asset in handoff["assets"]}
+        readback_assets = {asset["assetId"]: asset for asset in self.sources.readback["assets"]}
+        for tree_asset in contract["widgetTreeTables"]["assets"]:
+            self.assertEqual(
+                readback_assets[tree_asset["assetId"]]["parentClassPath"],
+                tree_asset["parentClassPath"],
+            )
+            expected_purposes = {
+                variable["widgetName"]: variable["purpose"]
+                for variable in handoff_assets[tree_asset["assetId"]]["programVariables"]
+            }
+            actual_rows = {row["widgetName"]: row for row in tree_asset["treeRows"]}
+            self.assertEqual(expected_purposes, {name: actual_rows[name]["programPurpose"] for name in expected_purposes})
+            self.assertTrue(all(row["programPurpose"] == "" for name, row in actual_rows.items() if name not in expected_purposes))
+
+    def test_widget_tree_projection_rejects_missing_parent_and_cycle(self) -> None:
+        order = [{"assetId": "asset-tree", "assetPath": "/Game/UI/UMG/Fight/uw_tree"}]
+        base = {
+            "assets": [
+                {
+                    "assetId": "asset-tree",
+                    "assetPath": "/Game/UI/UMG/Fight/uw_tree",
+                    "parentClassPath": "/Script/UIFramework.GameUserWidget",
+                    "representationKind": "layout-spec",
+                    "widgets": [
+                        {"widgetName": "Root", "classPath": "/Script/UMG.CanvasPanel", "parentWidgetName": None, "isVariable": False},
+                        {"widgetName": "Child", "classPath": "/Script/UMG.TextBlock", "parentWidgetName": "Root", "isVariable": True},
+                    ],
+                }
+            ]
+        }
+        projected, errors = project_widget_tree_tables(base, order)
+        self.assertEqual([], errors)
+        self.assertEqual([0, 1], [row["depth"] for row in projected["assets"][0]["treeRows"]])
+        self.assertEqual("/Script/UIFramework.GameUserWidget", projected["assets"][0]["parentClassPath"])
+        self.assertEqual(["CanvasPanel", "TextBlock"], [row["className"] for row in projected["assets"][0]["treeRows"]])
+        self.assertEqual(["", ""], [row["programPurpose"] for row in projected["assets"][0]["treeRows"]])
+
+        purpose_order = copy.deepcopy(order)
+        purpose_order[0]["programVariables"] = [
+            {"widgetName": "Child", "purpose": "程序控制文本内容"}
+        ]
+        projected, errors = project_widget_tree_tables(base, purpose_order)
+        self.assertEqual([], errors)
+        self.assertEqual(["", "程序控制文本内容"], [row["programPurpose"] for row in projected["assets"][0]["treeRows"]])
+        self.assertTrue(projected["assets"][0]["treeRows"][1]["isVariable"])
+
+        legacy, errors = project_widget_tree_tables(base, purpose_order, content_version="0.3")
+        self.assertEqual([], errors)
+        self.assertEqual("word-native-three-column-table-v1", legacy["format"])
+        self.assertNotIn("parentClassPath", legacy["assets"][0])
+        self.assertNotIn("programPurpose", legacy["assets"][0]["treeRows"][1])
+
+        duplicate_order = copy.deepcopy(purpose_order)
+        duplicate_order[0]["programVariables"].append(
+            {"widgetName": "Child", "purpose": "程序控制可见状态"}
+        )
+        _, errors = project_widget_tree_tables(base, duplicate_order)
+        self.assertIn("document.widget_tree_program_purpose_duplicate", {item["code"] for item in errors})
+
+        missing_order = copy.deepcopy(order)
+        missing_order[0]["programVariables"] = [
+            {"widgetName": "Missing", "purpose": "程序控制动态内容"}
+        ]
+        _, errors = project_widget_tree_tables(base, missing_order)
+        self.assertIn("document.widget_tree_program_widget_missing", {item["code"] for item in errors})
+
+        missing = copy.deepcopy(base)
+        missing["assets"][0]["widgets"][1]["parentWidgetName"] = "Missing"
+        _, errors = project_widget_tree_tables(missing, order)
+        self.assertIn("document.widget_tree_parent_missing", {item["code"] for item in errors})
+
+        cycle = copy.deepcopy(base)
+        cycle["assets"][0]["widgets"][0]["parentWidgetName"] = "Child"
+        _, errors = project_widget_tree_tables(cycle, order)
+        self.assertIn("document.widget_tree_cycle", {item["code"] for item in errors})
+
+    def test_widget_tree_projection_represents_empty_reuse_only_without_fake_rows(self) -> None:
+        order = [{"assetId": "asset-reuse", "assetPath": "/Game/UI/UMG/Fight/Widgets/uw_reuse"}]
+        readback = {
+            "assets": [
+                {
+                    "assetId": "asset-reuse",
+                    "assetPath": "/Game/UI/UMG/Fight/Widgets/uw_reuse",
+                    "parentClassPath": "/Game/UI/UMG/Common/uw_common.uw_common_C",
+                    "representationKind": "reuse-only",
+                    "widgets": [],
+                }
+            ]
+        }
+        projected, errors = project_widget_tree_tables(readback, order)
+        self.assertEqual([], errors)
+        self.assertEqual([], projected["assets"][0]["treeRows"])
+        self.assertEqual("reuse-only-no-owned-widgets", projected["assets"][0]["emptyState"])
 
     def test_document_verification_binds_hashes_identifiers_pages_and_review(self) -> None:
         handoff = self.sources.build_handoff()

@@ -5,7 +5,7 @@
   "required": ["version", "verificationId", "verifiedAt", "status", "handoff", "document", "render", "coverage", "visualReview"],
   "additionalProperties": false,
   "properties": {
-    "version": {"const": "0.2"},
+    "version": {"enum": ["0.2", "0.3", "0.4"]},
     "verificationId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
     "verifiedAt": {"type": "string", "minLength": 1},
     "status": {"const": "passed"},
@@ -82,6 +82,31 @@
         "semanticRelationshipStatements": {"$ref": "#/$defs/semanticStatementList"}
       }
     },
+    "documentContent": {
+      "type": "object",
+      "required": ["version", "fileName", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"enum": ["0.3", "0.4"]},
+        "fileName": {"const": "program-document-content.json"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "structure": {
+      "type": "object",
+      "required": ["widgetTreeFormat", "tableCount", "tables"],
+      "additionalProperties": false,
+      "properties": {
+        "widgetTreeFormat": {
+          "enum": [
+            "word-native-three-column-table-v1",
+            "word-native-four-column-asset-detail-table-v2"
+          ]
+        },
+        "tableCount": {"type": "integer", "minimum": 1},
+        "tables": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/widgetTreeTable"}}
+      }
+    },
     "visualReview": {
       "type": "object",
       "required": ["reviewedBy", "reviewedAt", "reviewedPageFiles", "allPagesReviewed"],
@@ -95,6 +120,30 @@
       }
     }
   },
+  "oneOf": [
+    {
+      "required": ["version"],
+      "properties": {
+        "version": {"const": "0.2"}
+      }
+    },
+    {
+      "required": ["version", "documentContent", "structure"],
+      "properties": {
+        "version": {"const": "0.3"},
+        "documentContent": {"properties": {"version": {"const": "0.3"}}},
+        "structure": {"properties": {"widgetTreeFormat": {"const": "word-native-three-column-table-v1"}}}
+      }
+    },
+    {
+      "required": ["version", "documentContent", "structure"],
+      "properties": {
+        "version": {"const": "0.4"},
+        "documentContent": {"properties": {"version": {"const": "0.4"}}},
+        "structure": {"properties": {"widgetTreeFormat": {"const": "word-native-four-column-asset-detail-table-v2"}}}
+      }
+    }
+  ],
   "$defs": {
     "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
     "stringList": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
@@ -127,6 +176,18 @@
         "dpi": {"const": 150},
         "pageCount": {"type": "integer", "minimum": 1},
         "authoritativePagesGenerated": {"const": true}
+      }
+    },
+    "widgetTreeTable": {
+      "type": "object",
+      "required": ["assetId", "assetPath", "rowCount", "rowsSha256"],
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+        "assetPath": {"type": "string", "pattern": "^/Game/UI/UMG/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)+$"},
+        "rowCount": {"type": "integer", "minimum": 0},
+        "rowsSha256": {"$ref": "#/$defs/sha256"},
+        "emptyState": {"const": "reuse-only-no-owned-widgets"}
       }
     },
     "page": {

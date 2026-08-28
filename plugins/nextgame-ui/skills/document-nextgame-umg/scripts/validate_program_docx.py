@@ -23,9 +23,15 @@ from _document_contract_common import (
     BUILD_ACCEPTANCE_SCHEMA,
     DOCUMENT_VERIFICATION_SCHEMA,
     HANDOFF_SCHEMA,
+    LEGACY_WIDGET_TREE_TABLE_FORMAT,
+    PROGRAM_DOCUMENT_CONTENT_SCHEMA,
+    WIDGET_TREE_EMPTY_STATE,
+    WIDGET_TREE_TABLE_FORMAT,
+    canonical_sha256,
     issue,
     load_json,
     parse_aware_iso8601,
+    project_widget_tree_tables,
     result,
     sha256_file,
     validate_schema_instance,
@@ -40,6 +46,19 @@ PNG_IEND = b"\x00\x00\x00\x00IEND\xaeB`\x82"
 PDF_SIGNATURE = b"%PDF-"
 PDF_EOF = b"%%EOF"
 OUTPUT_ROOT_ENVIRONMENT_VARIABLE = "NEXTGAME_UI_PROGRAM_DOCS_ROOT"
+WORD_NAMESPACE = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+WORD = f"{{{WORD_NAMESPACE}}}"
+WORD_NAMESPACES = {"w": WORD_NAMESPACE}
+WIDGET_TREE_EMPTY_LABEL = "无自有 WidgetTree 节点（继承结构不重复列出）"
+# ``python-docx`` rounds ``Mm(...).twips`` to these exact values. Keep the
+# verifier independent of that optional authoring dependency while preserving
+# the legacy 0.3 geometry and enforcing the current 0.4 geometry.
+LEGACY_WIDGET_TREE_COLUMN_WIDTHS_TWIPS = (3969, 3061, 1247)
+WIDGET_TREE_COLUMN_WIDTHS_TWIPS = (2948, 1928, 1134, 2268)
+WIDGET_TREE_GEOMETRY_BY_FORMAT = {
+    LEGACY_WIDGET_TREE_TABLE_FORMAT: LEGACY_WIDGET_TREE_COLUMN_WIDTHS_TWIPS,
+    WIDGET_TREE_TABLE_FORMAT: WIDGET_TREE_COLUMN_WIDTHS_TWIPS,
+}
 
 FORBIDDEN_DOCUMENT_POLICIES: tuple[tuple[str, tuple[re.Pattern[str], ...]], ...] = (
     (
@@ -138,6 +157,11 @@ SAVED_VISIBILITY_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"(?:默认|初始)(?:设计器)?可见性", re.IGNORECASE),
 )
 
+EMBEDDED_IDENTIFIER_PATTERN = re.compile(r"(?<![A-Za-z0-9_-])(?:collection|state-model)\.[A-Za-z0-9_.-]+")
+TITLE_STYLE_ID_PATTERN = re.compile(r"^(?:heading\d*|title|subtitle|toolasset|toolsection)$")
+SECTION_NUMBER_PATTERN = re.compile(r"^\s*(\d+)\s*[.．、]\s*(.+?)\s*$")
+CHINESE_AUXILIARY_NAME_PATTERN = re.compile(r"[\u3400-\u4dbf\u4e00-\u9fff]")
+
 
 def _word_property_enabled(element: ElementTree.Element) -> bool:
     value = next(
@@ -191,6 +215,645 @@ def extract_docx_policy_text(path: Path) -> str:
     """Extract visible and non-visible Word text so excluded policy details cannot be hidden."""
 
     return _extract_docx_text(path, include_comments=True, include_hidden=True)
+
+
+def _check_embedded_identifier_styles(path: Path, errors: list[dict[str, str]]) -> None:
+    """Reject collection/state identifiers promoted to document-navigation styles."""
+
+    with zipfile.ZipFile(path) as archive:
+        root = ElementTree.fromstring(archive.read("word/document.xml"))
+    for paragraph_index, paragraph in enumerate(root.iter(f"{WORD}p")):
+        text, _ = _word_visible_text(paragraph)
+        identifiers = EMBEDDED_IDENTIFIER_PATTERN.findall(text)
+        if not identifiers:
+            continue
+        properties = paragraph.find(f"{WORD}pPr")
+        style_element = properties.find(f"{WORD}pStyle") if properties is not None else None
+        style_id = _word_attribute(style_element, "val") or ""
+        normalized_style = re.sub(r"[^a-z0-9]", "", style_id.lower())
+        if TITLE_STYLE_ID_PATTERN.fullmatch(normalized_style):
+            errors.append(
+                issue(
+                    "document.embedded_identifier_title_style",
+                    f"$.document.paragraphs[{paragraph_index}]",
+                    f"Embedded identifier {identifiers[0]!r} must use body or inline-label styling, not {style_id!r}.",
+                )
+            )
+
+
+def _word_visible_text(element: ElementTree.Element) -> tuple[str, bool]:
+    fragments: list[str] = []
+    hidden_found = False
+    for run in (node for node in element.iter() if node.tag == f"{WORD}r"):
+        hidden = any(
+            node.tag in {f"{WORD}vanish", f"{WORD}webHidden"} and _word_property_enabled(node)
+            for node in run.iter()
+        )
+        hidden_found = hidden_found or hidden
+        if not hidden:
+            fragments.extend(node.text or "" for node in run.iter() if node.tag == f"{WORD}t")
+    return "".join(fragments), hidden_found
+
+
+def _word_attribute(element: ElementTree.Element | None, name: str) -> str | None:
+    if element is None:
+        return None
+    return next((value for key, value in element.attrib.items() if key == name or key.endswith(f"}}{name}")), None)
+
+
+def _normalized_style_id(paragraph: ElementTree.Element) -> str:
+    properties = paragraph.find(f"{WORD}pPr")
+    style_element = properties.find(f"{WORD}pStyle") if properties is not None else None
+    style_id = _word_attribute(style_element, "val") or ""
+    return re.sub(r"[^a-z0-9]", "", style_id.lower())
+
+
+def _section_number_and_title(text: str) -> tuple[int | None, str]:
+    match = SECTION_NUMBER_PATTERN.fullmatch(text)
+    if match is None:
+        return None, text.strip()
+    return int(match.group(1)), match.group(2).strip()
+
+
+def _labeled_value(text: str, label: str) -> str | None:
+    match = re.fullmatch(rf"\s*{re.escape(label)}\s*[:：]\s*(.*?)\s*", text)
+    return match.group(1) if match is not None else None
+
+
+def _forbidden_v04_heading(title: str) -> str | None:
+    _, unnumbered = _section_number_and_title(title)
+    compact = re.sub(r"\s+", "", unnumbered)
+    patterns: tuple[tuple[str, re.Pattern[str]], ...] = (
+        ("目标资产", re.compile(r"^目标资产(?:清单|列表|说明)?$")),
+        ("程序变量", re.compile(r"^程序变量(?:清单|列表|说明)?$")),
+        ("动态集合", re.compile(r"^动态集合(?:与EntryClass)?$", re.IGNORECASE)),
+        ("状态模型", re.compile(r"^(?:状态模型|状态控制|状态模型[/／]状态控制)$")),
+        ("支持依赖定位", re.compile(r"^支持依赖定位$")),
+        ("只读快照边界", re.compile(r"^只读快照边界$")),
+        ("附录 A", re.compile(r"^附录A(?:[:：].*)?$", re.IGNORECASE)),
+    )
+    return next((name for name, pattern in patterns if pattern.fullmatch(compact)), None)
+
+
+def _body_records(path: Path) -> list[dict[str, Any]]:
+    with zipfile.ZipFile(path) as archive:
+        root = ElementTree.fromstring(archive.read("word/document.xml"))
+    body = root.find(f"{WORD}body")
+    if body is None:
+        raise ValueError("word/document.xml has no w:body element.")
+
+    records: list[dict[str, Any]] = []
+    for body_index, element in enumerate(list(body)):
+        if element.tag == f"{WORD}p":
+            text, hidden = _word_visible_text(element)
+            records.append(
+                {
+                    "bodyIndex": body_index,
+                    "kind": "paragraph",
+                    "text": text.strip(),
+                    "hidden": hidden,
+                    "style": _normalized_style_id(element),
+                    "element": element,
+                }
+            )
+        elif element.tag == f"{WORD}tbl":
+            rows = element.findall("./w:tr", WORD_NAMESPACES)
+            cells = rows[0].findall("./w:tc", WORD_NAMESPACES) if rows else []
+            records.append(
+                {
+                    "bodyIndex": body_index,
+                    "kind": "table",
+                    "headers": tuple(_word_visible_text(cell)[0].strip() for cell in cells),
+                    "element": element,
+                }
+            )
+    return records
+
+
+def _check_v04_forbidden_structure(records: list[dict[str, Any]], errors: list[dict[str, str]]) -> None:
+    for record in records:
+        paragraphs = (
+            [record["element"]]
+            if record["kind"] == "paragraph"
+            else list(record["element"].iter(f"{WORD}p"))
+        )
+        for paragraph_index, paragraph in enumerate(paragraphs):
+            text = "".join(node.text or "" for node in paragraph.iter(f"{WORD}t")).strip()
+            location = f"$.document.body[{record['bodyIndex']}]"
+            if record["kind"] == "table":
+                location += f".paragraphs[{paragraph_index}]"
+            if re.match(r"^\s*(?:根控件|所属资产)\s*(?:[:：]|$)", text):
+                errors.append(
+                    issue(
+                        "document.forbidden_asset_field",
+                        location,
+                        f"Production 0.4 asset blocks must not contain {text!r}.",
+                    )
+                )
+            if not TITLE_STYLE_ID_PATTERN.fullmatch(_normalized_style_id(paragraph)):
+                continue
+            forbidden = _forbidden_v04_heading(text)
+            if forbidden is not None:
+                errors.append(
+                    issue(
+                        "document.forbidden_heading",
+                        location,
+                        f"Production 0.4 must not emit the legacy standalone heading {forbidden!r}.",
+                    )
+                )
+
+
+def _check_v04_section_numbering(
+    records: list[dict[str, Any]],
+    errors: list[dict[str, str]],
+) -> list[tuple[int, int | None, str]]:
+    sections: list[tuple[int, int | None, str]] = []
+    for record_index, record in enumerate(records):
+        if record["kind"] != "paragraph" or record["style"] != "toolsection":
+            continue
+        number, title = _section_number_and_title(record["text"])
+        sections.append((record_index, number, title))
+
+    if not sections:
+        errors.append(
+            issue(
+                "document.asset_section_missing",
+                "$.document.sections",
+                "Production 0.4 requires the numbered 1. 资产详细说明 module.",
+            )
+        )
+        return sections
+
+    actual_numbers = [number for _, number, _ in sections]
+    expected_numbers = list(range(1, len(sections) + 1))
+    if actual_numbers != expected_numbers:
+        errors.append(
+            issue(
+                "document.section_numbering",
+                "$.document.sections",
+                f"Tool Section headings must be numbered continuously as {expected_numbers!r}; found {actual_numbers!r}.",
+            )
+        )
+    asset_sections = [(record_index, number) for record_index, number, title in sections if title == "资产详细说明"]
+    if asset_sections != [(sections[0][0], 1)]:
+        errors.append(
+            issue(
+                "document.asset_section_missing",
+                "$.document.sections",
+                "Production 0.4 requires exactly one first module named 1. 资产详细说明.",
+            )
+        )
+    return sections
+
+
+def _check_v04_asset_block(
+    records: list[dict[str, Any]],
+    *,
+    heading_index: int,
+    end_index: int,
+    asset: dict[str, Any],
+    asset_index: int,
+    expected_headers: tuple[str, ...],
+    errors: list[dict[str, str]],
+) -> None:
+    block = records[heading_index:end_index]
+    heading = records[heading_index]
+    asset_path = asset.get("assetPath")
+    basename = asset_path.rsplit("/", 1)[-1] if isinstance(asset_path, str) else ""
+    heading_text = heading["text"]
+    suffix = heading_text[len(basename) :].strip() if basename and heading_text.startswith(basename) else ""
+    path = f"$.document.assetDetails[{asset_index}]"
+    if not basename or not heading_text.startswith(basename) or not suffix or not CHINESE_AUXILIARY_NAME_PATTERN.search(suffix):
+        errors.append(
+            issue(
+                "document.asset_heading",
+                f"{path}.heading",
+                f"Asset heading must start with exact basename {basename!r} and include a non-empty Chinese auxiliary name.",
+            )
+        )
+
+    def labeled_positions(label: str) -> list[tuple[int, str]]:
+        matches: list[tuple[int, str]] = []
+        for offset, record in enumerate(block):
+            if record["kind"] != "paragraph":
+                continue
+            value = _labeled_value(record["text"], label)
+            if value is not None:
+                matches.append((heading_index + offset, value))
+        return matches
+
+    asset_paths = labeled_positions("资产路径")
+    parent_classes = labeled_positions("Parent Class")
+    functional_summaries = labeled_positions("功能说明")
+    relationships = labeled_positions("程序接入关系")
+    widget_tables = [
+        (heading_index + offset, record)
+        for offset, record in enumerate(block)
+        if record["kind"] == "table" and record.get("headers") == expected_headers
+    ]
+
+    if len(asset_paths) != 1 or asset_paths[0][1] != asset_path:
+        errors.append(
+            issue(
+                "document.asset_path",
+                f"{path}.assetPath",
+                f"Asset block must contain exactly one 资产路径 equal to {asset_path!r}.",
+            )
+        )
+
+    expected_parent = asset.get("parentClassPath")
+    parent_valid = (
+        len(parent_classes) == 1
+        and bool(parent_classes[0][1])
+        and (not isinstance(expected_parent, str) or parent_classes[0][1] == expected_parent)
+    )
+    if not parent_valid:
+        expectation = f" equal to {expected_parent!r}" if isinstance(expected_parent, str) else " with a non-empty value"
+        errors.append(
+            issue(
+                "document.parent_class",
+                f"{path}.parentClass",
+                f"Asset block must contain exactly one Parent Class{expectation}.",
+            )
+        )
+
+    if len(functional_summaries) != 1 or not functional_summaries[0][1]:
+        errors.append(
+            issue(
+                "document.functional_summary",
+                f"{path}.functionalSummary",
+                "Asset block must contain exactly one non-empty 功能说明 before its WidgetTree table.",
+            )
+        )
+    if len(widget_tables) != 1:
+        errors.append(
+            issue(
+                "document.asset_widget_tree",
+                f"{path}.widgetTree",
+                "Asset block must contain exactly one matching four-column WidgetTree table.",
+            )
+        )
+    if len(relationships) != 1 or not relationships[0][1]:
+        errors.append(
+            issue(
+                "document.program_relationship",
+                f"{path}.programRelationship",
+                "Asset block must contain exactly one non-empty 程序接入关系 after its WidgetTree table.",
+            )
+        )
+
+    if all(
+        len(items) == 1
+        for items in (asset_paths, parent_classes, functional_summaries, widget_tables, relationships)
+    ):
+        actual_order = [
+            asset_paths[0][0],
+            parent_classes[0][0],
+            functional_summaries[0][0],
+            widget_tables[0][0],
+            relationships[0][0],
+        ]
+        if actual_order != sorted(actual_order) or len(set(actual_order)) != len(actual_order):
+            errors.append(
+                issue(
+                    "document.asset_block_order",
+                    path,
+                    "Asset block order must be heading, 资产路径, Parent Class, 功能说明, four-column WidgetTree table, then 程序接入关系.",
+                )
+            )
+
+
+def _check_v04_other_asset_modules(
+    records: list[dict[str, Any]],
+    sections: list[tuple[int, int | None, str]],
+    errors: list[dict[str, str]],
+) -> None:
+    other_sections = [item for item in sections if item[2] == "其他资产程序说明"]
+    for section_index, (start_index, _, _) in enumerate(other_sections):
+        following_sections = [record_index for record_index, _, _ in sections if record_index > start_index]
+        end_index = min(following_sections) if following_sections else len(records)
+        heading_indexes = [
+            record_index
+            for record_index in range(start_index + 1, end_index)
+            if records[record_index]["kind"] == "paragraph" and records[record_index]["style"] == "heading2"
+        ]
+        module_valid = bool(heading_indexes)
+        for heading_offset, heading_index in enumerate(heading_indexes):
+            group_end = heading_indexes[heading_offset + 1] if heading_offset + 1 < len(heading_indexes) else end_index
+            group = records[heading_index + 1 : group_end]
+            asset_paths = [
+                _labeled_value(record["text"], "资产路径")
+                for record in group
+                if record["kind"] == "paragraph" and _labeled_value(record["text"], "资产路径") is not None
+            ]
+            has_program_content = any(
+                record["kind"] == "table"
+                or (
+                    record["kind"] == "paragraph"
+                    and any(
+                        bool(_labeled_value(record["text"], label))
+                        for label in ("动态集合", "状态说明", "支持依赖")
+                    )
+                )
+                for record in group
+            )
+            if len(asset_paths) != 1 or not asset_paths[0] or not has_program_content:
+                module_valid = False
+        if not module_valid:
+            errors.append(
+                issue(
+                    "document.other_assets_empty",
+                    f"$.document.otherAssetModules[{section_index}]",
+                    "其他资产程序说明 must contain at least one Heading 2 asset group with one non-empty asset path and collection, state, or support-dependency content.",
+                )
+            )
+
+
+def _check_v04_asset_structure(
+    path: Path,
+    document_content: dict[str, Any],
+    errors: list[dict[str, str]],
+) -> None:
+    """Validate the direct Word body order required by production document 0.4."""
+
+    try:
+        records = _body_records(path)
+    except (OSError, KeyError, ValueError, zipfile.BadZipFile, ElementTree.ParseError) as error:
+        errors.append(issue("document.asset_structure_read", "$.document.body", str(error)))
+        return
+
+    _check_v04_forbidden_structure(records, errors)
+    sections = _check_v04_section_numbering(records, errors)
+    _check_v04_other_asset_modules(records, sections, errors)
+
+    asset_sections = [item for item in sections if item[2] == "资产详细说明"]
+    if len(asset_sections) != 1:
+        return
+    start_index = asset_sections[0][0]
+    following_sections = [record_index for record_index, _, _ in sections if record_index > start_index]
+    end_index = min(following_sections) if following_sections else len(records)
+    heading_indexes = [
+        record_index
+        for record_index in range(start_index + 1, end_index)
+        if records[record_index]["kind"] == "paragraph" and records[record_index]["style"] == "heading2"
+    ]
+
+    tree_contract = document_content.get("widgetTreeTables") if isinstance(document_content.get("widgetTreeTables"), dict) else {}
+    expected_assets = tree_contract.get("assets") if isinstance(tree_contract.get("assets"), list) else []
+    expected_headers = tuple(tree_contract.get("headers")) if isinstance(tree_contract.get("headers"), list) else ()
+    if len(heading_indexes) != len(expected_assets):
+        errors.append(
+            issue(
+                "document.asset_block_count",
+                "$.document.assetDetails",
+                f"Expected {len(expected_assets)} Heading 2 asset blocks in contract order, found {len(heading_indexes)}.",
+            )
+        )
+
+    for asset_index, (heading_index, asset) in enumerate(zip(heading_indexes, expected_assets)):
+        block_end = heading_indexes[asset_index + 1] if asset_index + 1 < len(heading_indexes) else end_index
+        _check_v04_asset_block(
+            records,
+            heading_index=heading_index,
+            end_index=block_end,
+            asset=asset,
+            asset_index=asset_index,
+            expected_headers=expected_headers,
+            errors=errors,
+        )
+
+
+def _widget_tree_table_summary(asset: dict[str, Any]) -> dict[str, Any]:
+    rows = asset.get("treeRows", [])
+    summary: dict[str, Any] = {
+        "assetId": asset.get("assetId"),
+        "assetPath": asset.get("assetPath"),
+        "rowCount": len(rows),
+        "rowsSha256": canonical_sha256(rows),
+    }
+    if asset.get("emptyState") == WIDGET_TREE_EMPTY_STATE:
+        summary["emptyState"] = WIDGET_TREE_EMPTY_STATE
+    return summary
+
+
+def _validate_widget_tree_row_height(
+    row: ElementTree.Element,
+    path: str,
+    errors: list[dict[str, str]],
+) -> None:
+    if row.find("./w:trPr/w:trHeight", WORD_NAMESPACES) is not None:
+        errors.append(
+            issue(
+                "document.widget_tree_row_height",
+                path,
+                "WidgetTree header, data, and empty-state rows must not set trHeight.",
+            )
+        )
+
+
+def _validate_widget_tree_cell_widths(
+    cells: list[ElementTree.Element],
+    expected_widths: tuple[int, ...],
+    path: str,
+    errors: list[dict[str, str]],
+) -> None:
+    if len(cells) != len(expected_widths):
+        return
+    for cell_index, (cell, expected_width) in enumerate(zip(cells, expected_widths)):
+        widths = cell.findall("./w:tcPr/w:tcW", WORD_NAMESPACES)
+        if (
+            len(widths) != 1
+            or _word_attribute(widths[0], "type") != "dxa"
+            or _word_attribute(widths[0], "w") != str(expected_width)
+        ):
+            errors.append(
+                issue(
+                    "document.widget_tree_cell_width",
+                    f"{path}.cells[{cell_index}]",
+                    f"WidgetTree cell must have one dxa tcW of {expected_width} twips.",
+                )
+            )
+
+
+def inspect_widget_tree_tables(
+    docx_path: Path,
+    document_content: dict[str, Any],
+    errors: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    """Require one exact, visible, native Word WidgetTree table per contracted asset."""
+
+    tree_contract = document_content.get("widgetTreeTables") if isinstance(document_content.get("widgetTreeTables"), dict) else {}
+    table_format = tree_contract.get("format")
+    column_widths = WIDGET_TREE_GEOMETRY_BY_FORMAT.get(table_format)
+    if column_widths is None:
+        errors.append(
+            issue(
+                "document.widget_tree_format",
+                "$.structure.widgetTreeFormat",
+                f"Unsupported WidgetTree table format {table_format!r}.",
+            )
+        )
+        return []
+    table_width = sum(column_widths)
+    column_count = len(column_widths)
+    headers = tree_contract.get("headers") if isinstance(tree_contract.get("headers"), list) else []
+    expected_assets = tree_contract.get("assets") if isinstance(tree_contract.get("assets"), list) else []
+    try:
+        with zipfile.ZipFile(docx_path) as archive:
+            root = ElementTree.fromstring(archive.read("word/document.xml"))
+    except (OSError, KeyError, zipfile.BadZipFile, ElementTree.ParseError) as error:
+        errors.append(issue("document.widget_tree_read", "$.structure", str(error)))
+        return []
+
+    candidates: list[ElementTree.Element] = []
+    for table in root.iter(f"{WORD}tbl"):
+        rows = table.findall("./w:tr", WORD_NAMESPACES)
+        if not rows:
+            continue
+        cells = rows[0].findall("./w:tc", WORD_NAMESPACES)
+        visible = [_word_visible_text(cell)[0].strip() for cell in cells]
+        if visible == headers:
+            candidates.append(table)
+    if len(candidates) < len(expected_assets):
+        drawings = any(node.tag in {f"{WORD}drawing", f"{WORD}pict"} for node in root.iter())
+        code = "document.widget_tree_image_substitution" if drawings and not candidates else "document.widget_tree_table_missing"
+        errors.append(issue(code, "$.structure.tables", f"Expected {len(expected_assets)} native WidgetTree tables, found {len(candidates)}."))
+    if len(candidates) > len(expected_assets):
+        errors.append(issue("document.widget_tree_table_extra", "$.structure.tables", f"Expected {len(expected_assets)} native WidgetTree tables, found {len(candidates)}."))
+
+    indent_step = tree_contract.get("indentTwipsPerDepth")
+    for table_index, (table, asset) in enumerate(zip(candidates, expected_assets)):
+        path = f"$.structure.tables[{table_index}]"
+        if any(node.tag in {f"{WORD}drawing", f"{WORD}pict"} for node in table.iter()):
+            errors.append(issue("document.widget_tree_image_substitution", path, "WidgetTree table must not contain drawing or pict content."))
+        if any(_word_visible_text(cell)[1] for cell in table.iter(f"{WORD}tc")):
+            errors.append(issue("document.widget_tree_hidden", path, "WidgetTree table must not contain hidden text."))
+        rows = table.findall("./w:tr", WORD_NAMESPACES)
+        table_properties = table.find("./w:tblPr", WORD_NAMESPACES)
+        layouts = table_properties.findall("./w:tblLayout", WORD_NAMESPACES) if table_properties is not None else []
+        if len(layouts) != 1 or _word_attribute(layouts[0], "type") != "fixed":
+            errors.append(
+                issue(
+                    "document.widget_tree_table_layout",
+                    path,
+                    "WidgetTree table must have exactly one fixed tblLayout.",
+                )
+            )
+        table_widths = table_properties.findall("./w:tblW", WORD_NAMESPACES) if table_properties is not None else []
+        if (
+            len(table_widths) != 1
+            or _word_attribute(table_widths[0], "type") != "dxa"
+            or _word_attribute(table_widths[0], "w") != str(table_width)
+        ):
+            errors.append(
+                issue(
+                    "document.widget_tree_table_width",
+                    path,
+                    f"WidgetTree table must have one dxa tblW of {table_width} twips.",
+                )
+            )
+        table_grid = table.find("./w:tblGrid", WORD_NAMESPACES)
+        grid_columns = table_grid.findall("./w:gridCol", WORD_NAMESPACES) if table_grid is not None else []
+        actual_grid_widths = [_word_attribute(column, "w") for column in grid_columns]
+        expected_grid_widths = [str(width) for width in column_widths]
+        if len(grid_columns) != column_count or actual_grid_widths != expected_grid_widths:
+            errors.append(
+                issue(
+                    "document.widget_tree_table_grid",
+                    path,
+                    f"WidgetTree tblGrid must contain exactly the widths {expected_grid_widths!r}.",
+                )
+            )
+        header_properties = rows[0].find("./w:trPr", WORD_NAMESPACES) if rows else None
+        header_repeat = header_properties.find("./w:tblHeader", WORD_NAMESPACES) if header_properties is not None else None
+        if header_repeat is None or not _word_property_enabled(header_repeat):
+            errors.append(issue("document.widget_tree_header_repeat", path, "WidgetTree table header must repeat across page breaks."))
+        header_cant_split = header_properties.find("./w:cantSplit", WORD_NAMESPACES) if header_properties is not None else None
+        if header_cant_split is None or not _word_property_enabled(header_cant_split):
+            errors.append(issue("document.widget_tree_header_split", path, "WidgetTree table header must set cantSplit."))
+        if rows:
+            _validate_widget_tree_row_height(rows[0], f"{path}.header", errors)
+            header_cells = rows[0].findall("./w:tc", WORD_NAMESPACES)
+            _validate_widget_tree_cell_widths(
+                header_cells,
+                column_widths,
+                f"{path}.header",
+                errors,
+            )
+        expected_rows = asset.get("treeRows") if isinstance(asset.get("treeRows"), list) else []
+        data_rows = rows[1:]
+        if not expected_rows:
+            if len(data_rows) != 1:
+                errors.append(issue("document.widget_tree_empty_state", path, "Empty reuse-only tree requires exactly one empty-state row."))
+                continue
+            empty_row_properties = data_rows[0].find("./w:trPr", WORD_NAMESPACES)
+            empty_cant_split = empty_row_properties.find("./w:cantSplit", WORD_NAMESPACES) if empty_row_properties is not None else None
+            if empty_cant_split is None or not _word_property_enabled(empty_cant_split):
+                errors.append(issue("document.widget_tree_row_split", path, "Empty WidgetTree row must set cantSplit."))
+            _validate_widget_tree_row_height(data_rows[0], f"{path}.rows[0]", errors)
+            cells = data_rows[0].findall("./w:tc", WORD_NAMESPACES)
+            _validate_widget_tree_cell_widths(
+                cells,
+                (table_width,),
+                f"{path}.rows[0]",
+                errors,
+            )
+            span = cells[0].find("./w:tcPr/w:gridSpan", WORD_NAMESPACES) if len(cells) == 1 else None
+            if len(cells) != 1 or _word_attribute(span, "val") != str(column_count) or _word_visible_text(cells[0])[0].strip() != WIDGET_TREE_EMPTY_LABEL:
+                errors.append(
+                    issue(
+                        "document.widget_tree_empty_state",
+                        path,
+                        f"Empty reuse-only tree requires the fixed {column_count}-column merged row.",
+                    )
+                )
+            continue
+        if len(data_rows) != len(expected_rows):
+            errors.append(issue("document.widget_tree_row_count", path, f"Expected {len(expected_rows)} data rows, found {len(data_rows)}."))
+        for row_index, (row, expected) in enumerate(zip(data_rows, expected_rows)):
+            row_path = f"{path}.rows[{row_index}]"
+            row_properties = row.find("./w:trPr", WORD_NAMESPACES)
+            cant_split = row_properties.find("./w:cantSplit", WORD_NAMESPACES) if row_properties is not None else None
+            if cant_split is None or not _word_property_enabled(cant_split):
+                errors.append(issue("document.widget_tree_row_split", row_path, "WidgetTree data rows must set cantSplit."))
+            _validate_widget_tree_row_height(row, row_path, errors)
+            cells = row.findall("./w:tc", WORD_NAMESPACES)
+            if len(cells) != column_count:
+                errors.append(
+                    issue(
+                        "document.widget_tree_column_count",
+                        row_path,
+                        f"WidgetTree data rows must contain exactly {column_count} cells.",
+                    )
+                )
+                continue
+            _validate_widget_tree_cell_widths(cells, column_widths, row_path, errors)
+            if any(cell.find("./w:tcPr/w:gridSpan", WORD_NAMESPACES) is not None or cell.find("./w:tcPr/w:vMerge", WORD_NAMESPACES) is not None for cell in cells):
+                errors.append(issue("document.widget_tree_column_count", row_path, "Non-empty WidgetTree rows must not merge cells."))
+            actual_values = [_word_visible_text(cell)[0].strip() for cell in cells]
+            expected_values = [
+                expected.get("widgetName"),
+                expected.get("className"),
+                "true" if expected.get("isVariable") is True else "false",
+            ]
+            if table_format == WIDGET_TREE_TABLE_FORMAT:
+                expected_values.append(expected.get("programPurpose", ""))
+            if actual_values != expected_values:
+                errors.append(issue("document.widget_tree_row_content", row_path, f"Expected {expected_values!r}, found {actual_values!r}."))
+            paragraph = cells[0].find("./w:p", WORD_NAMESPACES)
+            indent = paragraph.find("./w:pPr/w:ind", WORD_NAMESPACES) if paragraph is not None else None
+            actual_left = _word_attribute(indent, "left")
+            expected_left = int(expected.get("depth", 0)) * int(indent_step or 0)
+            if actual_left is None:
+                parsed_left: int | None = 0
+            elif re.fullmatch(r"[+-]?\d+", actual_left):
+                parsed_left = int(actual_left)
+            else:
+                parsed_left = None
+            if parsed_left != expected_left:
+                found_left = actual_left if parsed_left is None else parsed_left
+                errors.append(issue("document.widget_tree_depth", row_path, f"Expected left indent {expected_left}, found {found_left!r}."))
+    return [_widget_tree_table_summary(asset) for asset in expected_assets]
 
 
 def _canonical_statement(kind: str, fields: tuple[tuple[str, Any], ...]) -> str:
@@ -886,11 +1549,21 @@ def validate_render_evidence(
 
 def _check_identifier_coverage(text: str, coverage: dict[str, list[str]], errors: list[dict[str, str]]) -> None:
     for field, identifiers in coverage.items():
+        # Canonical semantic relationship statements are deterministic,
+        # machine-facing audit evidence.  They stay in the content contract and
+        # verification coverage, but the programmer-facing DOCX must not repeat
+        # them as a trace appendix.
+        if field == "semanticRelationshipStatements":
+            continue
         missing = [identifier for identifier in identifiers if identifier not in text]
         if missing:
-            code = "document.semantic_coverage" if field == "semanticRelationshipStatements" else "document.identifier_coverage"
-            noun = "canonical semantic statements" if field == "semanticRelationshipStatements" else "identifiers"
-            errors.append(issue(code, f"$.coverage.{field}", f"DOCX is missing {noun}: {missing}."))
+            errors.append(
+                issue(
+                    "document.identifier_coverage",
+                    f"$.coverage.{field}",
+                    f"DOCX is missing identifiers: {missing}.",
+                )
+            )
 
 
 def _check_forbidden_document_policy(text: str, errors: list[dict[str, str]]) -> None:
@@ -991,6 +1664,9 @@ def create_document_verification(
     soffice_path: Path | None,
     verified_at: str,
     pdftoppm_path: Path | None = None,
+    document_content: Any | None = None,
+    document_content_path: Path | None = None,
+    verification_version: str | None = None,
 ) -> tuple[dict[str, Any] | None, list[dict[str, str]]]:
     errors = validate_schema_instance(handoff, load_json(HANDOFF_SCHEMA))
     errors.extend(
@@ -1039,6 +1715,48 @@ def create_document_verification(
     if verified_time is not None and review_time is not None and verified_time < review_time:
         errors.append(issue("verification.timestamp", "$.verifiedAt", "Verification cannot precede page review."))
 
+    content_version = document_content.get("version") if isinstance(document_content, dict) else None
+    version = verification_version or (content_version if content_version in {"0.3", "0.4"} else "0.2")
+    table_summaries: list[dict[str, Any]] = []
+    if version in {"0.3", "0.4"}:
+        if not isinstance(document_content, dict) or document_content_path is None:
+            errors.append(
+                issue(
+                    "document.content_contract_missing",
+                    "$.documentContent",
+                    f"Document verification {version} requires program-document-content.json.",
+                )
+            )
+        else:
+            errors.extend(validate_schema_instance(document_content, load_json(PROGRAM_DOCUMENT_CONTENT_SCHEMA)))
+            if document_content.get("version") != version:
+                errors.append(
+                    issue(
+                        "document.content_contract_version",
+                        "$.documentContent.version",
+                        f"Document verification {version} requires content contract {version}.",
+                    )
+                )
+            expected_handoff_binding = {"fileName": handoff_path.name, "sha256": sha256_file(handoff_path)}
+            if document_content.get("handoff") != expected_handoff_binding:
+                errors.append(issue("document.content_contract_binding", "$.documentContent.handoff", "Content contract is not bound to the current handoff."))
+            expected_content_coverage = expected_coverage(handoff)
+            expected_statements = expected_content_coverage.pop("semanticRelationshipStatements")
+            if document_content.get("requiredIdentifiers") != expected_content_coverage:
+                errors.append(issue("document.content_contract_identifiers", "$.documentContent.requiredIdentifiers", "Content contract identifiers differ from the current handoff."))
+            if document_content.get("requiredSemanticRelationshipStatements") != expected_statements:
+                errors.append(issue("document.content_contract_semantics", "$.documentContent.requiredSemanticRelationshipStatements", "Content contract semantic statements differ from the current handoff."))
+            expected_trees, tree_errors = project_widget_tree_tables(
+                readback,
+                handoff.get("assets", []),
+                content_version=version,
+            )
+            errors.extend(tree_errors)
+            if document_content.get("widgetTreeTables") != expected_trees:
+                errors.append(issue("document.content_contract_tree", "$.documentContent.widgetTreeTables", "Content contract WidgetTree rows differ from current readback."))
+    elif version != "0.2":
+        errors.append(issue("verification.version", "$.version", f"Unsupported document verification version {version!r}."))
+
     try:
         text = extract_docx_text(docx_path)
         policy_text = extract_docx_policy_text(docx_path)
@@ -1050,6 +1768,12 @@ def create_document_verification(
     _check_identifier_coverage(text, coverage, errors)
     _check_forbidden_document_policy(policy_text, errors)
     _check_forbidden_visibility_evidence(policy_text, handoff, coverage, errors)
+    if version == "0.4":
+        _check_embedded_identifier_styles(docx_path, errors)
+        if isinstance(document_content, dict):
+            _check_v04_asset_structure(docx_path, document_content, errors)
+    if version in {"0.3", "0.4"} and isinstance(document_content, dict):
+        table_summaries = inspect_widget_tree_tables(docx_path, document_content, errors)
 
     pages = valid_render.get("pages", []) if isinstance(valid_render, dict) else []
     page_files = [page["fileName"] for page in pages]
@@ -1059,7 +1783,7 @@ def create_document_verification(
         return None, errors
 
     verification = {
-        "version": "0.2",
+        "version": version,
         "verificationId": f"document:{handoff['handoffId']}",
         "verifiedAt": verified_at,
         "status": "passed",
@@ -1084,6 +1808,17 @@ def create_document_verification(
     }
     if "canonicalPageRender" in valid_render:
         verification["render"]["canonicalPageRender"] = valid_render["canonicalPageRender"]
+    if version in {"0.3", "0.4"} and isinstance(document_content, dict) and document_content_path is not None:
+        verification["documentContent"] = {
+            "version": version,
+            "fileName": document_content_path.name,
+            "sha256": sha256_file(document_content_path),
+        }
+        verification["structure"] = {
+            "widgetTreeFormat": document_content.get("widgetTreeTables", {}).get("format"),
+            "tableCount": len(table_summaries),
+            "tables": table_summaries,
+        }
     errors.extend(validate_schema_instance(verification, load_json(DOCUMENT_VERIFICATION_SCHEMA)))
     return (verification if not errors else None), errors
 
@@ -1107,6 +1842,8 @@ def validate_document_verification(
     render_evidence_path: Path,
     soffice_path: Path | None,
     pdftoppm_path: Path | None = None,
+    document_content: Any | None = None,
+    document_content_path: Path | None = None,
 ) -> dict[str, Any]:
     errors = validate_schema_instance(verification, load_json(DOCUMENT_VERIFICATION_SCHEMA))
     if not isinstance(verification, dict) or not isinstance(handoff, dict):
@@ -1133,6 +1870,9 @@ def validate_document_verification(
         soffice_path=soffice_path,
         verified_at=verification.get("verifiedAt", ""),
         pdftoppm_path=pdftoppm_path,
+        document_content=document_content,
+        document_content_path=document_content_path,
+        verification_version=verification.get("version"),
     )
     errors.extend(generation_errors)
     if expected is not None:
@@ -1201,6 +1941,7 @@ def main() -> int:
     parser.add_argument("--requirement", type=Path, help="Exact accepted UIRequirementSpec; required for final document verification modes.")
     parser.add_argument("--bundle", type=Path, help="Exact verified UIBuildBundle; required for final document verification modes.")
     parser.add_argument("--readback", type=Path, help="Exact verified Unreal Widget readback; required for final document verification modes.")
+    parser.add_argument("--document-content", type=Path, help="Verified program-document-content.json; required for document-verification 0.3 or 0.4.")
     parser.add_argument("--docx", type=Path, required=True)
     parser.add_argument("--render-dir", type=Path, required=True)
     mode = parser.add_mutually_exclusive_group(required=True)
@@ -1245,7 +1986,10 @@ def main() -> int:
             bundle = load_json(args.bundle)
             readback = load_json(args.readback)
             render_evidence = load_json(args.render_evidence)
+            document_content = load_json(args.document_content) if args.document_content is not None else None
             if args.output:
+                if args.document_content is None:
+                    raise ValueError("--document-content is required when writing document-verification 0.4.")
                 if not args.reviewed_by or not args.reviewed_at or not args.reviewed_page:
                     raise ValueError("--reviewed-by, --reviewed-at, and one --reviewed-page per rendered page are required when writing verification evidence.")
                 verification, errors = create_document_verification(
@@ -1269,14 +2013,20 @@ def main() -> int:
                     soffice_path=soffice_path,
                     verified_at=datetime.now().astimezone().isoformat(timespec="microseconds"),
                     pdftoppm_path=pdftoppm_path,
+                    document_content=document_content,
+                    document_content_path=args.document_content.resolve(),
+                    verification_version="0.4",
                 )
                 output = result(errors)
                 if verification is not None:
                     write_json(args.output, verification)
                     output["output"] = str(args.output)
             else:
+                existing_verification = load_json(args.verification)
+                if isinstance(existing_verification, dict) and existing_verification.get("version") in {"0.3", "0.4"} and args.document_content is None:
+                    raise ValueError("--document-content is required when validating document-verification 0.3 or 0.4.")
                 output = validate_document_verification(
-                    load_json(args.verification),
+                    existing_verification,
                     handoff=handoff,
                     handoff_path=args.handoff.resolve(),
                     build_acceptance=build_acceptance,
@@ -1293,6 +2043,8 @@ def main() -> int:
                     render_evidence_path=args.render_evidence.resolve(),
                     soffice_path=soffice_path,
                     pdftoppm_path=pdftoppm_path,
+                    document_content=document_content,
+                    document_content_path=args.document_content.resolve() if args.document_content is not None else None,
                 )
     except (OSError, json.JSONDecodeError, ValueError) as error:
         output = result([issue("io.read", "$", str(error))])

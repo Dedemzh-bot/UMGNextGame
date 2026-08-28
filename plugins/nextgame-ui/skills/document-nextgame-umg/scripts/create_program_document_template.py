@@ -17,7 +17,7 @@ from docx.enum.table import WD_CELL_VERTICAL_ALIGNMENT, WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
-from docx.shared import Inches, Mm, Pt, RGBColor
+from docx.shared import Inches, Mm, Pt, RGBColor, Twips
 
 
 BLUE = "2E75B6"
@@ -28,6 +28,10 @@ GRID = "BCCBDA"
 TEXT = "202833"
 MUTED = "5F6B7A"
 WHITE = "FFFFFF"
+WIDGET_TREE_HEADERS = ("层级 / Widget", "Class", "Is Variable", "程序用途")
+WIDGET_TREE_WIDTHS_MM = (52.0, 34.0, 20.0, 40.0)
+WIDGET_TREE_INDENT_TWIPS = 180
+WIDGET_TREE_REUSE_ONLY_EMPTY_TEXT = "无自有 WidgetTree 节点（继承结构不重复列出）"
 FIXED_TIME = datetime(2000, 1, 1)
 FIXED_ZIP_TIME = (2000, 1, 1, 0, 0, 0)
 
@@ -101,7 +105,7 @@ def _set_text(
     *,
     bold: bool = False,
     color: str = TEXT,
-    size: int = 9,
+    size: float = 9,
     align: WD_ALIGN_PARAGRAPH = WD_ALIGN_PARAGRAPH.LEFT,
 ) -> None:
     cell.text = ""
@@ -115,6 +119,87 @@ def _set_text(
     run.font.color.rgb = RGBColor.from_string(color)
     cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
     _set_cell_margins(cell)
+
+
+def _set_fixed_table_geometry(table, widths_mm: tuple[float, ...] | list[float]) -> None:
+    if len(widths_mm) != len(table.columns) or any(width <= 0 for width in widths_mm):
+        raise ValueError("Fixed table geometry requires one positive width per column.")
+
+    widths_twips = [Mm(width).twips for width in widths_mm]
+    table.autofit = False
+    table_properties = table._tbl.tblPr
+
+    table_width = table_properties.find(qn("w:tblW"))
+    if table_width is None:
+        table_width = OxmlElement("w:tblW")
+        table_properties.insert(0, table_width)
+    table_width.set(qn("w:w"), str(sum(widths_twips)))
+    table_width.set(qn("w:type"), "dxa")
+
+    table_layout = table_properties.find(qn("w:tblLayout"))
+    if table_layout is None:
+        table_layout = OxmlElement("w:tblLayout")
+        table_properties.append(table_layout)
+    table_layout.set(qn("w:type"), "fixed")
+
+    table_grid = table._tbl.tblGrid
+    for grid_column in list(table_grid):
+        table_grid.remove(grid_column)
+    for width_twips in widths_twips:
+        grid_column = OxmlElement("w:gridCol")
+        grid_column.set(qn("w:w"), str(width_twips))
+        table_grid.append(grid_column)
+
+    for row in table.rows:
+        for column_index, cell in enumerate(row.cells):
+            cell_width = cell._tc.get_or_add_tcPr().get_or_add_tcW()
+            cell_width.set(qn("w:w"), str(widths_twips[column_index]))
+            cell_width.set(qn("w:type"), "dxa")
+
+
+def _set_widget_tree_row(row, values: tuple[str, str, str, str], *, depth: int) -> None:
+    if depth < 0:
+        raise ValueError("WidgetTree depth cannot be negative.")
+    for index, value in enumerate(values):
+        alignment = WD_ALIGN_PARAGRAPH.CENTER if index == 2 else WD_ALIGN_PARAGRAPH.LEFT
+        _set_text(row.cells[index], value, color=MUTED, size=8.8, align=alignment)
+    row.cells[0].paragraphs[0].paragraph_format.left_indent = Twips(depth * WIDGET_TREE_INDENT_TWIPS)
+    _keep_row_together(row)
+
+
+def _add_widget_tree_table(document: Document, *, reuse_only_empty: bool = False):
+    table = document.add_table(rows=2, cols=4)
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    table.style = "Table Grid"
+    _set_table_borders(table)
+    _set_fixed_table_geometry(table, WIDGET_TREE_WIDTHS_MM)
+
+    for index, header in enumerate(WIDGET_TREE_HEADERS):
+        alignment = WD_ALIGN_PARAGRAPH.CENTER if index == 2 else WD_ALIGN_PARAGRAPH.LEFT
+        _set_cell_shading(table.rows[0].cells[index], LIGHT_BLUE)
+        _set_text(table.rows[0].cells[index], header, bold=True, color=DARK_BLUE, size=9, align=alignment)
+    _repeat_header(table.rows[0])
+    _keep_row_together(table.rows[0])
+
+    if reuse_only_empty:
+        merged_cell = table.rows[1].cells[0].merge(table.rows[1].cells[3])
+        _set_text(
+            merged_cell,
+            WIDGET_TREE_REUSE_ONLY_EMPTY_TEXT,
+            color=MUTED,
+            size=8.8,
+            align=WD_ALIGN_PARAGRAPH.CENTER,
+        )
+        _keep_row_together(table.rows[1])
+    else:
+        _set_widget_tree_row(
+            table.rows[1],
+            ("[WidgetName]", "[WidgetClass]", "[IsVariable]", "[ProgramPurposeOrBlank]"),
+            depth=1,
+        )
+
+    document.add_paragraph().paragraph_format.space_after = Pt(0)
+    return table
 
 
 def _add_table(document: Document, headers: list[str], row_values: list[str], widths_mm: list[float] | None = None):
@@ -137,6 +222,51 @@ def _add_table(document: Document, headers: list[str], row_values: list[str], wi
     return table
 
 
+def _add_owner_scoped_program_blocks(document: Document, *, owner_label: str) -> None:
+    _add_note(
+        document,
+        f"条件区块：仅在{owner_label}拥有动态集合时保留；只克隆归属于{owner_label}的集合，"
+        "每个集合独立一行并明确容器与 EntryClass 关系。",
+    )
+    collection_label = _add_labeled_paragraph(document, "动态集合：", "[CollectionId]", after=4)
+    collection_label.paragraph_format.keep_with_next = True
+    _add_table(
+        document,
+        ["集合标识", "容器控件", "EntryClass", "程序用途"],
+        ["[CollectionId]", "[CollectionWidget]", "[EntryWidgetClass]", "[CollectionPurpose]"],
+        [24, 30, 66, 26],
+    )
+
+    _add_note(
+        document,
+        f"条件区块：仅在{owner_label}拥有已接受且通过实际变量门控的状态模型时保留；"
+        f"只克隆归属于{owner_label}的状态项。",
+    )
+    state_label = _add_labeled_paragraph(document, "状态说明：", "[StateModelId]", after=4)
+    state_label.paragraph_format.keep_with_next = True
+    _add_labeled_paragraph(document, "实现策略：", "[ImplementationStrategy]", after=4)
+    _add_labeled_paragraph(document, "控制意图：", "[StateControlIntent]", after=4)
+    _add_table(
+        document,
+        ["状态轴", "状态标识", "状态名", "默认", "目标分支或结果"],
+        ["[StateAxis]", "[StateId]", "[StateName]", "[DefaultState]", "[StateTarget]"],
+        [27, 34, 24, 16, 45],
+    )
+
+    _add_note(
+        document,
+        f"条件区块：仅在{owner_label}有跨资产定位依赖时保留；"
+        "支持依赖随使用它的资产记录，不再生成文档级独立章节。",
+    )
+    _add_labeled_paragraph(document, "支持依赖：", "[SupportDependencyId]", after=4)
+    _add_table(
+        document,
+        ["Parent Class", "依赖定位节点"],
+        ["[DependencyParentClass]", "[DependencyLocatorNodes]"],
+        [42, 104],
+    )
+
+
 def _add_heading(document: Document, text: str, level: int) -> None:
     paragraph = document.add_heading(text, level=level)
     paragraph.paragraph_format.keep_with_next = True
@@ -148,7 +278,7 @@ def _add_note(document: Document, text: str) -> None:
     paragraph.add_run(text)
 
 
-def _add_labeled_paragraph(document: Document, label: str, value: str, *, after: float = 8) -> None:
+def _add_labeled_paragraph(document: Document, label: str, value: str, *, after: float = 8):
     paragraph = document.add_paragraph()
     paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
     paragraph.paragraph_format.space_after = Pt(after)
@@ -157,6 +287,7 @@ def _add_labeled_paragraph(document: Document, label: str, value: str, *, after:
     label_run.bold = True
     value_run = paragraph.add_run(value)
     _set_run_font(value_run, "Arial", "宋体", 10.5)
+    return paragraph
 
 
 def _add_callout(document: Document, text: str) -> None:
@@ -287,15 +418,6 @@ def _configure_document(document: Document) -> None:
     tool_asset.paragraph_format.space_after = Pt(6)
     tool_asset.paragraph_format.keep_with_next = True
 
-    trace = _get_or_add_style(document, "Program Trace")
-    trace.base_style = normal
-    _set_style_font(trace, "Consolas", "等线", 7.2)
-    trace.font.color.rgb = RGBColor.from_string(TEXT)
-    trace.paragraph_format.alignment = WD_ALIGN_PARAGRAPH.LEFT
-    trace.paragraph_format.space_before = Pt(0)
-    trace.paragraph_format.space_after = Pt(2)
-    trace.paragraph_format.line_spacing = 1.0
-
     caption = _get_or_add_style(document, "Tree Caption")
     caption.base_style = normal
     _set_style_font(caption, "Arial", "等线", 8)
@@ -389,93 +511,53 @@ def build_template(output_path: Path) -> None:
     _add_labeled_paragraph(document, "交付日期：", "[DeliveryDate]")
     _add_labeled_paragraph(document, "目标资产：", "[TargetAssetCount] 个")
     _add_labeled_paragraph(document, "交接标识：", "[HandoffId]", after=10)
+    _add_callout(document, "程序范围：[ScopeStatement]")
 
-    _add_callout(
-        document,
-        "范围说明：本文档只列出程序需要读写、填充或控制的 Widget、动态集合、EntryClass 关系与高层状态意图；"
-        "布局、字号、颜色、固定文案、底板与装饰等静态配置不重复记录。",
-    )
-    basis = document.add_paragraph()
-    basis.paragraph_format.space_after = Pt(10)
-    basis_label = basis.add_run("生成依据：")
-    _set_run_font(basis_label, "Arial", "黑体", 10.5)
-    basis_label.bold = True
-    basis_value = basis.add_run(
-        "已确认 UIRequirementSpec → 已完成并验收的 UIBuildBundle → Unreal 保存后 WidgetTree 实际读回 → "
-        "UIProgramHandoff。控件树图仅用于定位；本文档不表示程序逻辑已经完成。"
-    )
-    _set_run_font(basis_value, "Arial", "宋体", 10.5)
-
-    document.add_paragraph("1. 目标资产", style="Tool Section")
-    _add_note(document, "将下表占位行按目标资产数量克隆；不要保留方括号占位符。")
-    _add_table(
-        document,
-        ["资产角色", "资产路径"],
-        ["[AssetRole]", "[TargetAssetPath]"],
-        [42, 104],
-    )
-
-    document.add_page_break()
-    document.add_paragraph("2. 资产详细说明", style="Tool Section")
+    document.add_paragraph("1. 资产详细说明", style="Tool Section")
     _add_note(document, "将本资产块按目标资产数量完整克隆；主界面优先，随后按依赖顺序排列子控件与条目。")
     intro = document.add_paragraph(
-        "以下内容按资产给出实际控件树，再说明程序接入关系和需要控制的 Widget。"
+        "以下内容按资产给出实际 WidgetTree 与程序用途合并表，再说明程序接入关系。"
     )
     intro.alignment = WD_ALIGN_PARAGRAPH.LEFT
     intro.paragraph_format.space_after = Pt(8)
-    document.add_paragraph("[AssetDisplayName]", style="Heading 2")
-    _add_placeholder_block(
-        document,
-        "[WidgetTreeRoot]\n├─ [WidgetTreeNode]\n└─ [WidgetTreeNode]",
-        monospace=True,
-    )
-    caption = document.add_paragraph("[AssetDisplayName] · Unreal 保存后实际 WidgetTree", style="Tree Caption")
-    caption.paragraph_format.keep_with_next = True
+    document.add_paragraph("[AssetName][ChineseFunctionalName]", style="Heading 2")
     _add_labeled_paragraph(document, "资产路径：", "[TargetAssetPath]", after=4)
+    _add_labeled_paragraph(document, "Parent Class：", "[ParentClass]", after=4)
+    _add_labeled_paragraph(document, "功能说明：", "[FunctionalSummary]", after=6)
+    _add_note(
+        document,
+        "按结构化行逐节点克隆；首列用 depth × indentTwipsPerDepth 设置 Word 左缩进，第三列只写小写 true/false，"
+        "第四列写同资产程序用途或留空；reuse-only 空树改用固定跨四列说明行。",
+    )
+    caption = document.add_paragraph(
+        "[AssetName][ChineseFunctionalName] · Unreal 保存后实际 WidgetTree",
+        style="Tree Caption",
+    )
+    caption.paragraph_format.keep_with_next = True
+    _add_widget_tree_table(document)
     _add_labeled_paragraph(document, "程序接入关系：", "[AssetRelationshipSummary]", after=6)
     _add_labeled_paragraph(document, "[ControlGroupName]：", "[ControlGroupExplanation]", after=4)
+    _add_owner_scoped_program_blocks(document, owner_label="本资产")
 
     document.add_page_break()
-    document.add_paragraph("3. 程序变量清单", style="Tool Section")
-    _add_note(document, "条件区块：没有程序变量时省略本节。按实际变量数量克隆数据行。")
-    document.add_paragraph("[TargetAssetPath]", style="Tool Asset")
-    _add_table(
+    document.add_paragraph("2. 其他资产程序说明", style="Tool Section")
+    _add_note(
         document,
-        ["控件名", "控件类型", "程序用途"],
-        ["[WidgetName]", "[WidgetClass]", "[ProgramPurpose]"],
-        [58, 39, 49],
+        "条件模块：仅当动态集合、状态模型或支持依赖的归属资产不在第 1 模块时保留；"
+        "按归属资产克隆下面的完整分组，每组只写一次归属资产路径，并省略无内容的子区块。"
+        "省略本模块时，后续全局模块必须连续重编号。",
     )
+    document.add_paragraph("[OtherAssetName][OtherChineseFunctionalName]", style="Heading 2")
+    _add_labeled_paragraph(document, "资产路径：", "[OtherAssetPath]", after=4)
+    _add_owner_scoped_program_blocks(document, owner_label="上方其他资产")
 
-    document.add_paragraph("4. 动态集合与 EntryClass", style="Tool Section")
-    _add_note(document, "条件区块：没有动态集合时省略本节。每个集合独立一行，明确容器与 EntryClass 关系。")
-    _add_table(
-        document,
-        ["集合标识", "容器控件", "EntryClass", "程序用途"],
-        ["[CollectionId]", "[CollectionWidget]", "[EntryWidgetClass]", "[CollectionPurpose]"],
-        [24, 30, 66, 26],
-    )
-
-    document.add_paragraph("5. 状态模型", style="Tool Section")
-    _add_note(document, "条件区块：没有已接受且通过实际变量门控的状态时省略本节。")
-    _add_table(
-        document,
-        ["状态轴", "状态标识", "状态名", "默认", "目标分支或结果"],
-        ["[StateAxis]", "[StateId]", "[StateName]", "[DefaultState]", "[StateTarget]"],
-        [27, 34, 24, 16, 45],
-    )
-
-    document.add_paragraph("6. 构建偏差", style="Tool Section")
+    document.add_paragraph("3. 构建偏差", style="Tool Section")
     _add_note(document, "条件区块：没有已接受构建偏差时省略本节。")
     _add_table(document, ["资产", "偏差摘要"], ["[AssetName]", "[AcceptedDeviationSummary]"], [42, 104])
 
-    document.add_paragraph("7. 状态控制待接入项", style="Tool Section")
+    document.add_paragraph("4. 状态控制待接入项", style="Tool Section")
     _add_note(document, "条件区块：没有明确状态控制缺口时省略本节；项目排除项不得列为缺口。")
     _add_table(document, ["来源", "缺口说明"], ["[SourceIdentifier]", "[StateControlGap]"], [42, 104])
-
-    document.add_page_break()
-    document.add_paragraph("附录 A · 机器可追溯语义关系", style="Tool Section")
-    _add_note(document, "将机器生成的语义关系句逐条原样写入；不得改写、拼接或遗漏。")
-    _add_placeholder_block(document, "[ExactSemanticRelationshipStatement]", monospace=True)
 
     document.save(output_path)
     _normalize_docx(output_path)

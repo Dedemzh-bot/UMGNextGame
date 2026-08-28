@@ -1,0 +1,199 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "NextGame UMG Program Document Content",
+  "oneOf": [
+    {"$ref": "#/$defs/contentV02"},
+    {"$ref": "#/$defs/contentV03"},
+    {"$ref": "#/$defs/contentV04"}
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "id": {"type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]*$"},
+    "assetPath": {"type": "string", "pattern": "^/Game/UI/UMG/[A-Za-z0-9_]+(?:/[A-Za-z0-9_]+)+$"},
+    "handoff": {
+      "type": "object",
+      "required": ["fileName", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "fileName": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "identifierInventory": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "array",
+        "uniqueItems": true,
+        "items": {"type": "string", "minLength": 1}
+      }
+    },
+    "semanticStatements": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "contentV02": {
+      "type": "object",
+      "required": ["version", "handoff", "requiredIdentifiers", "requiredSemanticRelationshipStatements"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": "0.2"},
+        "handoff": {"$ref": "#/$defs/handoff"},
+        "requiredIdentifiers": {"$ref": "#/$defs/identifierInventory"},
+        "requiredSemanticRelationshipStatements": {"$ref": "#/$defs/semanticStatements"}
+      }
+    },
+    "treeRow": {
+      "type": "object",
+      "required": ["depth", "widgetName", "className", "isVariable"],
+      "additionalProperties": false,
+      "properties": {
+        "depth": {"type": "integer", "minimum": 0},
+        "widgetName": {"type": "string", "minLength": 1},
+        "className": {"type": "string", "minLength": 1},
+        "isVariable": {"type": "boolean"}
+      }
+    },
+    "nonEmptyTree": {
+      "type": "object",
+      "required": ["assetId", "assetPath", "treeRows"],
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {"$ref": "#/$defs/id"},
+        "assetPath": {"$ref": "#/$defs/assetPath"},
+        "treeRows": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/treeRow"}}
+      }
+    },
+    "emptyTree": {
+      "type": "object",
+      "required": ["assetId", "assetPath", "treeRows", "emptyState"],
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {"$ref": "#/$defs/id"},
+        "assetPath": {"$ref": "#/$defs/assetPath"},
+        "treeRows": {"type": "array", "maxItems": 0},
+        "emptyState": {"const": "reuse-only-no-owned-widgets"}
+      }
+    },
+    "widgetTreeTables": {
+      "type": "object",
+      "required": ["format", "headers", "indentTwipsPerDepth", "assets"],
+      "additionalProperties": false,
+      "properties": {
+        "format": {"const": "word-native-three-column-table-v1"},
+        "headers": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "层级 / Widget"},
+            {"const": "Class"},
+            {"const": "Is Variable"}
+          ],
+          "minItems": 3,
+          "maxItems": 3
+        },
+        "indentTwipsPerDepth": {"const": 180},
+        "assets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"oneOf": [{"$ref": "#/$defs/nonEmptyTree"}, {"$ref": "#/$defs/emptyTree"}]}
+        }
+      }
+    },
+    "contentV03": {
+      "type": "object",
+      "required": ["version", "handoff", "requiredIdentifiers", "requiredSemanticRelationshipStatements", "widgetTreeTables"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": "0.3"},
+        "handoff": {"$ref": "#/$defs/handoff"},
+        "requiredIdentifiers": {"$ref": "#/$defs/identifierInventory"},
+        "requiredSemanticRelationshipStatements": {"$ref": "#/$defs/semanticStatements"},
+        "widgetTreeTables": {"$ref": "#/$defs/widgetTreeTables"}
+      }
+    },
+    "treeRowV04": {
+      "type": "object",
+      "required": ["depth", "widgetName", "className", "isVariable", "programPurpose"],
+      "additionalProperties": false,
+      "properties": {
+        "depth": {"type": "integer", "minimum": 0},
+        "widgetName": {"type": "string", "minLength": 1},
+        "className": {"type": "string", "minLength": 1},
+        "isVariable": {"type": "boolean"},
+        "programPurpose": {
+          "enum": [
+            "",
+            "程序控制文本内容",
+            "程序控制图像内容",
+            "程序控制可见状态",
+            "程序控制进度显示",
+            "程序控制界面状态",
+            "程序控制集合内容",
+            "程序控制动态内容"
+          ]
+        }
+      }
+    },
+    "nonEmptyTreeV04": {
+      "type": "object",
+      "required": ["assetId", "assetPath", "parentClassPath", "treeRows"],
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {"$ref": "#/$defs/id"},
+        "assetPath": {"$ref": "#/$defs/assetPath"},
+        "parentClassPath": {"type": "string", "minLength": 1},
+        "treeRows": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/treeRowV04"}}
+      }
+    },
+    "emptyTreeV04": {
+      "type": "object",
+      "required": ["assetId", "assetPath", "parentClassPath", "treeRows", "emptyState"],
+      "additionalProperties": false,
+      "properties": {
+        "assetId": {"$ref": "#/$defs/id"},
+        "assetPath": {"$ref": "#/$defs/assetPath"},
+        "parentClassPath": {"type": "string", "minLength": 1},
+        "treeRows": {"type": "array", "maxItems": 0},
+        "emptyState": {"const": "reuse-only-no-owned-widgets"}
+      }
+    },
+    "widgetTreeTablesV04": {
+      "type": "object",
+      "required": ["format", "headers", "indentTwipsPerDepth", "assets"],
+      "additionalProperties": false,
+      "properties": {
+        "format": {"const": "word-native-four-column-asset-detail-table-v2"},
+        "headers": {
+          "type": "array",
+          "prefixItems": [
+            {"const": "层级 / Widget"},
+            {"const": "Class"},
+            {"const": "Is Variable"},
+            {"const": "程序用途"}
+          ],
+          "minItems": 4,
+          "maxItems": 4
+        },
+        "indentTwipsPerDepth": {"const": 180},
+        "assets": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"oneOf": [{"$ref": "#/$defs/nonEmptyTreeV04"}, {"$ref": "#/$defs/emptyTreeV04"}]}
+        }
+      }
+    },
+    "contentV04": {
+      "type": "object",
+      "required": ["version", "handoff", "requiredIdentifiers", "requiredSemanticRelationshipStatements", "widgetTreeTables"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": "0.4"},
+        "handoff": {"$ref": "#/$defs/handoff"},
+        "requiredIdentifiers": {"$ref": "#/$defs/identifierInventory"},
+        "requiredSemanticRelationshipStatements": {"$ref": "#/$defs/semanticStatements"},
+        "widgetTreeTables": {"$ref": "#/$defs/widgetTreeTablesV04"}
+      }
+    }
+  }
+}
