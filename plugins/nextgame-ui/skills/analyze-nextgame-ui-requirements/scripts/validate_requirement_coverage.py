@@ -306,6 +306,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("bundle", type=Path)
     parser.add_argument("--requirement", type=Path, help="Override bundle requirement path.")
+    parser.add_argument("--accepted-build-view", type=Path, help="Optional Accepted Build View sidecar; coverage is still computed from the complete Requirement.")
     parser.add_argument("--bundle-schema", type=Path, default=BUNDLE_SCHEMA)
     parser.add_argument("--requirement-schema", type=Path, default=REQUIREMENT_SCHEMA)
     parser.add_argument("--skip-linked-files", action="store_true")
@@ -322,6 +323,8 @@ def main() -> int:
             requirement_spec=requirement,
             requirement_path=requirement_path,
             requirement_schema=load_json(args.requirement_schema),
+            requirement_schema_path=args.requirement_schema.resolve(),
+            accepted_build_view_path=args.accepted_build_view.resolve() if args.accepted_build_view else None,
             check_linked_files=not args.skip_linked_files,
         )
         coverage = validate_requirement_coverage(bundle, requirement, bundle_path=args.bundle.resolve())

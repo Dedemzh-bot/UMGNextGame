@@ -17,14 +17,20 @@ orchestration/tests/_runtime*/
 /DerivedDataCache/
 /findings/
 /contexts/
+/inputs/
+/agent-inputs/
+/review-views/
 /status/
 /layouts/
+/plans/
 /verification/
 /previews/
 
 # Runtime artifacts are local evidence, not distributable plugin sources.
 /request-packet.json
 /ui-requirement*.json
+/accepted-build-view.json
+/ui-build-bundle.planned.json
 /ui-build-bundle.json
 /unreal-widget-readback.json
 /ui-build-acceptance.json

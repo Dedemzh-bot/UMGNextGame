@@ -147,6 +147,7 @@ def tile_container_spec() -> dict[str, Any]:
             },
             "entryWidth": 120,
             "entryHeight": 80,
+            "orientation": "Orient_Vertical",
             "horizontalEntrySpacing": 0,
             "verticalEntrySpacing": 0,
             "designerPreviewEntries": 6,
@@ -505,6 +506,11 @@ def main() -> int:
             "tile property mapping mismatch: "
             f"expected {sorted(expected_tile_values)}, got {sorted(tile_values)}"
         )
+    if not any(
+        "grid-tile: orientation is read-only" in warning
+        for warning in tile_plan["warnings"]
+    ):
+        failures.append("planner did not report the skipped read-only LuaTileView.orientation")
 
     entry_parent_class = planned_parent_class(entry_spec())
     if entry_parent_class != "/Script/UIFramework.ListViewItem":

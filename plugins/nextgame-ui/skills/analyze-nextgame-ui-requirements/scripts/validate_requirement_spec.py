@@ -12,6 +12,7 @@ from typing import Any, Iterable
 
 from _contract_common import (
     ASSETS_ROOT,
+    canonical_sha256,
     compute_approved_content_sha256,
     issue,
     load_json,
@@ -25,6 +26,13 @@ from validate_agent_findings import (
     DEFAULT_SCHEMA as AGENT_FINDINGS_SCHEMA,
     ROUND_ONE_ROLES,
     validate_agent_findings,
+)
+from prepare_agent_inputs import (
+    AgentInputError,
+    DEFAULT_PACKET_SCHEMA as ROLE_PACKET_SCHEMA,
+    DEFAULT_ROLE_CARDS,
+    _validate_authoritative_context,
+    validate_role_packet,
 )
 from validate_request_packet import DEFAULT_SCHEMA as REQUEST_PACKET_SCHEMA, validate_request_packet
 
@@ -199,6 +207,38 @@ def _has_accepted_claim(entity: dict[str, Any], accepted_claim_ids: set[str]) ->
     return isinstance(claim_ids, list) and any(claim_id in accepted_claim_ids for claim_id in claim_ids)
 
 
+def _resolve_scoped_contract_ref(
+    owner_path: Path,
+    raw_ref: str,
+    request_root: Path,
+) -> Path:
+    """Resolve a contract ref while keeping it inside the RequestPacket directory."""
+
+    candidate = Path(raw_ref)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError("reference must be relative and cannot contain '..'")
+    resolved = resolve_contract_path(owner_path, raw_ref)
+    try:
+        resolved.relative_to(request_root.resolve())
+    except ValueError as error:
+        raise ValueError("reference escapes the RequestPacket directory") from error
+    return resolved
+
+
+def _resolve_request_root_ref(request_root: Path, raw_ref: str) -> Path:
+    """Resolve a role-packet ref, whose base is always the RequestPacket directory."""
+
+    candidate = Path(raw_ref)
+    if candidate.is_absolute() or ".." in candidate.parts:
+        raise ValueError("role-packet reference must be relative and cannot contain '..'")
+    resolved = (request_root / candidate).resolve()
+    try:
+        resolved.relative_to(request_root.resolve())
+    except ValueError as error:
+        raise ValueError("role-packet reference escapes the RequestPacket directory") from error
+    return resolved
+
+
 def validate_requirement_spec(
     spec: Any,
     schema: dict[str, Any],
@@ -207,6 +247,7 @@ def validate_requirement_spec(
     request_packet_path: Path | None = None,
     spec_path: Path | None = None,
     check_findings_files: bool = False,
+    review_draft_path: Path | None = None,
 ) -> dict[str, Any]:
     errors = validate_schema_instance(spec, schema)
     warnings: list[dict[str, str]] = []
@@ -219,6 +260,7 @@ def validate_requirement_spec(
     explicit_panel_slots_required = analysis_policy.get("explicitPanelSlotsRequired") is True
     explicit_image_owner_intent_required = analysis_policy.get("explicitImageOwnerIntentRequired") is True
     design_size_mode_required = analysis_policy.get("designSizeModeRequired") is True
+    no_history_role_packets_required = analysis_policy.get("noHistoryRolePacketsRequired") is True
     all_ids: set[str] = set()
     for kind, path, entity in index["entities"]:
         entity_id = entity.get("id")
@@ -242,8 +284,123 @@ def validate_requirement_spec(
     asset_ids = set(by_kind.get("asset", {}))
 
     normalization = spec.get("normalization") if isinstance(spec.get("normalization"), dict) else {}
+    base_context_fields = (
+        "baseContextRef",
+        "baseContextSha256",
+        "baseContextCanonicalSha256",
+    )
+    present_base_context_fields = {
+        field for field in base_context_fields if normalization.get(field) is not None
+    }
+    if present_base_context_fields and len(present_base_context_fields) != len(base_context_fields):
+        errors.append(
+            issue(
+                "normalization.base_context_binding",
+                "$.normalization",
+                "baseContextRef, baseContextSha256, and baseContextCanonicalSha256 must be supplied together.",
+            )
+        )
+    if no_history_role_packets_required and len(present_base_context_fields) != len(base_context_fields):
+        errors.append(
+            issue(
+                "normalization.base_context_required",
+                "$.normalization",
+                "The no-history role-packet policy requires a complete authoritative base-context binding.",
+            )
+        )
+
+    request_root = request_packet_path.resolve().parent if request_packet_path is not None else None
+    if (
+        check_findings_files
+        and no_history_role_packets_required
+        and request_root is not None
+        and spec_path is not None
+    ):
+        try:
+            spec_path.resolve().relative_to(request_root)
+        except ValueError:
+            errors.append(
+                issue(
+                    "normalization.request_root_scope",
+                    "$",
+                    "A no-history RequirementSpec and every linked artifact must remain inside the RequestPacket directory.",
+                )
+            )
+    resolved_base_context: Path | None = None
+    if check_findings_files and present_base_context_fields:
+        if spec_path is None or request_packet is None or request_root is None:
+            errors.append(
+                issue(
+                    "normalization.base_context_inputs",
+                    "$.normalization",
+                    "Base-context validation requires the RequirementSpec and RequestPacket paths and the RequestPacket document.",
+                )
+            )
+        elif len(present_base_context_fields) == len(base_context_fields):
+            try:
+                resolved_base_context = _resolve_scoped_contract_ref(
+                    spec_path,
+                    str(normalization["baseContextRef"]),
+                    request_root,
+                )
+                if not resolved_base_context.is_file():
+                    errors.append(
+                        issue(
+                            "normalization.base_context_missing",
+                            "$.normalization.baseContextRef",
+                            f"Authoritative base context does not exist: {resolved_base_context}",
+                        )
+                    )
+                else:
+                    actual_file_hash = sha256_file(resolved_base_context)
+                    if normalization.get("baseContextSha256") != actual_file_hash:
+                        errors.append(
+                            issue(
+                                "normalization.base_context_digest",
+                                "$.normalization.baseContextSha256",
+                                f"Base-context file hash mismatch; expected {actual_file_hash}.",
+                            )
+                        )
+                    loaded_base_context = load_json(resolved_base_context)
+                    if not isinstance(loaded_base_context, dict):
+                        errors.append(
+                            issue(
+                                "normalization.base_context_type",
+                                "$.normalization.baseContextRef",
+                                "Authoritative base context must be a JSON object.",
+                            )
+                        )
+                    else:
+                        actual_canonical_hash = canonical_sha256(loaded_base_context)
+                        if normalization.get("baseContextCanonicalSha256") != actual_canonical_hash:
+                            errors.append(
+                                issue(
+                                    "normalization.base_context_canonical_digest",
+                                    "$.normalization.baseContextCanonicalSha256",
+                                    f"Base-context canonical hash mismatch; expected {actual_canonical_hash}.",
+                                )
+                            )
+                        try:
+                            _validate_authoritative_context(loaded_base_context, request_packet)
+                        except (AgentInputError, TypeError, ValueError) as error:
+                            errors.append(
+                                issue(
+                                    "normalization.base_context_invalid",
+                                    "$.normalization.baseContextRef",
+                                    str(error),
+                                )
+                            )
+            except (OSError, json.JSONDecodeError, TypeError, ValueError) as error:
+                errors.append(
+                    issue(
+                        "normalization.base_context_read",
+                        "$.normalization.baseContextRef",
+                        str(error),
+                    )
+                )
     findings_inputs: dict[str, dict[str, Any]] = {}
     findings_roles: set[str] = set()
+    role_packet_refs: set[str] = set()
     loaded_findings_local_ids: dict[str, set[str]] = {}
     loaded_findings_documents: dict[str, dict[str, Any]] = {}
     loaded_review_findings: dict[tuple[str, str], dict[str, Any]] = {}
@@ -251,10 +408,16 @@ def validate_requirement_spec(
         errors.append(issue("normalization.check_inputs", "$.normalization", "Linked findings validation requires both spec_path and RequestPacket."))
     findings_schema = load_json(AGENT_FINDINGS_SCHEMA) if check_findings_files else None
     packet_schema_for_findings = request_packet_schema or (load_json(REQUEST_PACKET_SCHEMA) if check_findings_files else None)
+    authoritative_role_packet_schema = load_json(ROLE_PACKET_SCHEMA) if check_findings_files else None
     for input_index, findings_input in enumerate(normalization.get("findingsInputs", [])):
         if not isinstance(findings_input, dict):
             continue
         findings_ref = findings_input.get("findingsRef")
+        role_packet_fields = ("rolePacketRef", "rolePacketSha256")
+        present_role_packet_fields = {
+            field for field in role_packet_fields if findings_input.get(field) is not None
+        }
+        resolved_findings_for_validation: Path | None = None
         if isinstance(findings_ref, str):
             if findings_ref in findings_inputs:
                 errors.append(issue("normalization.findings_duplicate", f"$.normalization.findingsInputs[{input_index}].findingsRef", "findingsRef must be unique."))
@@ -263,19 +426,156 @@ def validate_requirement_spec(
             if findings_path.is_absolute() or ".." in findings_path.parts:
                 errors.append(issue("normalization.findings_scope", f"$.normalization.findingsInputs[{input_index}].findingsRef", "findingsRef must remain relative to the RequirementSpec directory and cannot contain '..'."))
             elif check_findings_files and spec_path is not None:
-                resolved_findings = resolve_contract_path(spec_path, findings_ref)
-                if not resolved_findings.is_file():
-                    errors.append(issue("normalization.findings_missing", f"$.normalization.findingsInputs[{input_index}].findingsRef", f"Findings file does not exist: {resolved_findings}"))
-                else:
-                    actual_hash = sha256_file(resolved_findings)
-                    if findings_input.get("findingsSha256") != actual_hash:
-                        errors.append(issue("normalization.findings_digest", f"$.normalization.findingsInputs[{input_index}].findingsSha256", f"Findings hash mismatch; expected {actual_hash}."))
+                try:
+                    resolved_findings_for_validation = (
+                        _resolve_scoped_contract_ref(spec_path, findings_ref, request_root)
+                        if request_root is not None
+                        and (no_history_role_packets_required or bool(present_role_packet_fields))
+                        else resolve_contract_path(spec_path, findings_ref)
+                    )
+                    if not resolved_findings_for_validation.is_file():
+                        errors.append(issue("normalization.findings_missing", f"$.normalization.findingsInputs[{input_index}].findingsRef", f"Findings file does not exist: {resolved_findings_for_validation}"))
+                    else:
+                        actual_hash = sha256_file(resolved_findings_for_validation)
+                        if findings_input.get("findingsSha256") != actual_hash:
+                            errors.append(issue("normalization.findings_digest", f"$.normalization.findingsInputs[{input_index}].findingsSha256", f"Findings hash mismatch; expected {actual_hash}."))
+                except (OSError, TypeError, ValueError) as error:
+                    errors.append(
+                        issue(
+                            "normalization.findings_scope",
+                            f"$.normalization.findingsInputs[{input_index}].findingsRef",
+                            str(error),
+                        )
+                    )
         agent_role = findings_input.get("agentRole")
         if isinstance(agent_role, str):
             if agent_role in findings_roles:
                 errors.append(issue("normalization.role_duplicate", f"$.normalization.findingsInputs[{input_index}].agentRole", "Each Multi-Agent role may contribute exactly one findings input."))
             findings_roles.add(agent_role)
+        if present_role_packet_fields and len(present_role_packet_fields) != len(role_packet_fields):
+            errors.append(
+                issue(
+                    "normalization.role_packet_binding",
+                    f"$.normalization.findingsInputs[{input_index}]",
+                    "rolePacketRef and rolePacketSha256 must be supplied together.",
+                )
+            )
+        if no_history_role_packets_required and len(present_role_packet_fields) != len(role_packet_fields):
+            errors.append(
+                issue(
+                    "normalization.role_packet_required",
+                    f"$.normalization.findingsInputs[{input_index}]",
+                    "The no-history role-packet policy requires a role-packet binding for every findings input.",
+                )
+            )
+        if (
+            present_role_packet_fields
+            and agent_role in CONTEXT_ROLES
+            and len(present_base_context_fields) != len(base_context_fields)
+        ):
+            errors.append(
+                issue(
+                    "normalization.role_packet_base_context",
+                    f"$.normalization.findingsInputs[{input_index}].rolePacketRef",
+                    "A context-aware role packet cannot be validated without the complete authoritative base-context binding.",
+                )
+            )
+
+        role_packet_document: dict[str, Any] | None = None
+        resolved_role_packet: Path | None = None
+        role_packet_ref = findings_input.get("rolePacketRef")
+        role_packet_digest = findings_input.get("rolePacketSha256")
+        if isinstance(role_packet_ref, str):
+            if role_packet_ref in role_packet_refs:
+                errors.append(
+                    issue(
+                        "normalization.role_packet_duplicate",
+                        f"$.normalization.findingsInputs[{input_index}].rolePacketRef",
+                        "Each findings input must bind a distinct role packet.",
+                    )
+                )
+            role_packet_refs.add(role_packet_ref)
+        if (
+            check_findings_files
+            and len(present_role_packet_fields) == len(role_packet_fields)
+            and isinstance(role_packet_ref, str)
+            and isinstance(role_packet_digest, str)
+        ):
+            if spec_path is None or request_root is None or request_packet is None or request_packet_path is None:
+                errors.append(
+                    issue(
+                        "normalization.role_packet_inputs",
+                        f"$.normalization.findingsInputs[{input_index}].rolePacketRef",
+                        "Role-packet validation requires the RequirementSpec and RequestPacket paths and the RequestPacket document.",
+                    )
+                )
+            else:
+                try:
+                    resolved_role_packet = _resolve_scoped_contract_ref(
+                        spec_path,
+                        role_packet_ref,
+                        request_root,
+                    )
+                    if not resolved_role_packet.is_file():
+                        errors.append(
+                            issue(
+                                "normalization.role_packet_missing",
+                                f"$.normalization.findingsInputs[{input_index}].rolePacketRef",
+                                f"Role packet does not exist: {resolved_role_packet}",
+                            )
+                        )
+                    else:
+                        actual_role_packet_hash = sha256_file(resolved_role_packet)
+                        if role_packet_digest != actual_role_packet_hash:
+                            errors.append(
+                                issue(
+                                    "normalization.role_packet_digest",
+                                    f"$.normalization.findingsInputs[{input_index}].rolePacketSha256",
+                                    f"Role-packet hash mismatch; expected {actual_role_packet_hash}.",
+                                )
+                            )
+                        loaded_role_packet = load_json(resolved_role_packet)
+                        if not isinstance(loaded_role_packet, dict):
+                            errors.append(
+                                issue(
+                                    "normalization.role_packet_type",
+                                    f"$.normalization.findingsInputs[{input_index}].rolePacketRef",
+                                    "Role packet must be a JSON object.",
+                                )
+                            )
+                        else:
+                            role_packet_document = loaded_role_packet
+                            direct_packet_validation = validate_role_packet(
+                                loaded_role_packet,
+                                packet_path=resolved_role_packet,
+                                request_root=request_root,
+                                request_path=request_packet_path,
+                                base_context_path=resolved_base_context,
+                                draft_requirement_path=review_draft_path,
+                                packet_schema=authoritative_role_packet_schema or load_json(ROLE_PACKET_SCHEMA),
+                                role_cards_path=DEFAULT_ROLE_CARDS,
+                            )
+                            if not direct_packet_validation["valid"]:
+                                nested_codes = sorted(
+                                    {entry["code"] for entry in direct_packet_validation["errors"]}
+                                )
+                                errors.append(
+                                    issue(
+                                        "normalization.role_packet_invalid",
+                                        f"$.normalization.findingsInputs[{input_index}].rolePacketRef",
+                                        f"Linked no-history role packet failed authoritative validation: {nested_codes}.",
+                                    )
+                                )
+                except (OSError, json.JSONDecodeError, TypeError, ValueError) as error:
+                    errors.append(
+                        issue(
+                            "normalization.role_packet_read",
+                            f"$.normalization.findingsInputs[{input_index}].rolePacketRef",
+                            str(error),
+                        )
+                    )
         context: dict[str, Any] | None = None
+        resolved_context_for_validation: Path | None = None
         context_ref = findings_input.get("contextRef")
         context_digest = findings_input.get("contextSha256")
         if agent_role in CONTEXT_ROLES:
@@ -288,21 +588,100 @@ def validate_requirement_spec(
             if context_path.is_absolute() or ".." in context_path.parts:
                 errors.append(issue("normalization.context_scope", f"$.normalization.findingsInputs[{input_index}].contextRef", "contextRef must remain relative to the RequirementSpec directory and cannot contain '..'."))
             elif check_findings_files and spec_path is not None:
-                resolved_context = resolve_contract_path(spec_path, context_ref)
-                if not resolved_context.is_file():
-                    errors.append(issue("normalization.context_missing", f"$.normalization.findingsInputs[{input_index}].contextRef", f"Context file does not exist: {resolved_context}"))
-                else:
-                    actual_context_hash = sha256_file(resolved_context)
-                    if context_digest != actual_context_hash:
-                        errors.append(issue("normalization.context_digest", f"$.normalization.findingsInputs[{input_index}].contextSha256", f"Context hash mismatch; expected {actual_context_hash}."))
-                    try:
+                try:
+                    resolved_context = (
+                        _resolve_scoped_contract_ref(spec_path, context_ref, request_root)
+                        if request_root is not None
+                        and (no_history_role_packets_required or bool(present_role_packet_fields))
+                        else resolve_contract_path(spec_path, context_ref)
+                    )
+                    if not resolved_context.is_file():
+                        errors.append(issue("normalization.context_missing", f"$.normalization.findingsInputs[{input_index}].contextRef", f"Context file does not exist: {resolved_context}"))
+                    else:
+                        actual_context_hash = sha256_file(resolved_context)
+                        if context_digest != actual_context_hash:
+                            errors.append(issue("normalization.context_digest", f"$.normalization.findingsInputs[{input_index}].contextSha256", f"Context hash mismatch; expected {actual_context_hash}."))
                         loaded_context = load_json(resolved_context)
                         if isinstance(loaded_context, dict):
                             context = loaded_context
+                            resolved_context_for_validation = resolved_context
                         else:
                             errors.append(issue("normalization.context_type", f"$.normalization.findingsInputs[{input_index}].contextRef", "Context JSON must be an object."))
-                    except (OSError, json.JSONDecodeError, ValueError) as error:
-                        errors.append(issue("normalization.context_read", f"$.normalization.findingsInputs[{input_index}].contextRef", str(error)))
+                except (OSError, json.JSONDecodeError, TypeError, ValueError) as error:
+                    errors.append(issue("normalization.context_read", f"$.normalization.findingsInputs[{input_index}].contextRef", str(error)))
+
+        if role_packet_document is not None and request_root is not None:
+            if role_packet_document.get("agentRole") != agent_role:
+                errors.append(
+                    issue(
+                        "normalization.role_packet_role",
+                        f"$.normalization.findingsInputs[{input_index}].rolePacketRef",
+                        "Role-packet agentRole must match findingsInput.agentRole.",
+                    )
+                )
+            output_ref = role_packet_document.get("outputRef")
+            if isinstance(output_ref, str) and resolved_findings_for_validation is not None:
+                try:
+                    resolved_packet_output = _resolve_request_root_ref(request_root, output_ref)
+                    if resolved_packet_output != resolved_findings_for_validation:
+                        errors.append(
+                            issue(
+                                "normalization.role_packet_output",
+                                f"$.normalization.findingsInputs[{input_index}].rolePacketRef",
+                                "Role-packet outputRef must resolve to the exact linked findings document.",
+                            )
+                        )
+                except (TypeError, ValueError) as error:
+                    errors.append(
+                        issue(
+                            "normalization.role_packet_output",
+                            f"$.normalization.findingsInputs[{input_index}].rolePacketRef",
+                            str(error),
+                        )
+                    )
+            packet_context_binding = role_packet_document.get("context")
+            if agent_role in CONTEXT_ROLES:
+                if not isinstance(packet_context_binding, dict) or resolved_context_for_validation is None:
+                    errors.append(
+                        issue(
+                            "normalization.role_packet_context",
+                            f"$.normalization.findingsInputs[{input_index}]",
+                            "A context-aware role packet and findings input must both bind one projected context.",
+                        )
+                    )
+                else:
+                    packet_context_ref = packet_context_binding.get("ref")
+                    try:
+                        if not isinstance(packet_context_ref, str):
+                            raise ValueError("role-packet context ref is missing")
+                        resolved_packet_context = _resolve_request_root_ref(
+                            request_root,
+                            packet_context_ref,
+                        )
+                        if resolved_packet_context != resolved_context_for_validation:
+                            errors.append(
+                                issue(
+                                    "normalization.role_packet_context",
+                                    f"$.normalization.findingsInputs[{input_index}].contextRef",
+                                    "Role-packet context.ref must resolve to the exact findingsInput contextRef.",
+                                )
+                            )
+                    except (TypeError, ValueError) as error:
+                        errors.append(
+                            issue(
+                                "normalization.role_packet_context",
+                                f"$.normalization.findingsInputs[{input_index}].contextRef",
+                                str(error),
+                            )
+                        )
+            elif packet_context_binding is not None:
+                errors.append(
+                    issue(
+                        "normalization.role_packet_context",
+                        f"$.normalization.findingsInputs[{input_index}].rolePacketRef",
+                        "Round-one role packets must not declare a projected context.",
+                    )
+                )
         if (
             check_findings_files
             and spec_path is not None
@@ -310,8 +689,9 @@ def validate_requirement_spec(
             and isinstance(findings_ref, str)
             and not Path(findings_ref).is_absolute()
             and ".." not in Path(findings_ref).parts
+            and resolved_findings_for_validation is not None
         ):
-            resolved_findings = resolve_contract_path(spec_path, findings_ref)
+            resolved_findings = resolved_findings_for_validation
             if resolved_findings.is_file():
                 try:
                     findings_document = load_json(resolved_findings)
@@ -328,6 +708,11 @@ def validate_requirement_spec(
                             packet_schema_for_findings or load_json(REQUEST_PACKET_SCHEMA),
                             context,
                             request_packet_path,
+                            resolved_context_for_validation,
+                            role_packet_document,
+                            resolved_role_packet,
+                            resolved_base_context,
+                            review_draft_path,
                         )
                         if not findings_validation["valid"]:
                             nested_codes = sorted({entry["code"] for entry in findings_validation["errors"]})
@@ -386,6 +771,14 @@ def validate_requirement_spec(
     if overlap:
         errors.append(issue("normalization.trace_overlap", "$.normalization", f"Local ids cannot be both aliased and discarded: {sorted(overlap)}."))
     review_preview = spec.get("reviewGate") if isinstance(spec.get("reviewGate"), dict) else {}
+    if no_history_role_packets_required and findings_roles != REQUIRED_AGENT_ROLES:
+        errors.append(
+            issue(
+                "normalization.role_packet_coverage",
+                "$.normalization.findingsInputs",
+                f"The no-history role-packet policy requires exactly all nine roles; missing={sorted(REQUIRED_AGENT_ROLES - findings_roles)}, extra={sorted(findings_roles - REQUIRED_AGENT_ROLES)}.",
+            )
+        )
     if review_preview.get("status") == "accepted" and findings_roles != REQUIRED_AGENT_ROLES:
         errors.append(
             issue(
@@ -2104,6 +2497,7 @@ def main() -> int:
     parser.add_argument("--schema", type=Path, default=DEFAULT_SCHEMA)
     parser.add_argument("--request-schema", type=Path, default=REQUEST_PACKET_SCHEMA)
     parser.add_argument("--check-findings-files", action="store_true", help="Rehash every normalization findingsRef relative to the RequirementSpec.")
+    parser.add_argument("--review-draft", type=Path, help="Immutable pending Requirement sidecar used to revalidate all linked review views.")
     args = parser.parse_args()
     try:
         packet = load_json(args.request_packet) if args.request_packet else None
@@ -2115,6 +2509,7 @@ def main() -> int:
             args.request_packet.resolve(),
             args.spec.resolve(),
             args.check_findings_files,
+            args.review_draft.resolve() if args.review_draft else None,
         )
     except (OSError, json.JSONDecodeError, ValueError) as error:
         output = result([issue("io.read", "$", str(error))])

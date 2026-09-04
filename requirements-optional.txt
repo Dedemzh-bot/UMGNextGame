@@ -4,3 +4,5 @@ numpy
 Pillow
 python-docx
 requests
+jsonschema
+referencing

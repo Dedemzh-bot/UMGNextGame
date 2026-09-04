@@ -1,0 +1,330 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/shared-widget-shortlist.json",
+  "title": "NextGame Shared Widget discovery shortlist and authoritative expansion",
+  "oneOf": [
+    {"$ref": "#/$defs/shortlist"},
+    {"$ref": "#/$defs/expansion"},
+    {"$ref": "#/$defs/operationError"}
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "registryBinding": {
+      "type": "object",
+      "required": [
+        "registryId",
+        "registryVersion",
+        "registryRevision",
+        "registrySha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "registryId": {"const": "nextgame-shared-widgets"},
+        "registryVersion": {"enum": ["0.3", "0.4"]},
+        "registryRevision": {"type": "integer", "minimum": 1},
+        "registrySha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "entryBinding": {
+      "type": "object",
+      "required": [
+        "entryId",
+        "entryStatus",
+        "assetPath",
+        "interfaceSha256",
+        "reuseContractSha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "entryId": {"type": "string", "minLength": 1},
+        "entryStatus": {"enum": ["candidate", "active", "deprecated"]},
+        "assetPath": {"type": "string", "pattern": "^/Game(?:/[A-Za-z0-9_]+)+$"},
+        "interfaceSha256": {"$ref": "#/$defs/sha256"},
+        "reuseContractSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "expansionBinding": {
+      "type": "object",
+      "required": [
+        "registryId",
+        "registryVersion",
+        "registryRevision",
+        "registrySha256",
+        "shortlistCanonicalSha256",
+        "entryId",
+        "interfaceSha256",
+        "reuseContractSha256",
+        "selectionClassification",
+        "declaredHardConflict"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "registryId": {"const": "nextgame-shared-widgets"},
+        "registryVersion": {"enum": ["0.3", "0.4"]},
+        "registryRevision": {"type": "integer", "minimum": 1},
+        "registrySha256": {"$ref": "#/$defs/sha256"},
+        "shortlistCanonicalSha256": {"$ref": "#/$defs/sha256"},
+        "entryId": {"type": "string", "minLength": 1},
+        "interfaceSha256": {"$ref": "#/$defs/sha256"},
+        "reuseContractSha256": {"$ref": "#/$defs/sha256"},
+        "selectionClassification": {
+          "enum": ["candidate", "needsDetailedCheck", "excluded"]
+        },
+        "declaredHardConflict": {"type": "boolean"}
+      }
+    },
+    "hardConflict": {
+      "type": "object",
+      "required": ["entryId", "constraintId", "reason", "evidence"],
+      "additionalProperties": false,
+      "properties": {
+        "entryId": {"type": "string", "minLength": 1},
+        "constraintId": {"type": "string", "minLength": 1},
+        "reason": {"type": "string", "minLength": 1},
+        "evidence": {"type": "string", "minLength": 1}
+      }
+    },
+    "normalizedRequest": {
+      "type": "object",
+      "required": [
+        "queryText",
+        "explicitEntryIds",
+        "explicitPaths",
+        "assetKinds",
+        "scopes",
+        "ownerSystemFolders",
+        "capabilityIds",
+        "declaredHardConflicts"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "queryText": {"type": "string"},
+        "explicitEntryIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "explicitPaths": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "assetKinds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "scopes": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "ownerSystemFolders": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "capabilityIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "declaredHardConflicts": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/hardConflict"}
+        }
+      }
+    },
+    "fallback": {
+      "type": "object",
+      "required": ["used", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "used": {"type": "boolean"},
+        "reason": {
+          "enum": [
+            "none",
+            "no-query",
+            "zero-match",
+            "ambiguous-match",
+            "unmatched-explicit-selector"
+          ]
+        }
+      }
+    },
+    "summary": {
+      "type": "object",
+      "required": ["total", "candidate", "needsDetailedCheck", "excluded"],
+      "additionalProperties": false,
+      "properties": {
+        "total": {"type": "integer", "minimum": 0},
+        "candidate": {"type": "integer", "minimum": 0},
+        "needsDetailedCheck": {"type": "integer", "minimum": 0},
+        "excluded": {"type": "integer", "minimum": 0}
+      }
+    },
+    "card": {
+      "type": "object",
+      "required": [
+        "entryId",
+        "entryStatus",
+        "assetPath",
+        "objectPath",
+        "generatedClassPath",
+        "assetKind",
+        "scope",
+        "ownerSystemFolder",
+        "purpose",
+        "capabilityIds",
+        "hardConstraintIds",
+        "interfaceSha256",
+        "reuseContractSha256",
+        "classification",
+        "matchReasons",
+        "executionBlockers",
+        "executable",
+        "requiresExpansion"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "entryId": {"type": "string", "minLength": 1},
+        "entryStatus": {"enum": ["candidate", "active", "deprecated"]},
+        "assetPath": {"type": "string", "minLength": 1},
+        "objectPath": {"type": "string", "minLength": 1},
+        "generatedClassPath": {"type": "string", "minLength": 1},
+        "assetKind": {"type": "string", "minLength": 1},
+        "scope": {"type": "string", "minLength": 1},
+        "ownerSystemFolder": {"type": ["string", "null"]},
+        "purpose": {"type": "string", "minLength": 1},
+        "capabilityIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "hardConstraintIds": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "interfaceSha256": {"$ref": "#/$defs/sha256"},
+        "reuseContractSha256": {"$ref": "#/$defs/sha256"},
+        "classification": {"enum": ["candidate", "needsDetailedCheck", "excluded"]},
+        "matchReasons": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "executionBlockers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "executable": {"const": false},
+        "requiresExpansion": {"const": true}
+      }
+    },
+    "issue": {
+      "type": "object",
+      "required": ["code", "path", "message"],
+      "additionalProperties": false,
+      "properties": {
+        "code": {"type": "string", "minLength": 1},
+        "path": {"type": "string", "minLength": 1},
+        "message": {"type": "string", "minLength": 1}
+      }
+    },
+    "shortlist": {
+      "type": "object",
+      "required": [
+        "version",
+        "kind",
+        "valid",
+        "registryBinding",
+        "request",
+        "fallback",
+        "summary",
+        "cards"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": "0.1"},
+        "kind": {"const": "nextgame-shared-widget-shortlist"},
+        "valid": {"const": true},
+        "registryBinding": {"$ref": "#/$defs/registryBinding"},
+        "request": {"$ref": "#/$defs/normalizedRequest"},
+        "fallback": {"$ref": "#/$defs/fallback"},
+        "summary": {"$ref": "#/$defs/summary"},
+        "cards": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/card"}
+        }
+      }
+    },
+    "expansion": {
+      "type": "object",
+      "required": [
+        "version",
+        "kind",
+        "valid",
+        "stale",
+        "registryBinding",
+        "requestedBinding",
+        "entryBinding",
+        "errors",
+        "entry",
+        "executable",
+        "executionBlockers"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": "0.1"},
+        "kind": {"const": "nextgame-shared-widget-expansion"},
+        "valid": {"type": "boolean"},
+        "stale": {"type": "boolean"},
+        "registryBinding": {"$ref": "#/$defs/registryBinding"},
+        "requestedBinding": {"$ref": "#/$defs/expansionBinding"},
+        "entryBinding": {
+          "anyOf": [
+            {"type": "null"},
+            {"$ref": "#/$defs/entryBinding"}
+          ]
+        },
+        "errors": {
+          "type": "array",
+          "items": {"$ref": "#/$defs/issue"}
+        },
+        "entry": {
+          "anyOf": [
+            {"type": "null"},
+            {"$ref": "shared-widget-registry.json#/$defs/entryV03"},
+            {"$ref": "shared-widget-registry.json#/$defs/entryV04"}
+          ]
+        },
+        "executable": {"const": false},
+        "executionBlockers": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"type": "string", "minLength": 1}
+        }
+      }
+    },
+    "operationError": {
+      "type": "object",
+      "required": ["version", "kind", "valid", "errors"],
+      "additionalProperties": false,
+      "properties": {
+        "version": {"const": "0.1"},
+        "kind": {"const": "nextgame-shared-widget-operation-error"},
+        "valid": {"const": false},
+        "errors": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"$ref": "#/$defs/issue"}
+        }
+      }
+    }
+  }
+}

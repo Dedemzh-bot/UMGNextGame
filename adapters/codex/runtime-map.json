@@ -1,20 +1,108 @@
 {
   "runtime": "codex",
   "workflowId": "nextgame-ui-requirements",
+  "contractVersion": "2.0.0",
   "dispatch": "spawn_agent",
   "wait": "wait_agent",
   "inspect": "list_agents",
-  "correctActive": "send_message",
-  "retryIdle": "followup_task",
   "stop": "interrupt_agent",
-  "coordinatorOnly": [
-    "normalize-context",
+  "retryPolicy": {
+    "onValidationFailure": "interrupt-then-fresh-spawn",
+    "reuseAgent": false,
+    "prompt": "agent-inputs/<same-role>.json"
+  },
+  "agentDispatchPolicy": {
+    "promptContract": "packet-path-only",
+    "historyPolicy": "none",
+    "forkTurns": "none",
+    "inheritsConversation": false,
+    "allowModelOverride": false,
+    "allowReasoningOverride": false
+  },
+  "coordinatorOwnedSteps": [
+    "validate-packet",
+    "validate-discovery",
+    "normalize-identities",
+    "validate-focused",
     "synthesize-draft",
-    "adjudicate-review",
-    "strict-requirement-validation",
-    "ask-user",
-    "accept-human-gate"
+    "finalize-review-resolutions",
+    "strict-validate-requirement",
+    "prepare-accepted-build-view",
+    "validate-build-plan",
+    "build-verified-umg",
+    "post-save-unreal-readback",
+    "present-build-results",
+    "document-program-handoff"
+  ],
+  "humanOwnedGateSteps": [
+    "requirements-confirmation",
+    "build-results-confirmation"
   ],
   "receiptIsAuthoritative": false,
-  "artifactAndValidatorAreAuthoritative": true
+  "artifactAndValidatorAreAuthoritative": true,
+  "buildPlanningAgentInputs": [
+    "accepted-build-view.json"
+  ],
+  "buildPlanningStep": "plan-umg-build",
+  "buildPlanningAgentDispatchPolicy": {
+    "promptContract": "single-validated-artifact-path",
+    "historyPolicy": "none",
+    "forkTurns": "none",
+    "inheritsConversation": false,
+    "allowModelOverride": false,
+    "allowReasoningOverride": false
+  },
+  "buildPlanningDispatchContract": "accepted-build-view.json#dispatchContract",
+  "buildPlanningRetryPolicy": {
+    "onValidationFailure": "interrupt-then-fresh-spawn",
+    "reuseAgent": false,
+    "prompt": "accepted-build-view.json"
+  },
+  "buildPlanArtifact": "ui-build-bundle.planned.json",
+  "buildCompositeOutputs": [
+    {
+      "id": "planned-layout-specs",
+      "ownerStep": "plan-umg-build",
+      "descriptor": "ui-build-bundle.planned.json",
+      "pathSelector": "assets[].layoutSpecPath",
+      "digestSelector": "assets[].layoutSpecSha256",
+      "identitySelector": "assets[].id",
+      "coverageSelector": "assets[].id",
+      "allowedPathPrefix": "layouts/",
+      "consumerStep": "validate-build-plan",
+      "validator": "ui-layout-spec-0.2",
+      "nullPolicy": "only-reuse-only-assets",
+      "requireRunRootContainment": true,
+      "requireDigestMatch": true,
+      "requireCompleteEnumeration": true
+    },
+    {
+      "id": "deterministic-build-plans",
+      "ownerStep": "validate-build-plan",
+      "descriptor": "status/ui-build-plan.pre-mutation-valid.json",
+      "pathSelector": "plans[].path",
+      "digestSelector": "plans[].sha256",
+      "identitySelector": "plans[].assetId",
+      "coverageSelector": "ui-build-bundle.planned.json:execution.buildOrderAssetIds",
+      "allowedPathPrefix": "plans/",
+      "consumerStep": "build-verified-umg",
+      "validator": "deterministic-mcp-build-plan",
+      "nullPolicy": "only-reuse-only-assets",
+      "requireRunRootContainment": true,
+      "requireDigestMatch": true,
+      "requireCompleteEnumeration": true
+    }
+  ],
+  "preMutationValidationStep": "validate-build-plan",
+  "preMutationValidationEvidence": "status/ui-build-plan.pre-mutation-valid.json",
+  "preMutationEvidenceContract": {
+    "artifact": "status/ui-build-plan.pre-mutation-valid.json",
+    "schemaRef": "build-plan-pre-mutation.schema.json",
+    "toolRef": "scripts/build_plan_evidence.py",
+    "generationMode": "generate-and-self-validate",
+    "revalidationMode": "--validate-only",
+    "requiredBeforeEditorMutation": true
+  },
+  "editorMutationStep": "build-verified-umg",
+  "buildValidatorAuthority": "ui-requirement.json"
 }

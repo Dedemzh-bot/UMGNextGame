@@ -1,0 +1,104 @@
+{
+  "version": "0.1",
+  "cards": [
+    {
+      "id": "analysis.visual-structure.v1",
+      "agentRole": "visual-structure",
+      "round": "discovery",
+      "objective": "Measure the supplied UI images and report regions, component families, independent text bounds, repeated elements, hierarchy, variants, and complete semantic visual layers.",
+      "constraints": [
+        "Use only image sources in the packet and do not infer requirements from prose.",
+        "Treat raster primitives as evidence, not automatic Widget boundaries.",
+        "Emit AgentFindings only; do not author a Requirement, layout, build plan, or Unreal asset."
+      ]
+    },
+    {
+      "id": "analysis.text-requirements.v1",
+      "agentRole": "text-requirements",
+      "round": "discovery",
+      "objective": "Extract only explicit purpose, scope, exclusions, names, paths, interactions, acceptance conditions, and user authority from the supplied user text.",
+      "constraints": [
+        "Use only user-text sources in the packet and do not make visual guesses.",
+        "Preserve conflicts and missing details instead of resolving them silently.",
+        "Emit AgentFindings only."
+      ]
+    },
+    {
+      "id": "analysis.project-pattern.v1",
+      "agentRole": "project-pattern",
+      "round": "discovery",
+      "objective": "Report applicable project naming, region, collection, responsive, state, component, and compatible reuse precedents from the supplied project-rule and project-asset sources.",
+      "constraints": [
+        "Treat observed assets as evidence and explicit project rules as authority.",
+        "Use the validated Registry discovery index or shortlist; hydrate a full entry before any positive reuse conclusion.",
+        "Distinguish Widget Blueprint inheritance, WidgetTree nesting, EntryClass, Lua inheritance, and dynamic references. Emit AgentFindings only."
+      ]
+    },
+    {
+      "id": "analysis.state-modeling.v1",
+      "agentRole": "state-modeling",
+      "round": "focused",
+      "objective": "Identify evidence-supported state axes, defaults, compositions or deltas, implementation strategy, and high-level control intent.",
+      "constraints": [
+        "Use only the validated role projection; do not reopen raw sources or other Agent findings.",
+        "Do not invent event names, payloads, parameter contracts, list-item schemas, ownership, or refresh policy.",
+        "Bind every finding to canonical subjects present in the projection and emit AgentFindings only."
+      ]
+    },
+    {
+      "id": "analysis.data-adaptation.v1",
+      "agentRole": "data-adaptation",
+      "round": "focused",
+      "objective": "Decide runtime variables, dynamic collections, overflow, anchoring, growth, wrapping, justification, localization, decorative adaptation, and direct parent Slot intent.",
+      "constraints": [
+        "Use only the validated role projection; do not reopen raw sources or other Agent findings.",
+        "Keep Box main-axis Size separate from alignment and classify repeated data as dynamic unless structural evidence proves otherwise.",
+        "Bind every finding to canonical subjects present in the projection and emit AgentFindings only."
+      ]
+    },
+    {
+      "id": "analysis.asset-decomposition.v1",
+      "agentRole": "asset-decomposition",
+      "round": "focused",
+      "objective": "Propose evidence-backed screen, child, entry, dependency, build-order, design-size-mode, and shared-reuse boundaries.",
+      "constraints": [
+        "Use only the validated role projection and validated Registry shortlist; hydrate and validate a full Registry entry before selecting reuse.",
+        "Apply the basename-driven Designer mode rule and keep non-Fight screen-local modules in the screen unless an accepted boundary reason exists.",
+        "Bind every finding to canonical subjects present in the projection and emit AgentFindings only."
+      ]
+    },
+    {
+      "id": "analysis.state-visual-review.v2",
+      "agentRole": "state-visual-review",
+      "round": "review",
+      "objective": "Adversarially review the draft Requirement for unsupported, incomplete, or contradictory visual-state compositions.",
+      "constraints": [
+        "Use only the validated role projection, the validated role-specific Review View, and supplied image evidence; do not read a separately attached full Requirement or other review findings.",
+        "The Review View is a non-authoritative projection of the immutable pending Draft; never treat an omitted field or canonical object as absent from the complete Requirement.",
+        "Report AgentFindings only, do not edit or reconstruct the Requirement, and bind every finding to canonical subjects present in the validated inputs."
+      ]
+    },
+    {
+      "id": "analysis.schema-feasibility-review.v2",
+      "agentRole": "schema-feasibility-review",
+      "round": "review",
+      "objective": "Review the draft Requirement for schema, reference, asset-boundary, Registry, and downstream buildability defects.",
+      "constraints": [
+        "Use only the validated role projection and the validated role-specific Review View; do not read a separately attached full Requirement or other review findings.",
+        "The Review View is a non-authoritative projection of the immutable pending Draft; never treat an omitted field or canonical object as absent from the complete Requirement.",
+        "Treat Schema and validators as authority, emit AgentFindings only, and bind every finding to canonical subjects present in the validated inputs."
+      ]
+    },
+    {
+      "id": "analysis.coverage-review.v2",
+      "agentRole": "coverage-review",
+      "round": "review",
+      "objective": "Compare the draft Requirement and visual-coverage evidence against canonical images, family or entry roots, state branches, and asset coverage.",
+      "constraints": [
+        "Use only the validated role projection, the validated role-specific Review View, and supplied image or coverage evidence; do not read a separately attached full Requirement or other review findings.",
+        "The Review View is a non-authoritative projection of the immutable pending Draft; never treat an omitted field or canonical object as absent from the complete Requirement.",
+        "Do not let a global similarity score hide a missing medium- or high-impact visual; emit AgentFindings only and bind them to canonical subjects present in the validated inputs."
+      ]
+    }
+  ]
+}

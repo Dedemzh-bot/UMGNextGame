@@ -126,8 +126,10 @@ def main() -> int:
     document_scripts = PLUGIN / "skills" / "document-nextgame-umg" / "scripts"
     document_excludes: set[str] = set()
     if importlib.util.find_spec("docx") is None:
-        document_excludes.add("test_program_document_template.py")
-        print("\npython-docx is unavailable; skipping only test_program_document_template.py.")
+        document_excludes.update(
+            {"test_program_document_template.py", "test_program_docx_builder.py"}
+        )
+        print("\npython-docx is unavailable; skipping the two optional DOCX tests.")
     run_all_script_tests("document tests", document_scripts, exclude=document_excludes)
 
     validate_json_files()

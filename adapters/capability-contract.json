@@ -1,5 +1,5 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "2.0",
   "required": [
     {
       "capability": "coordinator-ownership",
@@ -30,20 +30,27 @@
       "capability": "human-gate-pause",
       "failurePolicy": "stop",
       "reason": "The runtime must end at requirement review and again after presenting a verified build."
+    },
+    {
+      "capability": "no-history-role-dispatch",
+      "failurePolicy": "stop",
+      "reason": "Every delegated role must receive only its validated packet path, without inherited conversation, raw request, full context, immutable Draft, or model/reasoning overrides."
     }
   ],
   "delegationModes": {
     "multi-agent": {
       "requires": [
         "parallel-subagents",
-        "isolated-role-inputs"
+        "isolated-role-inputs",
+        "no-history-role-dispatch"
       ],
       "failurePolicy": "do not claim or enter multi-agent mode"
     },
     "sequential-compatibility": {
       "requires": [
         "fresh-isolated-role-passes",
-        "exclusive-artifact-writes"
+        "exclusive-artifact-writes",
+        "no-history-role-dispatch"
       ],
       "failurePolicy": "stop",
       "disclosure": "Report that role isolation was preserved but parallel multi-agent execution was unavailable."

@@ -43,19 +43,29 @@ def applies(spec: dict[str, Any], conditions: Any) -> bool:
     return True
 
 
-def select_rules(spec: dict[str, Any], index: dict[str, Any]) -> list[dict[str, Any]]:
-    selected = [
+def order_rules_by_source_precedence(rules: list[Any]) -> list[dict[str, Any]]:
+    """Preserve index order within explicit, observed, and baseline groups."""
+    ordered = [
         (position, rule)
-        for position, rule in enumerate(index.get("rules", []))
-        if isinstance(rule, dict) and applies(spec, rule.get("when", {}))
+        for position, rule in enumerate(rules)
+        if isinstance(rule, dict)
     ]
-    selected.sort(
+    ordered.sort(
         key=lambda item: (
             SOURCE_PRECEDENCE.get(str(item[1].get("sourceType", "baseline")), len(SOURCE_PRECEDENCE)),
             item[0],
         )
     )
-    return [rule for _, rule in selected]
+    return [rule for _, rule in ordered]
+
+
+def select_rules(spec: dict[str, Any], index: dict[str, Any]) -> list[dict[str, Any]]:
+    applicable = [
+        rule
+        for rule in index.get("rules", [])
+        if isinstance(rule, dict) and applies(spec, rule.get("when", {}))
+    ]
+    return order_rules_by_source_precedence(applicable)
 
 
 def main() -> int:

@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/visual-coverage-report-0.1.json",
+  "title": "NextGame Visual Coverage Report",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "status", "sourceSha256", "summary", "gate", "uncoveredCandidates", "reviewClusters", "knownLimitations"],
+  "properties": {
+    "version": {"const": "0.1"},
+    "status": {"enum": ["review-required", "no-medium-high-gaps-detected"]},
+    "sourceSha256": {"$ref": "#/$defs/sha256"},
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["candidateCount", "highCount", "mediumCount", "mappedCount", "excludedCount", "unresolvedCount", "uncoveredHighOrMediumSalienceCount", "openReviewClusterCount"],
+      "properties": {
+        "candidateCount": {"$ref": "#/$defs/count"},
+        "highCount": {"$ref": "#/$defs/count"},
+        "mediumCount": {"$ref": "#/$defs/count"},
+        "mappedCount": {"$ref": "#/$defs/count"},
+        "excludedCount": {"$ref": "#/$defs/count"},
+        "unresolvedCount": {"$ref": "#/$defs/count"},
+        "uncoveredHighOrMediumSalienceCount": {"$ref": "#/$defs/count"},
+        "openReviewClusterCount": {"$ref": "#/$defs/count"}
+      }
+    },
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dispositionCompleteness", "nonExcludedMappingRecallMediumHigh", "weightedUncoveredRatioMediumHigh", "uncoveredHighOrMediumSalienceCount", "passesDraftGate", "note"],
+      "properties": {
+        "dispositionCompleteness": {"$ref": "#/$defs/ratio"},
+        "nonExcludedMappingRecallMediumHigh": {"$ref": "#/$defs/ratio"},
+        "weightedUncoveredRatioMediumHigh": {"$ref": "#/$defs/ratio"},
+        "uncoveredHighOrMediumSalienceCount": {"$ref": "#/$defs/count"},
+        "passesDraftGate": {"type": "boolean"},
+        "note": {"type": "string", "minLength": 1}
+      }
+    },
+    "uncoveredCandidates": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/uncoveredCandidate"}
+    },
+    "reviewClusters": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/reviewCluster"}
+    },
+    "knownLimitations": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "independentReviewReconciliation": {"$ref": "#/$defs/reconciliation"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "count": {"type": "integer", "minimum": 0},
+    "ratio": {"type": "number", "minimum": 0, "maximum": 1},
+    "pixelBounds": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "integer", "minimum": 0},
+        {"type": "integer", "minimum": 0},
+        {"type": "integer", "minimum": 0},
+        {"type": "integer", "minimum": 0}
+      ],
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "bounds": {
+      "type": "array",
+      "prefixItems": [
+        {"type": "number", "minimum": 0, "maximum": 1},
+        {"type": "number", "minimum": 0, "maximum": 1},
+        {"type": "number", "minimum": 0, "maximum": 1},
+        {"type": "number", "minimum": 0, "maximum": 1}
+      ],
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "uncoveredCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "salience", "score", "pixelBounds", "regionId", "detectors", "repeatGroupId", "observedInstanceCount", "crop"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^vc\\.[0-9]{4}$"},
+        "salience": {"enum": ["medium", "high"]},
+        "score": {"$ref": "#/$defs/ratio"},
+        "pixelBounds": {"$ref": "#/$defs/pixelBounds"},
+        "regionId": {"type": ["string", "null"]},
+        "detectors": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "repeatGroupId": {"type": ["string", "null"]},
+        "observedInstanceCount": {"type": "integer", "minimum": 1},
+        "crop": {"type": "string", "pattern": "^crops/vc\\.[0-9]{4}\\.png$"}
+      }
+    },
+    "reviewCluster": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "regionId", "pixelBounds", "bounds", "memberCount", "memberIds", "highMemberCount", "mediumMemberCount", "maximumSalienceScore", "detectors", "repeatGroupIds", "reviewStatus", "reviewInstruction"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^cluster\\.[0-9]{3}$"},
+        "regionId": {"type": ["string", "null"]},
+        "pixelBounds": {"$ref": "#/$defs/pixelBounds"},
+        "bounds": {"$ref": "#/$defs/bounds"},
+        "memberCount": {"type": "integer", "minimum": 1},
+        "memberIds": {"type": "array", "items": {"type": "string", "pattern": "^vc\\.[0-9]{4}$"}, "minItems": 1, "uniqueItems": true},
+        "highMemberCount": {"$ref": "#/$defs/count"},
+        "mediumMemberCount": {"$ref": "#/$defs/count"},
+        "maximumSalienceScore": {"$ref": "#/$defs/ratio"},
+        "detectors": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "repeatGroupIds": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "reviewStatus": {"const": "open"},
+        "reviewInstruction": {"type": "string", "minLength": 1}
+      }
+    },
+    "reconciliation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["artifactPath", "reviewItemCount", "mediumHighMissingOrUncertainCount", "detectorCaughtMediumHighGapCount", "detectorRecallMediumHighGaps"],
+      "properties": {
+        "artifactPath": {"const": "review-reconciliation.json"},
+        "reviewItemCount": {"$ref": "#/$defs/count"},
+        "mediumHighMissingOrUncertainCount": {"$ref": "#/$defs/count"},
+        "detectorCaughtMediumHighGapCount": {"$ref": "#/$defs/count"},
+        "detectorRecallMediumHighGaps": {"$ref": "#/$defs/ratio"}
+      }
+    }
+  }
+}

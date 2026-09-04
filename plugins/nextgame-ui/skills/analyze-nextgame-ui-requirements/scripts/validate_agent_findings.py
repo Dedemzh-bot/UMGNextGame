@@ -17,9 +17,16 @@ from _contract_common import (
     issue,
     load_json,
     result,
+    sha256_file,
     validate_schema_instance,
 )
 from validate_request_packet import DEFAULT_SCHEMA as REQUEST_SCHEMA, validate_request_packet
+from prepare_agent_inputs import (
+    DEFAULT_PACKET_SCHEMA as ROLE_PACKET_SCHEMA,
+    DEFAULT_ROLE_CARDS,
+    build_context_projection,
+    validate_role_packet,
+)
 
 
 DEFAULT_SCHEMA = ASSETS_ROOT / "agent-findings.schema.json"
@@ -59,6 +66,11 @@ def validate_agent_findings(
     request_schema: dict[str, Any] | None = None,
     context: dict[str, Any] | None = None,
     request_packet_path: Path | None = None,
+    context_path: Path | None = None,
+    role_packet: dict[str, Any] | None = None,
+    role_packet_path: Path | None = None,
+    base_context_path: Path | None = None,
+    draft_requirement_path: Path | None = None,
 ) -> dict[str, Any]:
     errors = validate_schema_instance(findings, schema)
     warnings: list[dict[str, str]] = []
@@ -154,6 +166,31 @@ def validate_agent_findings(
                 errors.append(issue("findings.context_request_id", "$.contextDigest", "Context requestId must match AgentFindings."))
             if context.get("inputDigest") != findings.get("inputDigest"):
                 errors.append(issue("findings.context_input_digest", "$.contextDigest", "Context inputDigest must match the parent RequestPacket digest."))
+            projection = context.get("projection")
+            if context.get("contextKind") == "normalized-role-projection":
+                if not isinstance(projection, dict):
+                    errors.append(issue("findings.context_projection", "$.contextDigest", "Projected context requires projection metadata."))
+                elif projection.get("agentRole") != role:
+                    errors.append(issue("findings.context_projection_role", "$.contextDigest", "Projected context role must match AgentFindings."))
+                elif request_packet_path is None or context_path is None or base_context_path is None:
+                    errors.append(issue("findings.context_projection_path", "$.contextDigest", "Projected context validation requires external RequestPacket, role-context, and authoritative base-context paths."))
+                else:
+                    try:
+                        request_root = request_packet_path.resolve().parent
+                        base_path = base_context_path.resolve()
+                        base_path.relative_to(request_root)
+                        base_context = load_json(base_path)
+                        rebuilt, _, _ = build_context_projection(
+                            base_context,
+                            request_packet or {},
+                            str(role),
+                            base_context_ref=base_path.relative_to(request_root).as_posix(),
+                            base_file_sha256=sha256_file(base_path),
+                        )
+                        if context != rebuilt:
+                            errors.append(issue("findings.context_projection_stale", "$.contextDigest", "Projected context is not the deterministic projection of its bound authoritative context."))
+                    except (OSError, json.JSONDecodeError, TypeError, ValueError) as error:
+                        errors.append(issue("findings.context_projection_invalid", "$.contextDigest", str(error)))
             for index, finding in enumerate(findings.get("findings", [])):
                 if not isinstance(finding, dict):
                     continue
@@ -260,6 +297,33 @@ def validate_agent_findings(
             elif source_key not in source_scope:
                 errors.append(issue("findings.source_scope", f"$.evidence[{index}].sourceKey", "Evidence uses a source outside this agent's isolated sourceScope."))
 
+    if role_packet is not None:
+        if request_packet_path is None or role_packet_path is None:
+            errors.append(issue("findings.role_packet_path", "$", "Role-packet validation requires both RequestPacket and role-packet paths."))
+        else:
+            packet_validation = validate_role_packet(
+                role_packet,
+                packet_path=role_packet_path,
+                request_root=request_packet_path.resolve().parent,
+                request_path=request_packet_path,
+                base_context_path=base_context_path,
+                draft_requirement_path=draft_requirement_path,
+                packet_schema=load_json(ROLE_PACKET_SCHEMA),
+                role_cards_path=DEFAULT_ROLE_CARDS,
+            )
+            if not packet_validation["valid"]:
+                nested_codes = sorted({entry["code"] for entry in packet_validation["errors"]})
+                errors.append(issue("findings.role_packet_invalid", "$", f"Linked no-history role packet failed validation: {nested_codes}."))
+            if role_packet.get("agentRole") != role:
+                errors.append(issue("findings.role_packet_role", "$.agentRole", "AgentFindings role must match the role packet."))
+            if role_packet.get("requestId") != findings.get("requestId") or role_packet.get("inputDigest") != findings.get("inputDigest"):
+                errors.append(issue("findings.role_packet_identity", "$", "AgentFindings request identity must match the role packet."))
+            if role_packet.get("sourceScope") != findings.get("sourceScope"):
+                errors.append(issue("findings.role_packet_scope", "$.sourceScope", "AgentFindings sourceScope must exactly match the role packet."))
+            packet_context = role_packet.get("context")
+            if isinstance(packet_context, dict) and findings.get("contextDigest") != packet_context.get("canonicalSha256"):
+                errors.append(issue("findings.role_packet_context", "$.contextDigest", "AgentFindings contextDigest must match the role packet projection."))
+
     return result(errors, warnings)
 
 
@@ -268,12 +332,16 @@ def main() -> int:
     parser.add_argument("findings", type=Path, help="Path to AgentFindings JSON.")
     parser.add_argument("--request-packet", type=Path, required=True)
     parser.add_argument("--context", type=Path, help="Normalized canonical context for round-two/review roles.")
+    parser.add_argument("--base-context", type=Path, help="Authoritative full normalized context used to verify a projected role context.")
+    parser.add_argument("--draft-requirement", type=Path, help="Immutable full pending Requirement used only to validate a review-view binding.")
+    parser.add_argument("--role-packet", type=Path, help="Validated no-history role packet that produced these findings.")
     parser.add_argument("--schema", type=Path, default=DEFAULT_SCHEMA)
     parser.add_argument("--request-schema", type=Path, default=REQUEST_SCHEMA)
     args = parser.parse_args()
     try:
         packet = load_json(args.request_packet) if args.request_packet else None
         context = load_json(args.context) if args.context else None
+        role_packet = load_json(args.role_packet) if args.role_packet else None
         output = validate_agent_findings(
             load_json(args.findings),
             load_json(args.schema),
@@ -281,6 +349,11 @@ def main() -> int:
             load_json(args.request_schema),
             context,
             args.request_packet.resolve(),
+            args.context.resolve() if args.context else None,
+            role_packet,
+            args.role_packet.resolve() if args.role_packet else None,
+            args.base_context.resolve() if args.base_context else None,
+            args.draft_requirement.resolve() if args.draft_requirement else None,
         )
     except (OSError, json.JSONDecodeError, ValueError) as error:
         output = result([issue("io.read", "$", str(error))])

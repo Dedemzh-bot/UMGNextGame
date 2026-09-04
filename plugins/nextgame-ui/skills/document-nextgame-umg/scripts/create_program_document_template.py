@@ -459,31 +459,34 @@ def _configure_document(document: Document) -> None:
 def _normalize_docx(path: Path) -> None:
     normalized = path.with_suffix(".normalized.docx")
     with zipfile.ZipFile(path, "r") as source, zipfile.ZipFile(
-        normalized, "w", compression=zipfile.ZIP_DEFLATED, compresslevel=9
+        normalized, "w", compression=zipfile.ZIP_STORED
     ) as target:
-        for source_info in source.infolist():
-            if source_info.filename.startswith("customXml/"):
+        source_by_name = {info.filename: info for info in source.infolist()}
+        for name in sorted(source_by_name):
+            if name.startswith("customXml/"):
                 continue
-            data = source.read(source_info.filename)
-            if source_info.filename == "[Content_Types].xml":
+            data = source.read(name)
+            if name == "[Content_Types].xml":
                 root = ET.fromstring(data)
                 for child in list(root):
                     if child.attrib.get("PartName", "").startswith("/customXml/"):
                         root.remove(child)
                 ET.register_namespace("", "http://schemas.openxmlformats.org/package/2006/content-types")
                 data = ET.tostring(root, encoding="utf-8", xml_declaration=True)
-            elif source_info.filename == "word/_rels/document.xml.rels":
+            elif name == "word/_rels/document.xml.rels":
                 root = ET.fromstring(data)
                 for child in list(root):
                     if child.attrib.get("Type", "").endswith("/customXml"):
                         root.remove(child)
                 ET.register_namespace("", "http://schemas.openxmlformats.org/package/2006/relationships")
                 data = ET.tostring(root, encoding="utf-8", xml_declaration=True)
-            info = zipfile.ZipInfo(source_info.filename, FIXED_ZIP_TIME)
-            info.compress_type = zipfile.ZIP_DEFLATED
-            info.create_system = source_info.create_system
-            info.external_attr = source_info.external_attr
-            info.internal_attr = source_info.internal_attr
+            info = zipfile.ZipInfo(name, FIXED_ZIP_TIME)
+            info.compress_type = zipfile.ZIP_STORED
+            info.create_system = 0
+            info.external_attr = 0
+            info.internal_attr = 0
+            info.extra = b""
+            info.comment = b""
             target.writestr(info, data)
     os.replace(normalized, path)
 

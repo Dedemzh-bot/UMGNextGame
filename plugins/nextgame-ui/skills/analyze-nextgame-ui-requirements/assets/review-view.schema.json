@@ -1,0 +1,88 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/review-view-0.1.json",
+  "title": "NextGame Requirement Review Draft View",
+  "type": "object",
+  "required": [
+    "version",
+    "viewKind",
+    "notice",
+    "requestId",
+    "inputDigest",
+    "agentRole",
+    "profile",
+    "mode",
+    "fallbackReason",
+    "bindings",
+    "rootCanonicalIdCount",
+    "includedCanonicalIdCount",
+    "omittedCanonicalIdCount",
+    "requirement"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "0.1"},
+    "viewKind": {"const": "nextgame-ui-requirement-review-view"},
+    "notice": {
+      "const": "Review-only projection; the complete Requirement remains authoritative and is validated after review."
+    },
+    "requestId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"},
+    "inputDigest": {"$ref": "#/$defs/sha256"},
+    "agentRole": {
+      "enum": [
+        "state-visual-review",
+        "schema-feasibility-review",
+        "coverage-review"
+      ]
+    },
+    "profile": {
+      "enum": [
+        "state-visual-review-v2",
+        "schema-feasibility-review-v2",
+        "coverage-review-v2"
+      ]
+    },
+    "mode": {"enum": ["projected", "full-fallback"]},
+    "fallbackReason": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "enum": [
+            "unknown-requirement-schema",
+            "unknown-field",
+            "unknown-reference-shape",
+            "duplicate-canonical-id",
+            "dangling-reference",
+            "reference-type-mismatch",
+            "closure-incomplete"
+          ]
+        }
+      ]
+    },
+    "bindings": {
+      "type": "object",
+      "required": [
+        "draftFileSha256",
+        "draftCanonicalSha256",
+        "requirementSchemaId",
+        "requirementSchemaSha256",
+        "viewContentCanonicalSha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "draftFileSha256": {"$ref": "#/$defs/sha256"},
+        "draftCanonicalSha256": {"$ref": "#/$defs/sha256"},
+        "requirementSchemaId": {"type": "string", "minLength": 1},
+        "requirementSchemaSha256": {"$ref": "#/$defs/sha256"},
+        "viewContentCanonicalSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "rootCanonicalIdCount": {"type": "integer", "minimum": 0},
+    "includedCanonicalIdCount": {"type": "integer", "minimum": 0},
+    "omittedCanonicalIdCount": {"type": "integer", "minimum": 0},
+    "requirement": {"type": "object", "minProperties": 1}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  }
+}

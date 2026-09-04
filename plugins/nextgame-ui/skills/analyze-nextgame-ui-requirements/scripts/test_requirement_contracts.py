@@ -23,6 +23,13 @@ from _contract_common import (
 )
 from validate_agent_findings import DEFAULT_SCHEMA as FINDINGS_SCHEMA, validate_agent_findings
 from validate_build_bundle import DEFAULT_SCHEMA as BUNDLE_SCHEMA, validate_build_bundle
+from prepare_agent_inputs import (
+    ALL_ROLES,
+    CONTEXT_ROLES as ROLE_PACKET_CONTEXT_ROLES,
+    DEFAULT_PACKET_SCHEMA as ROLE_PACKET_SCHEMA,
+    DEFAULT_ROLE_CARDS,
+    prepare_packets,
+)
 from validate_request_packet import DEFAULT_SCHEMA as PACKET_SCHEMA, validate_request_packet
 from validate_requirement_coverage import validate_requirement_coverage
 from validate_requirement_spec import DEFAULT_SCHEMA as REQUIREMENT_SCHEMA, validate_requirement_spec
@@ -538,6 +545,141 @@ class RequirementSpecTests(unittest.TestCase):
         policy["staticVisualCoverageRequired"] = True
         refresh_approval(spec)
 
+    def make_no_history_requirement_fixture(
+        self,
+        root: Path,
+    ) -> tuple[dict, dict, Path, Path]:
+        """Create one accepted Requirement bound to nine freshly validated role packets."""
+
+        request = load_json(EXAMPLE_PACKET)
+        request_path = root / "request-packet.json"
+        request_path.write_text(
+            json.dumps(request, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+        base_context = {
+            "version": "0.1",
+            "contextKind": "normalized-first-round",
+            "authoritative": True,
+            "notice": "Authoritative first-round synthesis fixture.",
+            "requestId": request["requestId"],
+            "inputDigest": request["inputDigest"],
+            "sources": [],
+            "target": copy.deepcopy(request["targetHints"]),
+            "evidence": [],
+            "preliminaryClaims": [],
+            "regions": [],
+            "componentFamilies": [],
+            "elements": [],
+            "collections": [],
+            "runtimeFields": [],
+            "responsiveIntents": [],
+            "stateModels": [],
+            "plannedAssets": [],
+            "reuseCandidates": [],
+            "acceptanceCriteria": [],
+            "questions": [],
+            "firstRoundTrace": {"audit": []},
+        }
+        base_context_path = root / "contexts" / "normalized-context.json"
+        base_context_path.parent.mkdir(parents=True, exist_ok=True)
+        base_context_path.write_text(
+            json.dumps(base_context, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+        draft = copy.deepcopy(self.example)
+        draft["reviewGate"] = {
+            "required": True,
+            "status": "pending",
+            "acceptedClaimIds": [],
+            "rejectedClaimIds": [],
+        }
+        draft_path = root / "ui-requirement.pending.json"
+        draft_path.write_text(
+            json.dumps(draft, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
+        prepare_packets(
+            request_path=request_path,
+            output_dir=root / "agent-inputs",
+            roles=ALL_ROLES,
+            context_path=base_context_path,
+            draft_requirement=draft_path,
+            coverage_evidence=None,
+            attachments=[],
+            role_cards_path=DEFAULT_ROLE_CARDS,
+            packet_schema_path=ROLE_PACKET_SCHEMA,
+            role_attachments={},
+        )
+
+        findings_dir = root / "findings"
+        findings_dir.mkdir(parents=True, exist_ok=True)
+        spec = copy.deepcopy(self.example)
+        policy = spec.setdefault("analysisPolicy", {})
+        policy.setdefault("geometryEvidenceRequired", False)
+        policy.setdefault("listPriorityRequired", False)
+        policy["noHistoryRolePacketsRequired"] = True
+        spec["normalization"].update(
+            {
+                "baseContextRef": base_context_path.relative_to(root).as_posix(),
+                "baseContextSha256": sha256_file(base_context_path),
+                "baseContextCanonicalSha256": canonical_sha256(base_context),
+            }
+        )
+        for findings_input in spec["normalization"]["findingsInputs"]:
+            role = findings_input["agentRole"]
+            role_packet_path = root / "agent-inputs" / f"{role}.json"
+            role_packet = load_json(role_packet_path)
+            findings = load_json(ASSETS_ROOT / "findings" / f"{role}.json")
+            findings["sourceScope"] = copy.deepcopy(role_packet["sourceScope"])
+            if role in ROLE_PACKET_CONTEXT_ROLES:
+                projected_context_path = root / role_packet["context"]["ref"]
+                findings["contextDigest"] = role_packet["context"]["canonicalSha256"]
+                findings_input["contextRef"] = projected_context_path.relative_to(root).as_posix()
+                findings_input["contextSha256"] = sha256_file(projected_context_path)
+            else:
+                findings.pop("contextDigest", None)
+                findings_input.pop("contextRef", None)
+                findings_input.pop("contextSha256", None)
+            findings_path = findings_dir / f"{role}.json"
+            findings_path.write_text(
+                json.dumps(findings, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            findings_input["findingsSha256"] = sha256_file(findings_path)
+            findings_input["rolePacketRef"] = role_packet_path.relative_to(root).as_posix()
+            findings_input["rolePacketSha256"] = sha256_file(role_packet_path)
+
+        refresh_approval(spec)
+        spec_path = root / "ui-requirement.json"
+        spec_path.write_text(
+            json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+        return spec, request, spec_path, request_path
+
+    def validate_no_history_fixture(
+        self,
+        spec: dict,
+        request: dict,
+        spec_path: Path,
+        request_path: Path,
+    ) -> dict:
+        return validate_requirement_spec(
+            spec,
+            self.schema,
+            request,
+            load_json(PACKET_SCHEMA),
+            request_path,
+            spec_path,
+            True,
+            spec_path.parent / "ui-requirement.pending.json",
+        )
+
+    def rewrite_no_history_spec(self, spec: dict, spec_path: Path) -> None:
+        refresh_approval(spec)
+        spec_path.write_text(
+            json.dumps(spec, ensure_ascii=False, indent=2), encoding="utf-8"
+        )
+
     def validate_with_visual_element_finding(
         self,
         *,
@@ -982,6 +1124,213 @@ class RequirementSpecTests(unittest.TestCase):
         )
         self.assertTrue(validation["valid"], validation)
 
+    def test_no_history_policy_validates_all_nine_bound_role_packets(self) -> None:
+        with writable_test_directory() as root:
+            spec, request, spec_path, request_path = self.make_no_history_requirement_fixture(root)
+            validation = self.validate_no_history_fixture(spec, request, spec_path, request_path)
+            self.assertTrue(validation["valid"], validation)
+            self.assertEqual(
+                len(
+                    {
+                        item["rolePacketRef"]
+                        for item in spec["normalization"]["findingsInputs"]
+                    }
+                ),
+                9,
+            )
+
+    def test_review_view_cannot_replace_the_full_requirement_validator_input(self) -> None:
+        with writable_test_directory() as root:
+            _, request, _, request_path = self.make_no_history_requirement_fixture(root)
+            view_path = root / "review-views" / "state-visual-review.review-view.json"
+            validation = validate_requirement_spec(
+                load_json(view_path),
+                self.schema,
+                request,
+                load_json(PACKET_SCHEMA),
+                request_path,
+                view_path,
+                False,
+            )
+            self.assertFalse(validation["valid"])
+            self.assertIn("schema.additional_property", error_codes(validation))
+
+    def test_strict_review_validation_requires_the_immutable_pending_draft(self) -> None:
+        with writable_test_directory() as root:
+            spec, request, spec_path, request_path = self.make_no_history_requirement_fixture(root)
+            validation = validate_requirement_spec(
+                spec,
+                self.schema,
+                request,
+                load_json(PACKET_SCHEMA),
+                request_path,
+                spec_path,
+                True,
+            )
+            self.assertIn("normalization.role_packet_invalid", error_codes(validation))
+
+    def test_strict_review_validation_rebuilds_and_rejects_a_forged_view(self) -> None:
+        with writable_test_directory() as root:
+            spec, request, spec_path, request_path = self.make_no_history_requirement_fixture(root)
+            review_input = next(
+                item
+                for item in spec["normalization"]["findingsInputs"]
+                if item["agentRole"] == "state-visual-review"
+            )
+            packet_path = root / review_input["rolePacketRef"]
+            packet = load_json(packet_path)
+            view_binding = next(
+                item
+                for item in packet["additionalInputs"]
+                if item["kind"] == "review-view"
+            )
+            view_path = root / view_binding["ref"]
+            view = load_json(view_path)
+            view["notice"] = "forged reviewer input"
+            view_path.write_text(
+                json.dumps(view, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            view_binding["sha256"] = sha256_file(view_path)
+            packet_path.write_text(
+                json.dumps(packet, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            review_input["rolePacketSha256"] = sha256_file(packet_path)
+            self.rewrite_no_history_spec(spec, spec_path)
+            validation = self.validate_no_history_fixture(
+                spec, request, spec_path, request_path
+            )
+            self.assertIn("normalization.role_packet_invalid", error_codes(validation))
+
+    def test_no_history_policy_rejects_missing_role_packet_binding(self) -> None:
+        with writable_test_directory() as root:
+            spec, request, spec_path, request_path = self.make_no_history_requirement_fixture(root)
+            spec["normalization"]["findingsInputs"][0].pop("rolePacketRef")
+            spec["normalization"]["findingsInputs"][0].pop("rolePacketSha256")
+            self.rewrite_no_history_spec(spec, spec_path)
+            validation = self.validate_no_history_fixture(spec, request, spec_path, request_path)
+            self.assertIn("normalization.role_packet_required", error_codes(validation))
+
+    def test_no_history_policy_rejects_role_packet_hash_tampering(self) -> None:
+        with writable_test_directory() as root:
+            spec, request, spec_path, request_path = self.make_no_history_requirement_fixture(root)
+            binding = spec["normalization"]["findingsInputs"][0]
+            packet_path = root / binding["rolePacketRef"]
+            packet_path.write_bytes(packet_path.read_bytes() + b"\n")
+            validation = self.validate_no_history_fixture(spec, request, spec_path, request_path)
+            self.assertIn("normalization.role_packet_digest", error_codes(validation))
+
+    def test_no_history_policy_rejects_history_inside_role_packet(self) -> None:
+        with writable_test_directory() as root:
+            spec, request, spec_path, request_path = self.make_no_history_requirement_fixture(root)
+            binding = spec["normalization"]["findingsInputs"][0]
+            packet_path = root / binding["rolePacketRef"]
+            packet = load_json(packet_path)
+            packet["conversationHistory"] = []
+            packet_path.write_text(
+                json.dumps(packet, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            binding["rolePacketSha256"] = sha256_file(packet_path)
+            self.rewrite_no_history_spec(spec, spec_path)
+            validation = self.validate_no_history_fixture(spec, request, spec_path, request_path)
+            self.assertIn("normalization.role_packet_invalid", error_codes(validation))
+            packet_error = next(
+                error
+                for error in validation["errors"]
+                if error["code"] == "normalization.role_packet_invalid"
+            )
+            self.assertIn("packet.history_forbidden", packet_error["message"])
+
+    def test_no_history_policy_rejects_role_and_output_mismatch(self) -> None:
+        with writable_test_directory() as root:
+            spec, request, spec_path, request_path = self.make_no_history_requirement_fixture(root)
+            binding = next(
+                item
+                for item in spec["normalization"]["findingsInputs"]
+                if item["agentRole"] == "visual-structure"
+            )
+            packet_path = root / binding["rolePacketRef"]
+            packet = load_json(packet_path)
+            packet["agentRole"] = "text-requirements"
+            packet["outputRef"] = "findings/text-requirements.json"
+            packet_path.write_text(
+                json.dumps(packet, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            binding["rolePacketSha256"] = sha256_file(packet_path)
+            self.rewrite_no_history_spec(spec, spec_path)
+            validation = self.validate_no_history_fixture(spec, request, spec_path, request_path)
+            codes = error_codes(validation)
+            self.assertIn("normalization.role_packet_role", codes)
+            self.assertIn("normalization.role_packet_output", codes)
+
+    def test_no_history_policy_rejects_source_scope_mismatch(self) -> None:
+        with writable_test_directory() as root:
+            spec, request, spec_path, request_path = self.make_no_history_requirement_fixture(root)
+            binding = next(
+                item
+                for item in spec["normalization"]["findingsInputs"]
+                if item["agentRole"] == "state-modeling"
+            )
+            packet_path = root / binding["rolePacketRef"]
+            packet = load_json(packet_path)
+            packet["sourceScope"] = []
+            packet_path.write_text(
+                json.dumps(packet, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            binding["rolePacketSha256"] = sha256_file(packet_path)
+            self.rewrite_no_history_spec(spec, spec_path)
+            validation = self.validate_no_history_fixture(spec, request, spec_path, request_path)
+            self.assertIn("normalization.findings_invalid", error_codes(validation))
+            findings_error = next(
+                error
+                for error in validation["errors"]
+                if error["code"] == "normalization.findings_invalid"
+                and "findings.role_packet_scope" in error["message"]
+            )
+            self.assertIn("findings.role_packet_scope", findings_error["message"])
+
+    def test_no_history_policy_rejects_projected_context_mismatch(self) -> None:
+        with writable_test_directory() as root:
+            spec, request, spec_path, request_path = self.make_no_history_requirement_fixture(root)
+            binding = next(
+                item
+                for item in spec["normalization"]["findingsInputs"]
+                if item["agentRole"] == "state-modeling"
+            )
+            packet_path = root / binding["rolePacketRef"]
+            packet = load_json(packet_path)
+            packet["context"]["ref"] = "contexts/roles/data-adaptation.json"
+            packet_path.write_text(
+                json.dumps(packet, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            binding["rolePacketSha256"] = sha256_file(packet_path)
+            self.rewrite_no_history_spec(spec, spec_path)
+            validation = self.validate_no_history_fixture(spec, request, spec_path, request_path)
+            self.assertIn("normalization.role_packet_context", error_codes(validation))
+
+    def test_no_history_policy_rejects_base_context_hash_tampering(self) -> None:
+        with writable_test_directory() as root:
+            spec, request, spec_path, request_path = self.make_no_history_requirement_fixture(root)
+            base_path = root / spec["normalization"]["baseContextRef"]
+            base_path.write_bytes(base_path.read_bytes() + b"\n")
+            validation = self.validate_no_history_fixture(spec, request, spec_path, request_path)
+            self.assertIn("normalization.base_context_digest", error_codes(validation))
+
+    def test_legacy_policy_optional_role_packet_is_not_ignored(self) -> None:
+        with writable_test_directory() as root:
+            spec, request, spec_path, request_path = self.make_no_history_requirement_fixture(root)
+            spec["analysisPolicy"].pop("noHistoryRolePacketsRequired")
+            binding = spec["normalization"]["findingsInputs"][0]
+            packet_path = root / binding["rolePacketRef"]
+            packet = load_json(packet_path)
+            packet["history"] = ["forbidden"]
+            packet_path.write_text(
+                json.dumps(packet, ensure_ascii=False, indent=2), encoding="utf-8"
+            )
+            binding["rolePacketSha256"] = sha256_file(packet_path)
+            self.rewrite_no_history_spec(spec, spec_path)
+            validation = self.validate_no_history_fixture(spec, request, spec_path, request_path)
+            self.assertIn("normalization.role_packet_invalid", error_codes(validation))
+
     def test_strict_findings_check_requires_complete_local_id_trace(self) -> None:
         spec = copy.deepcopy(self.example)
         spec["normalization"]["aliases"] = [
@@ -1355,6 +1704,21 @@ class BuildBundleTests(unittest.TestCase):
         with patch("validate_build_bundle.load_json", side_effect=load_linked_json):
             return self.validate(bundle, requirement)
 
+    def make_same_screen_state_assignment_fixture(self) -> tuple[dict, dict]:
+        requirement = copy.deepcopy(self.requirement)
+        screen_plan = next(item for item in requirement["assetPlan"] if item["assetKind"] == "screen")
+        screen_plan["coversStateModelIds"] = ["state-model-navigation-tab"]
+        refresh_approval(requirement)
+
+        bundle = copy.deepcopy(self.bundle)
+        bundle["requirement"]["approvedContentSha256"] = requirement["reviewGate"]["approvedContentSha256"]
+        bundle["crossAssetOperations"] = [
+            operation
+            for operation in bundle["crossAssetOperations"]
+            if operation["targetLayoutNodeId"] != "node-tab-role-instance"
+        ]
+        return requirement, bundle
+
     def test_build_bundle_example_and_linked_hashes_are_valid(self) -> None:
         self.assertTrue(self.validate(copy.deepcopy(self.bundle))["valid"])
 
@@ -1431,6 +1795,37 @@ class BuildBundleTests(unittest.TestCase):
         self.assertTrue(
             {"state.assignment_handling", "state.handling_required"} & error_codes(validation)
         )
+
+    def test_same_screen_state_assignment_does_not_require_cross_asset_handling(self) -> None:
+        requirement, bundle = self.make_same_screen_state_assignment_fixture()
+        validation = self.validate(bundle, requirement)
+        self.assertTrue(validation["valid"], validation)
+
+    def test_same_screen_state_assignment_route_must_be_exact(self) -> None:
+        mutations = {
+            "mapping-kind": lambda requirement, mapping: mapping.update({"mappingKind": "generated-support"}),
+            "state-refs": lambda requirement, mapping: mapping.update({"stateRefs": ["state-tab-unselected"]}),
+            "assigned-target-cardinality": lambda requirement, mapping: mapping["requirementRefs"].append(
+                "element-tab-weapon-instance"
+            ),
+            "plan-element-coverage": lambda requirement, mapping: next(
+                item for item in requirement["assetPlan"] if item["assetKind"] == "screen"
+            )["coversElementIds"].remove("element-tab-role-instance"),
+            "plan-state-model-coverage": lambda requirement, mapping: next(
+                item for item in requirement["assetPlan"] if item["assetKind"] == "screen"
+            ).update({"coversStateModelIds": []}),
+        }
+        for case_name, mutate in mutations.items():
+            with self.subTest(case=case_name):
+                requirement, bundle = self.make_same_screen_state_assignment_fixture()
+                mapping = next(
+                    item for item in bundle["nodeMappings"] if item["id"] == "mapping-tab-role-instance"
+                )
+                mutate(requirement, mapping)
+                refresh_approval(requirement)
+                bundle["requirement"]["approvedContentSha256"] = requirement["reviewGate"]["approvedContentSha256"]
+                validation = self.validate(bundle, requirement)
+                self.assertIn("state.assignment_handling", error_codes(validation), validation)
 
     def test_state_handling_requires_reverse_requirement_assignment(self) -> None:
         requirement = copy.deepcopy(self.requirement)

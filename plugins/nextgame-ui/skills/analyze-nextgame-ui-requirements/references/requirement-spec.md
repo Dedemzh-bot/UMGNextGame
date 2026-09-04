@@ -65,6 +65,8 @@ For every rule or reference asset, record whether the user designated it, projec
 
 If analysis uses a mutable shared-widget Registry, first copy it into the RequestPacket output tree as an immutable, content-addressed `local-file` source and hash that copy. An accepted packet must not point at the live Registry: later candidate activation legitimately changes the live file and must not invalidate the packet that authorized the build.
 
+Registry discovery may project that immutable source into `shared-widget-shortlist 0.1`, but the projection is never authority. It must contain every Registry entry exactly once, bind the Registry ID/version/revision/file hash plus per-entry interface/reuse hashes, and keep every discovery card non-executable. Soft similarity can classify or rank but cannot discard. Only a Registry-declared hard constraint with explicit evidence may classify an entry as excluded. Missing, zero, ambiguous, or unmatched queries retain all cards as a fallback. A selected card must be expanded against the same fully validated immutable Registry; expansion regenerates and compares the complete shortlist and rejects stale or forged cards, but hydration itself remains non-executable. Only accepted size/state/semantic compatibility plus final Bundle and complete Registry validation can authorize execution.
+
 Compute `inputDigest` as the canonical SHA-256 of `userRequest`, `sources`, `targetHints`, and `projectRuleRefs`; `version` and `requestId` are not digest material. Use `unknown` for unresolved RequestPacket `assetKind` or `mode`. Run:
 
 ```text
@@ -72,6 +74,36 @@ python scripts/validate_request_packet.py <request-packet.json>
 ```
 
 The only optional RequestPacket validator argument is `--schema <request-packet.schema.json>`.
+
+## AnalysisRolePacket 0.1
+
+Every analysis Agent is dispatched from one closed [analysis-role-packet.schema.json](../assets/analysis-role-packet.schema.json) artifact. The Agent-facing packet hash-binds the exact RequestPacket without exposing its path, and binds the input digest, one immutable role card, exact source scope, output path and AgentFindings schema, plugin authority, and—where applicable—a role context plus validated Review View, coverage, or Registry inputs. It requires `historyPolicy.mode: none`, `forkTurns: none`, and `inheritsConversation: false`; history/message fields and model/reasoning overrides are forbidden. Dispatch with actual `fork_turns: "none"` and pass only the packet path in the prompt. The validator receives the authoritative RequestPacket, normalized base, and immutable pending Draft paths separately; those authority-sidecar paths are not part of the Agent view.
+
+`visual-structure`, `text-requirements`, and `project-pattern` receive exact source subsets. The other six roles receive deterministic projections of the full `normalized-context.json`. Projection copies retained JSON values exactly; it does not summarize or paraphrase. The normalizer-only trace and proven role-irrelevant planning arrays may be omitted. Unknown top-level semantics, an unreviewed field inside a section selected for omission, or a reference made dangling only by omission forces `mode: full-fallback`, retaining the complete semantic context in compact form. An invalid base contract, duplicate canonical definition, unreviewed `*Id`/`*Ids`/`*Refs` field, Request identity mismatch, or pre-existing dangling reference is rejected instead of disguised as fallback. Each packet and projection is validated before dispatch, and `validate_agent_findings.py --role-packet --base-context` externally revalidates the projection against its full authoritative base. This normalized-context projection is independent from the Review View described below; neither artifact is authority for the complete Requirement.
+
+Validate packets with the external authority paths, never by adding those paths to the Agent-facing artifact:
+
+```text
+python scripts/prepare_agent_inputs.py validate <discovery-role-packet.json> --request-root <request-root> --request-packet <request-packet.json>
+python scripts/prepare_agent_inputs.py validate <context-role-packet.json> --request-root <request-root> --request-packet <request-packet.json> --base-context <normalized-context.json>
+python scripts/prepare_agent_inputs.py validate <review-role-packet.json> --request-root <request-root> --request-packet <request-packet.json> --base-context <normalized-context.json> --draft-requirement <immutable-pending-draft.json>
+```
+
+## Review View 0.1
+
+The three review roles do not receive a separate complete pending Requirement attachment. `prepare_agent_inputs.py prepare --include-review --draft-requirement <immutable-pending-draft.json>` uses that Draft only as validator-side authority and writes exactly three closed, role-specific [Review View](../assets/review-view.schema.json) artifacts under `review-views/`. Every reviewer packet has exactly one `additionalInputs` binding of kind `review-view` and no binding of kind `draft-requirement`; `coverage-review` may additionally bind its validated `coverage-evidence`:
+
+| Reviewer | View artifact | Additional evidence |
+| --- | --- | --- |
+| `state-visual-review` | `review-views/state-visual-review.review-view.json` | validated image evidence already available to the role |
+| `schema-feasibility-review` | `review-views/schema-feasibility-review.review-view.json` | none beyond its validated packet/context |
+| `coverage-review` | `review-views/coverage-review.review-view.json` | validated image or visual-coverage evidence |
+
+A Review View is a non-authoritative, exact-value projection of that immutable pending Draft. The builder chooses role roots, indexes every canonical definition, and follows references transitively by canonical ID until the dependency closure reaches a fixed point. Every canonical object referenced by retained content must appear in the same View; copying a record while merely deleting one of its fields is forbidden. Retained records preserve their complete JSON values and source order.
+
+Safety is fail-closed toward disclosure, not toward semantic loss. An unknown field or unregistered reference-like semantic, a duplicate canonical definition, any dangling reference, or any closure that cannot be proven complete sets the View to `full-fallback`; the embedded Requirement must then equal the immutable pending Draft exactly. A projected View is valid only when every discovered reference resolves inside the View and deterministic reconstruction from the same Draft yields the same artifact. Packet and findings validation both re-read the hidden Draft and validate the View Schema, source hashes, Request identity, role identity, canonical closure, and exact fallback equality. The full Draft must preserve Request identity and original text, have a pending review gate, and have no structural Schema errors other than unknown fields. Unknown fields may reach review only through exact fallback and remain fatal to the final closed-Schema Requirement validator until removed or formally supported.
+
+Review View omissions never prove absence from the complete Requirement. Reviewers may report advisory `AgentFindings` only; they must not edit, reconstruct, or treat a View as an authoritative Requirement. After the sole Synthesizer applies review resolutions, every validator still runs against the complete revised Requirement. No Review View field is added to `UIRequirementSpec`; the final Requirement format remains unchanged.
 
 ## AgentFindings 0.1
 
@@ -91,7 +123,7 @@ All discovery, analysis, and review agents use the exact same envelope. A run's 
 
 All AgentFindings entities use `local-*` IDs. First-round agents omit `contextDigest` and `subjectRefs`; their `sourceScope` must exactly equal the role's isolated relevant sources: images for `visual-structure`, user text for `text-requirements`, and project rules/assets for `project-pattern`. A first-round role with no relevant source emits empty `findings`, `evidence`, and `questionCandidates`.
 
-Round-two and review agents receive the same normalized canonical context, set its canonical hash in `contextDigest`, and bind every finding to existing canonical IDs with nonempty `subjectRefs`. Their evidence still cites only source keys declared in `sourceScope`. No agent may write another agent's findings file.
+Round-two and review agents receive role-specific projected or `full-fallback` context files derived from the same authoritative normalized canonical context, set their own role context's canonical hash in `contextDigest`, and bind every finding to existing canonical IDs with nonempty `subjectRefs`. Review roles additionally receive exactly one validated role-specific Review View, never the full Draft. Their evidence still cites only source keys declared in `sourceScope`. No agent may write another agent's findings file.
 
 Allowed role names stay stable: `visual-structure`, `text-requirements`, `project-pattern`, `state-modeling`, `data-adaptation`, `asset-decomposition`, `state-visual-review`, `schema-feasibility-review`, and `coverage-review`. The normalizer and sole Synthesizer are orchestration owners, not AgentFindings roles.
 
@@ -103,10 +135,11 @@ Validate first-round and context-aware findings with the exact forms below:
 
 ```text
 python scripts/validate_agent_findings.py <findings.json> --request-packet <request-packet.json>
-python scripts/validate_agent_findings.py <findings.json> --request-packet <request-packet.json> --context <normalized-context.json>
+python scripts/validate_agent_findings.py <findings.json> --request-packet <request-packet.json> --context <role-context.json> --base-context <normalized-context.json> --role-packet <role-packet.json>
+python scripts/validate_agent_findings.py <review-findings.json> --request-packet <request-packet.json> --context <review-role-context.json> --base-context <normalized-context.json> --role-packet <review-role-packet.json> --draft-requirement <immutable-pending-draft.json>
 ```
 
-`--request-packet` is required. Optional schema overrides are `--schema <agent-findings.schema.json>` and `--request-schema <request-packet.schema.json>`; `--context` is prohibited for first-round roles and required for the other six roles.
+`--request-packet` is required. Optional schema overrides are `--schema <agent-findings.schema.json>` and `--request-schema <request-packet.schema.json>`; `--context` is prohibited for first-round roles and required for the other six roles. New context-aware runs also require `--base-context` when validating their role packet. New review runs additionally require `--draft-requirement`; it is read only by the validator and is never disclosed through the packet. `--role-packet` is optional only for archived inputs; new runs require it so role, source, output, authority, Review View, and projection bindings are checked together.
 
 ## Canonical identifiers
 
@@ -127,7 +160,7 @@ Use stable, opaque IDs; keep display labels separate. Recommended prefixes:
 
 IDs must not depend on child order or transient agent numbering. The normalizer records an alias for every source-local identity it consumes into the canonical spec. If identity is uncertain, retain separate IDs and an unresolved possible-equivalence claim.
 
-`normalization.findingsInputs` records `agentRole`, a RequirementSpec-relative `findingsRef` with no `..`, `findingsSha256`, and the parent `inputDigest`. Each of the six round-two/review inputs also requires a relative `contextRef` with no `..` and the context file's byte hash in `contextSha256`; the three first-round inputs must omit both context fields. At accepted status there must be exactly one findings input for each of the nine allowed roles; the normalizer and Synthesizer are not additional roles.
+`normalization.findingsInputs` records `agentRole`, a RequirementSpec-relative `findingsRef` with no `..`, `findingsSha256`, and the parent `inputDigest`. New policy-enabled runs also record each exact `rolePacketRef` and `rolePacketSha256`; `normalization` records `baseContextRef`, its file hash, and its canonical hash. Each of the six round-two/review inputs requires its own relative projected or `full-fallback` `contextRef` with no `..` and that context file's byte hash in `contextSha256`; the three first-round inputs must omit both context fields. Different roles may and normally do use distinct role-context files, but all bind the same authoritative normalized base and Request digest. At accepted status there must be exactly one findings input and one validated role packet for each of the nine allowed roles; the normalizer and Synthesizer are not additional roles.
 
 Give every local ID from every linked findings document exactly one trace outcome. `normalization.aliases` keys it by `agentRole`, `findingsRef`, and `localId`, then points to a resolving `canonicalId`. If it is deliberately not represented in the canonical spec, put the same identity in `normalization.discardedLocalIds` with a nonempty `reason`. An identity cannot be both aliased and discarded, and accepted normalization cannot have an empty trace.
 
@@ -158,7 +191,7 @@ A UIRequirementSpec claim adds a canonical ID, conclusion type, review status, a
 
 The sole Requirement Synthesizer owns `ui-requirement.json`.
 
-Newly synthesized documents set `analysisPolicy.geometryEvidenceRequired`, `analysisPolicy.listPriorityRequired`, `analysisPolicy.stateControlInputRequired`, `analysisPolicy.staticVisualCoverageRequired`, `analysisPolicy.imageCompositionRequired`, `analysisPolicy.explicitPanelSlotsRequired`, `analysisPolicy.explicitImageOwnerIntentRequired`, and `analysisPolicy.designSizeModeRequired` to `true`. This activates the measurement, repeated-family, high-level state-control-intent, static-visual coverage, complete-image composition, exact owner-adaptation binding, reviewed immediate-parent Slot, and per-asset evidence-driven Designer Screen Size gates; older archived requirements without these policies remain readable but are not valid templates for new analysis. The newer policy properties remain optional in Schema 0.1 solely for backward compatibility; missing or `false` does not activate their gates.
+Newly synthesized documents set `analysisPolicy.geometryEvidenceRequired`, `analysisPolicy.listPriorityRequired`, `analysisPolicy.stateControlInputRequired`, `analysisPolicy.staticVisualCoverageRequired`, `analysisPolicy.imageCompositionRequired`, `analysisPolicy.explicitPanelSlotsRequired`, `analysisPolicy.explicitImageOwnerIntentRequired`, `analysisPolicy.designSizeModeRequired`, and `analysisPolicy.noHistoryRolePacketsRequired` to `true`. This activates the measurement, repeated-family, high-level state-control-intent, static-visual coverage, complete-image composition, exact owner-adaptation binding, reviewed immediate-parent Slot, per-asset evidence-driven Designer Screen Size, and durable no-history role-packet provenance gates; older archived requirements without these policies remain readable but are not valid templates for new analysis. The newer policy properties remain optional in Schema 0.1 solely for backward compatibility; missing or `false` does not activate their gates.
 
 ### `request`
 
@@ -280,6 +313,8 @@ An accepted gate cannot retain an unresolved claim or open question that is high
 - One source observation may support multiple claims, but a claim cannot cite itself or another claim as evidence.
 - Only the sole Synthesizer edits the authoritative requirement file.
 - Reviewer output is advisory AgentFindings, never a competing authoritative spec.
+- Each reviewer reads one validated role-specific Review View rather than the full Draft. The View is non-authoritative, its projected contents are closed under transitive canonical-ID references, and any unsafe or incomplete projection is an exact full-Draft fallback.
+- Content omitted from a projected Review View must never be interpreted as absent from the complete Requirement. After review, the complete Requirement still passes the closed Schema and every semantic, provenance, reference, and strict linked-findings validator.
 - `unresolved` and unapproved `proposed` claims are excluded from UILayoutSpec and executable UIBuildBundle operations.
 - Preserve independent state axes rather than materializing an unsupported Cartesian product.
 - Resolve every state control input to an axis and target states in the same model and to evidence/claims attached to that model; keep `unspecified` non-blocking.
@@ -288,7 +323,7 @@ An accepted gate cannot retain an unresolved claim or open question that is high
 Validate synthesis and its linked findings with:
 
 ```text
-python scripts/validate_requirement_spec.py <ui-requirement.json> --request-packet <request-packet.json> --check-findings-files
+python scripts/validate_requirement_spec.py <ui-requirement.json> --request-packet <request-packet.json> --check-findings-files --review-draft <immutable-pending-draft.json>
 ```
 
-`--request-packet` is required. Optional schema overrides are `--schema <ui-requirement-spec.schema.json>` and `--request-schema <request-packet.schema.json>`. `--check-findings-files` is the strict review/handoff mode: it rehashes each findings and context file, loads all nine AgentFindings, validates each against the RequestPacket and its recorded context, verifies role consistency, and requires the loaded local-ID set for each file to equal its alias/discard trace exactly.
+`--request-packet` is required. Optional schema overrides are `--schema <ui-requirement-spec.schema.json>` and `--request-schema <request-packet.schema.json>`. `--check-findings-files` is the strict review/handoff mode: it rehashes each findings and context file, loads all nine AgentFindings, validates each against the RequestPacket and its recorded context, verifies role consistency, and requires the loaded local-ID set for each file to equal its alias/discard trace exactly. For a new review-enabled run, `--review-draft` supplies the immutable pending Draft as validator-only authority; strict validation deterministically rebuilds and checks all three Review Views, then runs the full validator set against `<ui-requirement.json>`. This sidecar does not alter the UIRequirementSpec Schema or final Requirement format.

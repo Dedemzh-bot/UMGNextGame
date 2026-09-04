@@ -17,7 +17,72 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Mapping, Sequence
 
 
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSION = "2.0.0"
+WORKFLOW_VERSION = "2.0.0"
+MANIFEST_VERSION = "2.0.0"
+SCHEMA_ID = "urn:nextgame-ui:portable-workflow:2.0.0"
+
+EXPECTED_AGENT_DISPATCH_POLICY = {
+    "promptContract": "packet-path-only",
+    "historyPolicy": "none",
+    "forkTurns": "none",
+    "inheritsConversation": False,
+    "allowModelOverride": False,
+    "allowReasoningOverride": False,
+}
+
+EXPECTED_BUILD_AGENT_DISPATCH_POLICY = {
+    "promptContract": "single-validated-artifact-path",
+    "historyPolicy": "none",
+    "forkTurns": "none",
+    "inheritsConversation": False,
+    "allowModelOverride": False,
+    "allowReasoningOverride": False,
+}
+
+EXPECTED_PREMUTATION_EVIDENCE_CONTRACT = {
+    "artifact": "status/ui-build-plan.pre-mutation-valid.json",
+    "schemaRef": "build-plan-pre-mutation.schema.json",
+    "toolRef": "scripts/build_plan_evidence.py",
+    "generationMode": "generate-and-self-validate",
+    "revalidationMode": "--validate-only",
+    "requiredBeforeEditorMutation": True,
+}
+
+EXPECTED_COMPOSITE_OUTPUTS = [
+    {
+        "id": "planned-layout-specs",
+        "ownerStep": "plan-umg-build",
+        "descriptor": "ui-build-bundle.planned.json",
+        "pathSelector": "assets[].layoutSpecPath",
+        "digestSelector": "assets[].layoutSpecSha256",
+        "identitySelector": "assets[].id",
+        "coverageSelector": "assets[].id",
+        "allowedPathPrefix": "layouts/",
+        "consumerStep": "validate-build-plan",
+        "validator": "ui-layout-spec-0.2",
+        "nullPolicy": "only-reuse-only-assets",
+        "requireRunRootContainment": True,
+        "requireDigestMatch": True,
+        "requireCompleteEnumeration": True,
+    },
+    {
+        "id": "deterministic-build-plans",
+        "ownerStep": "validate-build-plan",
+        "descriptor": "status/ui-build-plan.pre-mutation-valid.json",
+        "pathSelector": "plans[].path",
+        "digestSelector": "plans[].sha256",
+        "identitySelector": "plans[].assetId",
+        "coverageSelector": "ui-build-bundle.planned.json:execution.buildOrderAssetIds",
+        "allowedPathPrefix": "plans/",
+        "consumerStep": "build-verified-umg",
+        "validator": "deterministic-mcp-build-plan",
+        "nullPolicy": "only-reuse-only-assets",
+        "requireRunRootContainment": True,
+        "requireDigestMatch": True,
+        "requireCompleteEnumeration": True,
+    }
+]
 
 DISCOVERY_ROLES = (
     "visual-structure",
@@ -69,7 +134,10 @@ EXPECTED_ANALYSIS_STEPS = {
 }
 
 EXPECTED_CONTINUATION_STEPS = {
-    "build-verified-umg": ("requirements-confirmation",),
+    "prepare-accepted-build-view": ("requirements-confirmation",),
+    "plan-umg-build": ("prepare-accepted-build-view",),
+    "validate-build-plan": ("plan-umg-build",),
+    "build-verified-umg": ("validate-build-plan",),
     "post-save-unreal-readback": ("build-verified-umg",),
     "present-build-results": ("post-save-unreal-readback",),
     "build-results-confirmation": ("present-build-results",),
@@ -124,6 +192,9 @@ EXPECTED_STEP_KINDS = {
     "finalize-review-resolutions": "synthesis",
     "strict-validate-requirement": "validation",
     "requirements-confirmation": "gate",
+    "prepare-accepted-build-view": "projection",
+    "plan-umg-build": "build",
+    "validate-build-plan": "validation",
     "build-verified-umg": "build",
     "post-save-unreal-readback": "readback",
     "present-build-results": "presentation",
@@ -131,9 +202,378 @@ EXPECTED_STEP_KINDS = {
     "document-program-handoff": "document",
 }
 
+EXPECTED_STEP_EXECUTIONS = {
+    **{
+        step_id: "worker" if step_id in set(ROLE_TO_STEP.values()) else "coordinator"
+        for step_id in EXPECTED_STEP_KINDS
+    },
+    "plan-umg-build": "worker",
+    "requirements-confirmation": "human",
+    "build-results-confirmation": "human",
+}
+
+EXPECTED_ALLOWED_OUTPUT_PREFIXES = (
+    "inputs",
+    "agent-inputs",
+    "findings",
+    "contexts",
+    "review-views",
+    "layouts",
+    "plans",
+    "status",
+)
+
+EXPECTED_ALLOWED_ROOT_OUTPUTS = (
+    "ui-requirement.draft.json",
+    "ui-requirement.pending.json",
+    "ui-requirement.json",
+    "accepted-build-view.json",
+    "ui-build-bundle.planned.json",
+    "ui-build-bundle.json",
+    "unreal-widget-readback.json",
+    "ui-build-acceptance.json",
+    "ui-program-handoff.json",
+    "program-document-content.json",
+    "document-verification.json",
+)
+
+# These maps are intentionally independent of the loaded workflow document.  They
+# turn the v2 workflow into a closed protocol: adding, removing, reordering, or
+# redirecting any declared input/output is a contract change, not adapter freedom.
+EXPECTED_STEP_INPUTS = {
+    "validate-packet": ("request-packet.json",),
+    "discover-visual-structure": (
+        "request-packet.json",
+        "agent-inputs/visual-structure.json",
+    ),
+    "discover-text-requirements": (
+        "request-packet.json",
+        "agent-inputs/text-requirements.json",
+    ),
+    "discover-project-pattern": (
+        "request-packet.json",
+        "inputs/shared-widget-shortlist.json",
+        "agent-inputs/project-pattern.json",
+    ),
+    "validate-discovery": (
+        "request-packet.json",
+        "agent-inputs/visual-structure.json",
+        "agent-inputs/text-requirements.json",
+        "agent-inputs/project-pattern.json",
+        "findings/visual-structure.json",
+        "findings/text-requirements.json",
+        "findings/project-pattern.json",
+    ),
+    "normalize-identities": (
+        "request-packet.json",
+        "inputs/shared-widget-shortlist.json",
+        "agent-inputs/visual-structure.json",
+        "agent-inputs/text-requirements.json",
+        "agent-inputs/project-pattern.json",
+        "findings/visual-structure.json",
+        "findings/text-requirements.json",
+        "findings/project-pattern.json",
+    ),
+    "analyze-state-modeling": (
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "contexts/roles/state-modeling.json",
+        "agent-inputs/state-modeling.json",
+    ),
+    "analyze-data-adaptation": (
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "contexts/roles/data-adaptation.json",
+        "agent-inputs/data-adaptation.json",
+    ),
+    "analyze-asset-decomposition": (
+        "request-packet.json",
+        "inputs/shared-widget-shortlist.json",
+        "contexts/normalized-context.json",
+        "contexts/roles/asset-decomposition.json",
+        "agent-inputs/asset-decomposition.json",
+    ),
+    "validate-focused": (
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "contexts/roles/state-modeling.json",
+        "contexts/roles/data-adaptation.json",
+        "contexts/roles/asset-decomposition.json",
+        "agent-inputs/state-modeling.json",
+        "agent-inputs/data-adaptation.json",
+        "agent-inputs/asset-decomposition.json",
+        "findings/state-modeling.json",
+        "findings/data-adaptation.json",
+        "findings/asset-decomposition.json",
+    ),
+    "synthesize-draft": (
+        "request-packet.json",
+        "inputs/shared-widget-shortlist.json",
+        "contexts/normalized-context.json",
+        "contexts/roles/state-modeling.json",
+        "contexts/roles/data-adaptation.json",
+        "contexts/roles/asset-decomposition.json",
+        "agent-inputs/visual-structure.json",
+        "agent-inputs/text-requirements.json",
+        "agent-inputs/project-pattern.json",
+        "agent-inputs/state-modeling.json",
+        "agent-inputs/data-adaptation.json",
+        "agent-inputs/asset-decomposition.json",
+        "findings/visual-structure.json",
+        "findings/text-requirements.json",
+        "findings/project-pattern.json",
+        "findings/state-modeling.json",
+        "findings/data-adaptation.json",
+        "findings/asset-decomposition.json",
+    ),
+    "review-state-visual": (
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "ui-requirement.draft.json",
+        "contexts/roles/state-visual-review.json",
+        "review-views/state-visual-review.review-view.json",
+        "agent-inputs/state-visual-review.json",
+    ),
+    "review-schema-feasibility": (
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "ui-requirement.draft.json",
+        "contexts/roles/schema-feasibility-review.json",
+        "review-views/schema-feasibility-review.review-view.json",
+        "agent-inputs/schema-feasibility-review.json",
+    ),
+    "review-coverage": (
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "ui-requirement.draft.json",
+        "contexts/roles/coverage-review.json",
+        "review-views/coverage-review.review-view.json",
+        "agent-inputs/coverage-review.json",
+    ),
+    "finalize-review-resolutions": (
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "ui-requirement.draft.json",
+        "contexts/roles/state-visual-review.json",
+        "contexts/roles/schema-feasibility-review.json",
+        "contexts/roles/coverage-review.json",
+        "review-views/state-visual-review.review-view.json",
+        "review-views/schema-feasibility-review.review-view.json",
+        "review-views/coverage-review.review-view.json",
+        "agent-inputs/state-visual-review.json",
+        "agent-inputs/schema-feasibility-review.json",
+        "agent-inputs/coverage-review.json",
+        "findings/state-visual-review.json",
+        "findings/schema-feasibility-review.json",
+        "findings/coverage-review.json",
+    ),
+    "strict-validate-requirement": (
+        "request-packet.json",
+        "inputs/shared-widget-shortlist.json",
+        "contexts/normalized-context.json",
+        "ui-requirement.draft.json",
+        "ui-requirement.pending.json",
+        "agent-inputs/visual-structure.json",
+        "agent-inputs/text-requirements.json",
+        "agent-inputs/project-pattern.json",
+        "agent-inputs/state-modeling.json",
+        "agent-inputs/data-adaptation.json",
+        "agent-inputs/asset-decomposition.json",
+        "agent-inputs/state-visual-review.json",
+        "agent-inputs/schema-feasibility-review.json",
+        "agent-inputs/coverage-review.json",
+        "contexts/roles/state-modeling.json",
+        "contexts/roles/data-adaptation.json",
+        "contexts/roles/asset-decomposition.json",
+        "contexts/roles/state-visual-review.json",
+        "contexts/roles/schema-feasibility-review.json",
+        "contexts/roles/coverage-review.json",
+        "review-views/state-visual-review.review-view.json",
+        "review-views/schema-feasibility-review.review-view.json",
+        "review-views/coverage-review.review-view.json",
+        "findings/visual-structure.json",
+        "findings/text-requirements.json",
+        "findings/project-pattern.json",
+        "findings/state-modeling.json",
+        "findings/data-adaptation.json",
+        "findings/asset-decomposition.json",
+        "findings/state-visual-review.json",
+        "findings/schema-feasibility-review.json",
+        "findings/coverage-review.json",
+    ),
+    "requirements-confirmation": (
+        "ui-requirement.pending.json",
+        "status/ui-requirement.strict-valid.json",
+    ),
+    "prepare-accepted-build-view": (
+        "request-packet.json",
+        "contexts/normalized-context.json",
+        "ui-requirement.draft.json",
+        "ui-requirement.json",
+        "status/ui-requirement.strict-valid.json",
+        "agent-inputs/visual-structure.json",
+        "agent-inputs/text-requirements.json",
+        "agent-inputs/project-pattern.json",
+        "agent-inputs/state-modeling.json",
+        "agent-inputs/data-adaptation.json",
+        "agent-inputs/asset-decomposition.json",
+        "agent-inputs/state-visual-review.json",
+        "agent-inputs/schema-feasibility-review.json",
+        "agent-inputs/coverage-review.json",
+        "contexts/roles/state-modeling.json",
+        "contexts/roles/data-adaptation.json",
+        "contexts/roles/asset-decomposition.json",
+        "contexts/roles/state-visual-review.json",
+        "contexts/roles/schema-feasibility-review.json",
+        "contexts/roles/coverage-review.json",
+        "review-views/state-visual-review.review-view.json",
+        "review-views/schema-feasibility-review.review-view.json",
+        "review-views/coverage-review.review-view.json",
+        "findings/visual-structure.json",
+        "findings/text-requirements.json",
+        "findings/project-pattern.json",
+        "findings/state-modeling.json",
+        "findings/data-adaptation.json",
+        "findings/asset-decomposition.json",
+        "findings/state-visual-review.json",
+        "findings/schema-feasibility-review.json",
+        "findings/coverage-review.json",
+    ),
+    "plan-umg-build": ("ui-requirement.json", "accepted-build-view.json"),
+    "validate-build-plan": (
+        "ui-requirement.json",
+        "accepted-build-view.json",
+        "ui-build-bundle.planned.json",
+    ),
+    "build-verified-umg": (
+        "ui-requirement.json",
+        "accepted-build-view.json",
+        "ui-build-bundle.planned.json",
+        "status/ui-build-plan.pre-mutation-valid.json",
+    ),
+    "post-save-unreal-readback": (
+        "ui-requirement.json",
+        "ui-build-bundle.json",
+    ),
+    "present-build-results": (
+        "ui-build-bundle.json",
+        "unreal-widget-readback.json",
+    ),
+    "build-results-confirmation": (
+        "ui-requirement.json",
+        "ui-build-bundle.json",
+        "unreal-widget-readback.json",
+        "status/build-results.presented.json",
+    ),
+    "document-program-handoff": (
+        "ui-requirement.json",
+        "ui-build-bundle.json",
+        "unreal-widget-readback.json",
+        "ui-build-acceptance.json",
+    ),
+}
+
+EXPECTED_STEP_OUTPUTS = {
+    "validate-packet": (
+        "status/request-packet.validated.json",
+        "inputs/shared-widget-shortlist.json",
+        "agent-inputs/visual-structure.json",
+        "agent-inputs/text-requirements.json",
+        "agent-inputs/project-pattern.json",
+    ),
+    "discover-visual-structure": ("findings/visual-structure.json",),
+    "discover-text-requirements": ("findings/text-requirements.json",),
+    "discover-project-pattern": ("findings/project-pattern.json",),
+    "validate-discovery": ("status/discovery-findings.validated.json",),
+    "normalize-identities": (
+        "contexts/normalized-context.json",
+        "contexts/roles/state-modeling.json",
+        "contexts/roles/data-adaptation.json",
+        "contexts/roles/asset-decomposition.json",
+        "agent-inputs/state-modeling.json",
+        "agent-inputs/data-adaptation.json",
+        "agent-inputs/asset-decomposition.json",
+    ),
+    "analyze-state-modeling": ("findings/state-modeling.json",),
+    "analyze-data-adaptation": ("findings/data-adaptation.json",),
+    "analyze-asset-decomposition": ("findings/asset-decomposition.json",),
+    "validate-focused": ("status/focused-findings.validated.json",),
+    "synthesize-draft": (
+        "ui-requirement.draft.json",
+        "contexts/roles/state-visual-review.json",
+        "contexts/roles/schema-feasibility-review.json",
+        "contexts/roles/coverage-review.json",
+        "review-views/state-visual-review.review-view.json",
+        "review-views/schema-feasibility-review.review-view.json",
+        "review-views/coverage-review.review-view.json",
+        "agent-inputs/state-visual-review.json",
+        "agent-inputs/schema-feasibility-review.json",
+        "agent-inputs/coverage-review.json",
+    ),
+    "review-state-visual": ("findings/state-visual-review.json",),
+    "review-schema-feasibility": ("findings/schema-feasibility-review.json",),
+    "review-coverage": ("findings/coverage-review.json",),
+    "finalize-review-resolutions": ("ui-requirement.pending.json",),
+    "strict-validate-requirement": ("status/ui-requirement.strict-valid.json",),
+    "requirements-confirmation": (),
+    "prepare-accepted-build-view": ("accepted-build-view.json",),
+    "plan-umg-build": ("ui-build-bundle.planned.json",),
+    "validate-build-plan": ("status/ui-build-plan.pre-mutation-valid.json",),
+    "build-verified-umg": ("ui-build-bundle.json",),
+    "post-save-unreal-readback": ("unreal-widget-readback.json",),
+    "present-build-results": ("status/build-results.presented.json",),
+    "build-results-confirmation": (),
+    "document-program-handoff": (
+        "ui-program-handoff.json",
+        "program-document-content.json",
+        "document-verification.json",
+    ),
+}
+
 EXPECTED_GATE_ARTIFACTS = {
     "requirements-confirmation": "ui-requirement.json",
     "build-results-confirmation": "ui-build-acceptance.json",
+}
+
+ROLE_PACKET_PATHS = {
+    role: f"agent-inputs/{role}.json" for role in REQUIRED_FINDINGS_ROLES
+}
+ROLE_CONTEXT_PATHS = {
+    role: f"contexts/roles/{role}.json" for role in FOCUSED_ROLES + REVIEW_ROLES
+}
+REVIEW_VIEW_PATHS = {
+    role: f"review-views/{role}.review-view.json" for role in REVIEW_ROLES
+}
+EXPECTED_PREPARATION_OUTPUTS = {
+    "validate-packet": (
+        "status/request-packet.validated.json",
+        "inputs/shared-widget-shortlist.json",
+        *(ROLE_PACKET_PATHS[role] for role in DISCOVERY_ROLES),
+    ),
+    "normalize-identities": (
+        "contexts/normalized-context.json",
+        *(ROLE_CONTEXT_PATHS[role] for role in FOCUSED_ROLES),
+        *(ROLE_PACKET_PATHS[role] for role in FOCUSED_ROLES),
+    ),
+    "synthesize-draft": (
+        "ui-requirement.draft.json",
+        *(ROLE_CONTEXT_PATHS[role] for role in REVIEW_ROLES),
+        *(REVIEW_VIEW_PATHS[role] for role in REVIEW_ROLES),
+        *(ROLE_PACKET_PATHS[role] for role in REVIEW_ROLES),
+    ),
+    "prepare-accepted-build-view": ("accepted-build-view.json",),
+}
+
+EXPECTED_AGENT_INPUTS = {
+    **{step: (ROLE_PACKET_PATHS[role],) for role, step in ROLE_TO_STEP.items()},
+    "plan-umg-build": ("accepted-build-view.json",),
+}
+
+STRICT_AUTHORITY_INPUTS = {
+    "ui-requirement.draft.json",
+    *(ROLE_PACKET_PATHS[role] for role in REQUIRED_FINDINGS_ROLES),
+    *(ROLE_CONTEXT_PATHS[role] for role in FOCUSED_ROLES + REVIEW_ROLES),
+    *(REVIEW_VIEW_PATHS[role] for role in REVIEW_ROLES),
 }
 
 
@@ -141,12 +581,29 @@ class ContractError(ValueError):
     """Raised when a workflow or materialized plan violates the contract."""
 
 
+class _DuplicateJSONKeyError(ValueError):
+    """Raised while decoding an object whose source repeats a member name."""
+
+
+def _strict_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Build one JSON object while rejecting duplicate keys at every depth."""
+
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise _DuplicateJSONKeyError(f"duplicate JSON object key {key!r}")
+        result[key] = value
+    return result
+
+
 def load_json(path: Path) -> Any:
     try:
         with path.open("r", encoding="utf-8") as handle:
-            return json.load(handle)
+            return json.load(handle, object_pairs_hook=_strict_json_object)
     except FileNotFoundError as error:
         raise ContractError(f"JSON file does not exist: {path}") from error
+    except _DuplicateJSONKeyError as error:
+        raise ContractError(f"Invalid JSON in {path}: {error}") from error
     except json.JSONDecodeError as error:
         raise ContractError(
             f"Invalid JSON in {path}: line {error.lineno}, column {error.colno}: {error.msg}"
@@ -294,9 +751,25 @@ def _check_steps(
         for duplicate in sorted(_duplicates(dependencies)):
             errors.append(f"{prefix}.dependsOn repeats {duplicate!r}")
         inputs = _strings(step.get("inputs"), f"{prefix}.inputs", errors)
+        agent_inputs = _strings(
+            step.get("agentInputs"), f"{prefix}.agentInputs", errors
+        )
         outputs = _strings(step.get("outputs"), f"{prefix}.outputs", errors)
+        for key, paths in (
+            ("inputs", inputs),
+            ("agentInputs", agent_inputs),
+            ("outputs", outputs),
+        ):
+            for duplicate in sorted(_duplicates(paths)):
+                errors.append(f"{prefix}.{key} repeats {duplicate!r}")
         for item_index, path_text in enumerate(inputs):
             _check_path(path_text, f"{prefix}.inputs[{item_index}]", errors)
+        for item_index, path_text in enumerate(agent_inputs):
+            _check_path(path_text, f"{prefix}.agentInputs[{item_index}]", errors)
+            if path_text not in inputs:
+                errors.append(
+                    f"{prefix}.agentInputs[{item_index}] must also be declared in inputs"
+                )
         for item_index, path_text in enumerate(outputs):
             _check_path(
                 path_text,
@@ -340,7 +813,7 @@ def _check_steps(
 
 
 def validate_workflow(workflow: Any) -> None:
-    """Raise ContractError unless *workflow* is the closed 1.0.0 contract."""
+    """Raise ContractError unless *workflow* is the closed 2.0.0 contract."""
 
     errors: list[str] = []
     root = _mapping(workflow, "$", errors)
@@ -353,9 +826,18 @@ def validate_workflow(workflow: Any) -> None:
         errors.append(f"contractVersion must be {CONTRACT_VERSION!r}")
     if not isinstance(root.get("workflowId"), str) or not re.fullmatch(r"[a-z][a-z0-9-]+", root.get("workflowId", "")):
         errors.append("workflowId must be a kebab-case identifier")
-    if not isinstance(root.get("workflowVersion"), str) or not re.fullmatch(r"\d+\.\d+\.\d+", root.get("workflowVersion", "")):
-        errors.append("workflowVersion must be semantic version text")
+    if root.get("workflowVersion") != WORKFLOW_VERSION:
+        errors.append(f"workflowVersion must be {WORKFLOW_VERSION!r}")
     _check_path(root.get("requestPacketRef"), "requestPacketRef", errors)
+
+    dispatch_policy = _mapping(
+        root.get("agentDispatchPolicy"), "agentDispatchPolicy", errors
+    )
+    if dispatch_policy != EXPECTED_AGENT_DISPATCH_POLICY:
+        errors.append(
+            "agentDispatchPolicy must be exactly packet-path-only/no-history/fork-none "
+            "with no inherited conversation, model override, or reasoning override"
+        )
 
     exchange = _mapping(root.get("artifactExchange"), "artifactExchange", errors)
     if exchange.get("authority") != "filesystem-artifacts":
@@ -374,14 +856,21 @@ def validate_workflow(workflow: Any) -> None:
         )
     if not isinstance(exchange.get("provenanceRule"), str) or not exchange.get("provenanceRule"):
         errors.append("artifactExchange.provenanceRule must be a nonempty string")
+    if exchange.get("compositeOutputs") != EXPECTED_COMPOSITE_OUTPUTS:
+        errors.append(
+            "artifactExchange.compositeOutputs must declare the exact planned-layout "
+            "descriptor, containment, digest, enumeration, and validator contract"
+        )
     prefixes = _strings(
         exchange.get("allowedOutputPrefixes"),
         "artifactExchange.allowedOutputPrefixes",
         errors,
     )
     allowed_prefixes = set(prefixes)
-    if not allowed_prefixes:
-        errors.append("artifactExchange.allowedOutputPrefixes must not be empty")
+    if prefixes != list(EXPECTED_ALLOWED_OUTPUT_PREFIXES):
+        errors.append(
+            "artifactExchange.allowedOutputPrefixes must be the exact closed v2 list"
+        )
     for prefix in prefixes:
         if not re.fullmatch(r"[a-z][a-z0-9-]*", prefix):
             errors.append(f"invalid allowed output prefix: {prefix!r}")
@@ -393,8 +882,10 @@ def validate_workflow(workflow: Any) -> None:
         errors,
     )
     allowed_root_outputs = set(root_outputs)
-    if not allowed_root_outputs:
-        errors.append("artifactExchange.allowedRootOutputs must not be empty")
+    if root_outputs != list(EXPECTED_ALLOWED_ROOT_OUTPUTS):
+        errors.append(
+            "artifactExchange.allowedRootOutputs must be the exact closed v2 list"
+        )
     for root_output in root_outputs:
         if not _is_safe_relative_posix(root_output) or len(PurePosixPath(root_output).parts) != 1:
             errors.append(f"invalid allowed root output: {root_output!r}")
@@ -415,6 +906,27 @@ def validate_workflow(workflow: Any) -> None:
         allowed_root_outputs,
     )
     continuation = _mapping(root.get("protectedContinuation"), "protectedContinuation", errors)
+    build_dispatch_policy = _mapping(
+        continuation.get("agentDispatchPolicy"),
+        "protectedContinuation.agentDispatchPolicy",
+        errors,
+    )
+    if build_dispatch_policy != EXPECTED_BUILD_AGENT_DISPATCH_POLICY:
+        errors.append(
+            "protectedContinuation.agentDispatchPolicy must require a fresh "
+            "single-validated-artifact-path/no-history/fork-none build planner "
+            "with no inherited conversation, model override, or reasoning override"
+        )
+    evidence_contract = _mapping(
+        continuation.get("preMutationEvidenceContract"),
+        "protectedContinuation.preMutationEvidenceContract",
+        errors,
+    )
+    if evidence_contract != EXPECTED_PREMUTATION_EVIDENCE_CONTRACT:
+        errors.append(
+            "protectedContinuation.preMutationEvidenceContract must bind the exact "
+            "closed Schema, builder/validator, evidence path, and pre-Editor barrier"
+        )
     continuation_steps, continuation_map = _check_steps(
         continuation.get("steps"),
         "protectedContinuation.steps",
@@ -427,10 +939,28 @@ def validate_workflow(workflow: Any) -> None:
         missing = sorted(set(EXPECTED_ANALYSIS_STEPS) - set(analysis_map))
         extra = sorted(set(analysis_map) - set(EXPECTED_ANALYSIS_STEPS))
         errors.append(f"analysis step set is closed; missing={missing}, extra={extra}")
+    analysis_order = [
+        step.get("id") for step in analysis_steps if isinstance(step.get("id"), str)
+    ]
+    if analysis_order != list(EXPECTED_ANALYSIS_STEPS):
+        errors.append(
+            "analysis step order is closed; "
+            f"expected={list(EXPECTED_ANALYSIS_STEPS)!r}, got={analysis_order!r}"
+        )
     if set(continuation_map) != set(EXPECTED_CONTINUATION_STEPS):
         missing = sorted(set(EXPECTED_CONTINUATION_STEPS) - set(continuation_map))
         extra = sorted(set(continuation_map) - set(EXPECTED_CONTINUATION_STEPS))
         errors.append(f"protected continuation step set is closed; missing={missing}, extra={extra}")
+    continuation_order = [
+        step.get("id")
+        for step in continuation_steps
+        if isinstance(step.get("id"), str)
+    ]
+    if continuation_order != list(EXPECTED_CONTINUATION_STEPS):
+        errors.append(
+            "protected continuation step order is closed; "
+            f"expected={list(EXPECTED_CONTINUATION_STEPS)!r}, got={continuation_order!r}"
+        )
 
     all_steps = analysis_steps + continuation_steps
     all_map = dict(analysis_map)
@@ -452,6 +982,29 @@ def validate_workflow(workflow: Any) -> None:
         step = all_map.get(step_id)
         if step and step.get("kind") != expected_kind:
             errors.append(f"step {step_id!r} must use kind {expected_kind!r}")
+    for step_id, expected_execution in EXPECTED_STEP_EXECUTIONS.items():
+        step = all_map.get(step_id)
+        if step and step.get("execution") != expected_execution:
+            errors.append(
+                f"step {step_id!r} must use execution {expected_execution!r}"
+            )
+
+    for step_id in EXPECTED_STEP_KINDS:
+        step = all_map.get(step_id)
+        if step is None:
+            continue
+        expected_inputs = list(EXPECTED_STEP_INPUTS[step_id])
+        if step.get("inputs") != expected_inputs:
+            errors.append(
+                f"step {step_id!r} inputs must be exactly {expected_inputs!r}; "
+                f"got {step.get('inputs')!r}"
+            )
+        expected_outputs = list(EXPECTED_STEP_OUTPUTS[step_id])
+        if step.get("outputs") != expected_outputs:
+            errors.append(
+                f"step {step_id!r} outputs must be exactly {expected_outputs!r}; "
+                f"got {step.get('outputs')!r}"
+            )
 
     role_steps: dict[str, list[str]] = {}
     for step in all_steps:
@@ -469,6 +1022,175 @@ def validate_workflow(workflow: Any) -> None:
             errors.append(
                 f"findings role {role!r} must be owned exactly once by {expected_step!r}; got {actual_steps!r}"
             )
+
+    for step_id, step in all_map.items():
+        expected_agent_inputs = list(EXPECTED_AGENT_INPUTS.get(step_id, ()))
+        actual_agent_inputs = step.get("agentInputs")
+        if actual_agent_inputs != expected_agent_inputs:
+            errors.append(
+                f"step {step_id!r} agentInputs must be exactly {expected_agent_inputs!r}; "
+                f"got {actual_agent_inputs!r}"
+            )
+
+    worker_packet_paths: list[str] = []
+    for role, step_id in ROLE_TO_STEP.items():
+        step = all_map.get(step_id, {})
+        actual_agent_inputs = step.get("agentInputs", [])
+        if isinstance(actual_agent_inputs, list):
+            worker_packet_paths.extend(
+                path for path in actual_agent_inputs if isinstance(path, str)
+            )
+    if len(worker_packet_paths) != len(set(worker_packet_paths)):
+        errors.append("the nine findings workers must receive nine unique role packets")
+
+    for step_id, expected_outputs in EXPECTED_PREPARATION_OUTPUTS.items():
+        step = all_map.get(step_id)
+        if step is not None and step.get("outputs") != list(expected_outputs):
+            errors.append(
+                f"step {step_id!r} outputs must be exactly {list(expected_outputs)!r}; "
+                f"got {step.get('outputs')!r}"
+            )
+
+    expected_preparation_validators = {
+        "validate-packet": "request-packet-and-discovery-role-packets",
+        "normalize-identities": "normalized-context-and-focused-role-packets",
+        "synthesize-draft": "draft-and-review-role-packets",
+        "prepare-accepted-build-view": "accepted-build-view",
+        "plan-umg-build": "planned-build-bundle-structure",
+        "validate-build-plan": "build-plan-pre-mutation",
+        "build-verified-umg": "build-bundle-final",
+    }
+    for step_id, expected_validator in expected_preparation_validators.items():
+        step = all_map.get(step_id)
+        if step is not None and step.get("contractValidator") != expected_validator:
+            errors.append(
+                f"step {step_id!r} must use contractValidator {expected_validator!r}"
+            )
+
+    strict_step = all_map.get("strict-validate-requirement", {})
+    strict_inputs = strict_step.get("inputs", [])
+    if isinstance(strict_inputs, list):
+        missing_strict_inputs = sorted(STRICT_AUTHORITY_INPUTS - set(strict_inputs))
+        if missing_strict_inputs:
+            errors.append(
+                "strict-validate-requirement must cover the immutable Draft, all nine "
+                "role packets, all six role contexts, and all three Review Views; "
+                f"missing={missing_strict_inputs}"
+            )
+    strict_instruction = strict_step.get("instruction", "")
+    if (
+        not isinstance(strict_instruction, str)
+        or "--review-draft ui-requirement.draft.json" not in strict_instruction
+    ):
+        errors.append(
+            "strict-validate-requirement instruction must include "
+            "'--review-draft ui-requirement.draft.json'"
+        )
+
+    accepted_view_step = all_map.get("prepare-accepted-build-view", {})
+    accepted_inputs = accepted_view_step.get("inputs", [])
+    for required_input in ("ui-requirement.json", "ui-requirement.draft.json"):
+        if not isinstance(accepted_inputs, list) or required_input not in accepted_inputs:
+            errors.append(
+                f"prepare-accepted-build-view inputs must include {required_input!r}"
+            )
+    accepted_instruction = accepted_view_step.get("instruction", "")
+    for token in (
+        "--review-draft ui-requirement.draft.json",
+        "mode projected",
+        "buildAllowed true",
+        "coverage complete",
+        "full-fallback",
+        "blocks construction",
+    ):
+        if not isinstance(accepted_instruction, str) or token not in accepted_instruction:
+            errors.append(
+                f"prepare-accepted-build-view instruction must enforce {token!r}"
+            )
+
+    plan_step = all_map.get("plan-umg-build", {})
+    if plan_step.get("inputs") != [
+        "ui-requirement.json",
+        "accepted-build-view.json",
+    ]:
+        errors.append(
+            "plan-umg-build inputs must keep the complete Requirement as hidden "
+            "validator authority beside the Accepted Build View"
+        )
+    if plan_step.get("outputs") != ["ui-build-bundle.planned.json"]:
+        errors.append("plan-umg-build must emit only the staged planned Bundle")
+    plan_instruction = plan_step.get("instruction", "")
+    for token in (
+        "fresh build-planning Agent",
+        "complete visible input is only accepted-build-view.json",
+        "read and obey that View's exact dispatchContract",
+        "no inherited history or model/reasoning overrides",
+        "composite ui-build-bundle.planned.json output",
+        "assets[].layoutSpecPath",
+        "layouts/ sidecar",
+        "performs no Unreal Editor connection or mutation",
+        "replaced by a fresh task",
+    ):
+        if not isinstance(plan_instruction, str) or token not in plan_instruction:
+            errors.append(f"plan-umg-build instruction must preserve {token!r}")
+
+    validate_plan_step = all_map.get("validate-build-plan", {})
+    if validate_plan_step.get("inputs") != [
+        "ui-requirement.json",
+        "accepted-build-view.json",
+        "ui-build-bundle.planned.json",
+    ]:
+        errors.append(
+            "validate-build-plan must read the full Requirement, View, and staged Bundle"
+        )
+    if validate_plan_step.get("outputs") != [
+        "status/ui-build-plan.pre-mutation-valid.json"
+    ]:
+        errors.append("validate-build-plan must emit the composite bound status")
+    validate_plan_instruction = validate_plan_step.get("instruction", "")
+    for token in (
+        "Before any Unreal Editor connection or mutation",
+        "enforce run-root containment and unique complete enumeration",
+        "verify each layoutSpecSha256",
+        "UILayoutSpec 0.2 validator",
+        "validate_build_bundle.py ui-build-bundle.planned.json",
+        "validate_requirement_coverage.py",
+        "native prepare_build.py v0.2 plans/<asset>.plan.json per buildable asset",
+        "reuse-only assets receive an explicit null/skip record",
+        "orchestration/scripts/build_plan_evidence.py <artifact-root> --plugin-root <plugin-root>",
+        "regenerate and exactly compare every native plan",
+        "plans[].assetId/path/sha256 records must exactly and completely enumerate the build order",
+        "otherwise stop without mutation",
+    ):
+        if (
+            not isinstance(validate_plan_instruction, str)
+            or token not in validate_plan_instruction
+        ):
+            errors.append(f"validate-build-plan instruction must preserve {token!r}")
+
+    build_step = all_map.get("build-verified-umg", {})
+    if build_step.get("inputs") != [
+        "ui-requirement.json",
+        "accepted-build-view.json",
+        "ui-build-bundle.planned.json",
+        "status/ui-build-plan.pre-mutation-valid.json",
+    ]:
+        errors.append("build-verified-umg must consume the validated staged build plan")
+    if build_step.get("agentInputs") != []:
+        errors.append("build-verified-umg must not dispatch another Agent")
+    if build_step.get("outputs") != ["ui-build-bundle.json"]:
+        errors.append("build-verified-umg must emit only the final Bundle")
+    build_instruction = build_step.get("instruction", "")
+    for token in (
+        "only after validating",
+        "orchestration/scripts/build_plan_evidence.py <artifact-root> --plugin-root <plugin-root> --validate-only",
+        "status/ui-build-plan.pre-mutation-valid.json",
+        "native prepare_build.py v0.2 execution plans",
+        "validate_build_bundle.py ui-build-bundle.json",
+        "complete Requirement coverage validator",
+    ):
+        if not isinstance(build_instruction, str) or token not in build_instruction:
+            errors.append(f"build-verified-umg instruction must preserve {token!r}")
 
     groups_raw = _list(root.get("parallelGroups"), "parallelGroups", errors)
     groups: dict[str, set[str]] = {}
@@ -629,6 +1351,16 @@ def render_dispatch_manifest(
                 }
                 for path_text in step["inputs"]
             ],
+            "agentInputs": [
+                {
+                    "logicalPath": path_text,
+                    "path": str(
+                        _materialize_path(root, path_text, request_ref, packet)
+                    ),
+                    "integrity": {"algorithm": "sha256", "required": True},
+                }
+                for path_text in step["agentInputs"]
+            ],
             "outputs": [
                 {
                     "logicalPath": path_text,
@@ -659,7 +1391,7 @@ def render_dispatch_manifest(
         return item
 
     return {
-        "manifestVersion": "1.0.0",
+        "manifestVersion": MANIFEST_VERSION,
         "workflow": {
             "id": workflow["workflowId"],
             "version": workflow["workflowVersion"],
@@ -671,6 +1403,7 @@ def render_dispatch_manifest(
             "path": str(packet),
             "sha256": _sha256_file(packet),
         },
+        "agentDispatchPolicy": dict(workflow["agentDispatchPolicy"]),
         "authority": {
             "source": "filesystem-artifacts",
             "messagesAreAuthoritative": False,
@@ -680,6 +1413,9 @@ def render_dispatch_manifest(
                 "failClosedOnMissingOrDigestMismatch"
             ],
             "provenanceRule": workflow["artifactExchange"]["provenanceRule"],
+            "compositeOutputs": list(
+                workflow["artifactExchange"]["compositeOutputs"]
+            ),
         },
         "requirementsTerminal": workflow["requirementsTerminal"],
         "parallelGroups": workflow["parallelGroups"],
@@ -688,12 +1424,19 @@ def render_dispatch_manifest(
         "protectedContinuation": {
             "dispatchByDefault": False,
             "schedulerPolicy": workflow["protectedContinuation"]["schedulerPolicy"],
+            "agentDispatchPolicy": dict(
+                workflow["protectedContinuation"]["agentDispatchPolicy"]
+            ),
+            "preMutationEvidenceContract": dict(
+                workflow["protectedContinuation"]["preMutationEvidenceContract"]
+            ),
             "description": workflow["protectedContinuation"]["description"],
         },
         "adapterContract": {
             "mayCallVendorApi": True,
             "thisManifestCallsVendorApi": False,
             "dispatchRule": "Dispatch a step only after all declared dependencies have authoritative validated artifacts.",
+            "agentInputRule": "Construct every agent prompt from agentInputs only; inputs are scheduler and validator authority and must not be exposed implicitly.",
             "gateRule": "Never dispatch past a human gate until its exact decision artifact exists and validates for the current upstream identities.",
             "writeRule": "Give each worker exclusive ownership of its declared output path and reject undeclared writes.",
         },
@@ -743,9 +1486,26 @@ def main(argv: Sequence[str] | None = None) -> int:
             validate_workflow(workflow)
             if args.schema is not None:
                 schema = load_json(args.schema)
-                if not isinstance(schema, dict) or schema.get("$id") != "urn:nextgame-ui:portable-workflow:1.0.0":
+                schema_properties = (
+                    schema.get("properties", {}) if isinstance(schema, dict) else {}
+                )
+                schema_versions_match = (
+                    isinstance(schema_properties, dict)
+                    and isinstance(schema_properties.get("contractVersion"), dict)
+                    and schema_properties["contractVersion"].get("const")
+                    == CONTRACT_VERSION
+                    and isinstance(schema_properties.get("workflowVersion"), dict)
+                    and schema_properties["workflowVersion"].get("const")
+                    == WORKFLOW_VERSION
+                )
+                if (
+                    not isinstance(schema, dict)
+                    or schema.get("$id") != SCHEMA_ID
+                    or not schema_versions_match
+                ):
                     raise ContractError(
-                        "schema $id must be 'urn:nextgame-ui:portable-workflow:1.0.0'"
+                        f"schema must bind $id {SCHEMA_ID!r}, contractVersion "
+                        f"{CONTRACT_VERSION!r}, and workflowVersion {WORKFLOW_VERSION!r}"
                     )
             print(
                 f"valid workflow: {workflow['workflowId']}@{workflow['workflowVersion']} "

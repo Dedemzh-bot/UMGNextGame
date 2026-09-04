@@ -1,0 +1,249 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/rule-card-pack.schema.json",
+  "title": "NextGame UMG Rule Card Pack",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "routingMode",
+    "stages",
+    "bindings",
+    "selectedRuleIds",
+    "selectedRuleIdsBySourceType",
+    "ruleCards",
+    "fallbackAuthorityRuleIds",
+    "fallbackAuthorityRuleCards",
+    "workflowGuardCards",
+    "detailSections",
+    "fullDocuments",
+    "fallbackReasons",
+    "machineValidation",
+    "byteTelemetry",
+    "tokenTelemetry",
+    "packDigestSha256"
+  ],
+  "properties": {
+    "version": {"const": "0.1"},
+    "routingMode": {"enum": ["routed", "fallback-full"]},
+    "stages": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {"enum": ["build-planning", "build-execution", "build-verification"]}
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["layout", "ruleIndex", "routingConfig", "componentCatalog"],
+      "properties": {
+        "layout": {"$ref": "#/$defs/fileBinding"},
+        "ruleIndex": {"$ref": "#/$defs/versionedFileBinding"},
+        "routingConfig": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["file", "version", "sha256"],
+          "properties": {
+            "file": {"type": "string", "minLength": 1},
+            "version": {"type": ["string", "null"]},
+            "sha256": {"anyOf": [{"$ref": "#/$defs/sha256"}, {"type": "null"}]}
+          }
+        },
+        "componentCatalog": {"$ref": "#/$defs/fileBinding"}
+      }
+    },
+    "selectedRuleIds": {
+      "type": "array",
+      "items": {"type": "string", "minLength": 1}
+    },
+    "selectedRuleIdsBySourceType": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sourceType", "ruleIds"],
+        "properties": {
+          "sourceType": {"type": "string", "minLength": 1},
+          "ruleIds": {"type": "array", "items": {"type": "string", "minLength": 1}}
+        }
+      }
+    },
+    "ruleCards": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/ruleCard"}
+    },
+    "fallbackAuthorityRuleIds": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "fallbackAuthorityRuleCards": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/ruleCard"}
+    },
+    "workflowGuardCards": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/workflowGuardCard"}
+    },
+    "detailSections": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/detailSection"}
+    },
+    "fullDocuments": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/fullDocument"}
+    },
+    "fallbackReasons": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {"type": "string", "minLength": 1}
+    },
+    "machineValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "layoutValidator",
+        "layoutValid",
+        "layoutErrorCount",
+        "machineValidatorsEnabled",
+        "routingMayDisableValidators"
+      ],
+      "properties": {
+        "layoutValidator": {"const": "validate_layout_spec.validate_spec"},
+        "layoutValid": {"type": "boolean"},
+        "layoutErrorCount": {"type": "integer", "minimum": 0},
+        "machineValidatorsEnabled": {"const": true},
+        "routingMayDisableValidators": {"const": false}
+      }
+    },
+    "byteTelemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "basis",
+        "selectedRuleCardBytes",
+        "fallbackAuthorityRuleCardBytes",
+        "workflowGuardCardBytes",
+        "detailSectionBytes",
+        "fullDocumentBytes",
+        "instructionBytes",
+        "fullFallbackInstructionBytes",
+        "savedBytes",
+        "reductionPercent"
+      ],
+      "properties": {
+        "basis": {"const": "utf-8 source text plus canonical compact JSON cards"},
+        "selectedRuleCardBytes": {"type": "integer", "minimum": 0},
+        "fallbackAuthorityRuleCardBytes": {"type": "integer", "minimum": 0},
+        "workflowGuardCardBytes": {"type": "integer", "minimum": 0},
+        "detailSectionBytes": {"type": "integer", "minimum": 0},
+        "fullDocumentBytes": {"type": "integer", "minimum": 0},
+        "instructionBytes": {"type": "integer", "minimum": 0},
+        "fullFallbackInstructionBytes": {"type": "integer", "minimum": 0},
+        "savedBytes": {"type": "integer", "minimum": 0},
+        "reductionPercent": {"type": "number", "minimum": 0, "maximum": 100}
+      }
+    },
+    "tokenTelemetry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actualInputTokens", "actualOutputTokens", "measurementStatus"],
+      "properties": {
+        "actualInputTokens": {"type": "null"},
+        "actualOutputTokens": {"type": "null"},
+        "measurementStatus": {"const": "not-available-no-byte-to-token-conversion"}
+      }
+    },
+    "packDigestSha256": {"$ref": "#/$defs/sha256"}
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "fileBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "sha256"],
+      "properties": {
+        "file": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "versionedFileBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "version", "sha256"],
+      "properties": {
+        "file": {"type": "string", "minLength": 1},
+        "version": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "ruleCard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "sourceType", "summary", "validator", "reference"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "severity": {"enum": ["error", "warning", "info"]},
+        "sourceType": {"type": "string", "minLength": 1},
+        "summary": {"type": "string", "minLength": 1},
+        "validator": {"type": ["string", "null"]},
+        "reference": {"type": ["string", "null"]}
+      }
+    },
+    "workflowGuardCard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "stages", "severity", "summary"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "stages": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"enum": ["build-planning", "build-execution", "build-verification"]}
+        },
+        "severity": {"enum": ["error", "warning"]},
+        "summary": {"type": "string", "minLength": 1}
+      }
+    },
+    "detailSection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "file",
+        "fileSha256",
+        "heading",
+        "headingLevel",
+        "sectionSha256",
+        "bytes",
+        "ruleIds",
+        "workflowGuardIds",
+        "text"
+      ],
+      "properties": {
+        "file": {"type": "string", "minLength": 1},
+        "fileSha256": {"$ref": "#/$defs/sha256"},
+        "heading": {"type": "string", "pattern": "^#{1,6}\\s+\\S"},
+        "headingLevel": {"type": "integer", "minimum": 1, "maximum": 6},
+        "sectionSha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "minimum": 1},
+        "ruleIds": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "workflowGuardIds": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "text": {"type": "string", "minLength": 1}
+      }
+    },
+    "fullDocument": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["file", "sha256", "bytes", "ruleIds", "workflowGuardIds", "text"],
+      "properties": {
+        "file": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "bytes": {"type": "integer", "minimum": 1},
+        "ruleIds": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "workflowGuardIds": {"type": "array", "items": {"type": "string", "minLength": 1}},
+        "text": {"type": "string", "minLength": 1}
+      }
+    }
+  }
+}

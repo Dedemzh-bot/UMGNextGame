@@ -1,27 +1,49 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "2.0",
   "workflowId": "nextgame-ui-requirements",
   "artifactAuthority": {
     "authoritative": [
       "validated request packet",
       "validated AgentFindings files",
-      "validated normalized context files",
+      "validated full normalized context",
       "strictly validated UIRequirementSpec"
     ],
+    "validatedDispatchArtifacts": [
+      "no-history role packets",
+      "role context projections",
+      "review views",
+      "accepted build view"
+    ],
     "nonAuthoritative": [
+      "role context projections and their full-fallback copies",
+      "review views",
+      "accepted build view",
       "subagent final messages",
       "chat summaries",
       "runtime task status"
     ],
-    "rule": "A runtime receipt only announces an artifact; it never replaces the artifact or its validator."
+    "rule": "Validated dispatch artifacts constrain Agent-visible input and bind their complete sources, but never replace the full RequestPacket, normalized context, Draft, accepted Requirement, Bundle, or their validators. A runtime receipt only announces an artifact."
   },
   "artifactLayout": {
     "runRoot": "<run-root>",
     "requestPacket": "request-packet.json",
+    "sharedWidgetShortlist": "inputs/shared-widget-shortlist.json",
+    "rolePackets": "agent-inputs",
     "normalizedContext": "contexts/normalized-context.json",
+    "roleContexts": "contexts/roles",
+    "reviewViews": "review-views",
     "draftRequirement": "ui-requirement.draft.json",
     "pendingRequirement": "ui-requirement.pending.json",
-    "acceptedRequirement": "ui-requirement.json"
+    "acceptedRequirement": "ui-requirement.json",
+    "acceptedBuildView": "accepted-build-view.json"
+  },
+  "agentDispatchPolicy": {
+    "promptContract": "packet-path-only",
+    "historyPolicy": "none",
+    "forkTurns": "none",
+    "inheritsConversation": false,
+    "allowModelOverride": false,
+    "allowReasoningOverride": false
   },
   "preflight": "capability-contract.json",
   "roles": [
@@ -29,58 +51,67 @@
       "role": "visual-structure",
       "stage": "discovery",
       "output": "findings/visual-structure.json",
+      "packetPath": "agent-inputs/visual-structure.json",
       "contextPath": null
     },
     {
       "role": "text-requirements",
       "stage": "discovery",
       "output": "findings/text-requirements.json",
+      "packetPath": "agent-inputs/text-requirements.json",
       "contextPath": null
     },
     {
       "role": "project-pattern",
       "stage": "discovery",
       "output": "findings/project-pattern.json",
+      "packetPath": "agent-inputs/project-pattern.json",
       "contextPath": null
     },
     {
       "role": "state-modeling",
       "stage": "focused-analysis",
       "output": "findings/state-modeling.json",
-      "contextPath": "contexts/normalized-context.json"
+      "packetPath": "agent-inputs/state-modeling.json",
+      "contextPath": "contexts/roles/state-modeling.json"
     },
     {
       "role": "data-adaptation",
       "stage": "focused-analysis",
       "output": "findings/data-adaptation.json",
-      "contextPath": "contexts/normalized-context.json"
+      "packetPath": "agent-inputs/data-adaptation.json",
+      "contextPath": "contexts/roles/data-adaptation.json"
     },
     {
       "role": "asset-decomposition",
       "stage": "focused-analysis",
       "output": "findings/asset-decomposition.json",
-      "contextPath": "contexts/normalized-context.json"
+      "packetPath": "agent-inputs/asset-decomposition.json",
+      "contextPath": "contexts/roles/asset-decomposition.json"
     },
     {
       "role": "state-visual-review",
       "stage": "independent-review",
       "output": "findings/state-visual-review.json",
-      "contextPath": "contexts/normalized-context.json",
-      "additionalReadOnlyInput": "ui-requirement.draft.json"
+      "packetPath": "agent-inputs/state-visual-review.json",
+      "contextPath": "contexts/roles/state-visual-review.json",
+      "reviewViewPath": "review-views/state-visual-review.review-view.json"
     },
     {
       "role": "schema-feasibility-review",
       "stage": "independent-review",
       "output": "findings/schema-feasibility-review.json",
-      "contextPath": "contexts/normalized-context.json",
-      "additionalReadOnlyInput": "ui-requirement.draft.json"
+      "packetPath": "agent-inputs/schema-feasibility-review.json",
+      "contextPath": "contexts/roles/schema-feasibility-review.json",
+      "reviewViewPath": "review-views/schema-feasibility-review.review-view.json"
     },
     {
       "role": "coverage-review",
       "stage": "independent-review",
       "output": "findings/coverage-review.json",
-      "contextPath": "contexts/normalized-context.json",
-      "additionalReadOnlyInput": "ui-requirement.draft.json"
+      "packetPath": "agent-inputs/coverage-review.json",
+      "contextPath": "contexts/roles/coverage-review.json",
+      "reviewViewPath": "review-views/coverage-review.review-view.json"
     }
   ],
   "stages": [
@@ -172,19 +203,96 @@
     },
     {
       "id": "requirement-review-gate",
-      "owner": "coordinator",
+      "owner": "user",
       "type": "human-gate",
+      "decisionActor": "user",
+      "artifactRecorder": "coordinator",
       "mustStop": true,
       "dependsOn": [
         "strict-requirement-validation"
       ]
     }
   ],
+  "protectedBuildProjection": {
+    "producerStep": "prepare-accepted-build-view",
+    "artifact": "accepted-build-view.json",
+    "requiredMode": "projected",
+    "buildAllowed": true,
+    "buildPlanningStep": "plan-umg-build",
+    "plannedBundle": "ui-build-bundle.planned.json",
+    "compositeOutputs": [
+      {
+        "id": "planned-layout-specs",
+        "ownerStep": "plan-umg-build",
+        "descriptor": "ui-build-bundle.planned.json",
+        "pathSelector": "assets[].layoutSpecPath",
+        "digestSelector": "assets[].layoutSpecSha256",
+        "identitySelector": "assets[].id",
+        "coverageSelector": "assets[].id",
+        "allowedPathPrefix": "layouts/",
+        "consumerStep": "validate-build-plan",
+        "validator": "ui-layout-spec-0.2",
+        "nullPolicy": "only-reuse-only-assets",
+        "requireRunRootContainment": true,
+        "requireDigestMatch": true,
+        "requireCompleteEnumeration": true
+      },
+      {
+        "id": "deterministic-build-plans",
+        "ownerStep": "validate-build-plan",
+        "descriptor": "status/ui-build-plan.pre-mutation-valid.json",
+        "pathSelector": "plans[].path",
+        "digestSelector": "plans[].sha256",
+        "identitySelector": "plans[].assetId",
+        "coverageSelector": "ui-build-bundle.planned.json:execution.buildOrderAssetIds",
+        "allowedPathPrefix": "plans/",
+        "consumerStep": "build-verified-umg",
+        "validator": "deterministic-mcp-build-plan",
+        "nullPolicy": "only-reuse-only-assets",
+        "requireRunRootContainment": true,
+        "requireDigestMatch": true,
+        "requireCompleteEnumeration": true
+      }
+    ],
+    "preMutationValidatorStep": "validate-build-plan",
+    "preMutationEvidence": "status/ui-build-plan.pre-mutation-valid.json",
+    "preMutationEvidenceContract": {
+      "artifact": "status/ui-build-plan.pre-mutation-valid.json",
+      "schemaRef": "build-plan-pre-mutation.schema.json",
+      "toolRef": "scripts/build_plan_evidence.py",
+      "generationMode": "generate-and-self-validate",
+      "revalidationMode": "--validate-only",
+      "requiredBeforeEditorMutation": true
+    },
+    "buildStep": "build-verified-umg",
+    "finalBundle": "ui-build-bundle.json",
+    "buildAgentInputs": [
+      "accepted-build-view.json"
+    ],
+    "buildPlanningDispatchContract": "accepted-build-view.json#dispatchContract",
+    "agentDispatchPolicy": {
+      "promptContract": "single-validated-artifact-path",
+      "historyPolicy": "none",
+      "forkTurns": "none",
+      "inheritsConversation": false,
+      "allowModelOverride": false,
+      "allowReasoningOverride": false
+    },
+    "buildPlanningRetryPolicy": {
+      "onValidationFailure": "interrupt-then-fresh-spawn",
+      "reuseAgent": false,
+      "prompt": "accepted-build-view.json"
+    },
+    "validatorAuthority": "ui-requirement.json",
+    "incompleteCoveragePolicy": "stop-and-regenerate-or-fail"
+  },
   "humanGates": [
     {
       "id": "requirement-review",
       "workflowStep": "requirements-confirmation",
       "mustStop": true,
+      "decisionActor": "user",
+      "artifactRecorder": "coordinator",
       "afterStep": "strict-validate-requirement",
       "before": "any Unreal mutation",
       "decisionArtifact": "ui-requirement.json",
@@ -194,6 +302,8 @@
       "id": "build-acceptance",
       "workflowStep": "build-results-confirmation",
       "mustStop": true,
+      "decisionActor": "user",
+      "artifactRecorder": "coordinator",
       "afterStep": "present-build-results",
       "before": "ui-build-acceptance creation or formal documentation",
       "decisionArtifact": "ui-build-acceptance.json",

@@ -10,10 +10,16 @@ It never edits Requirement, Layout, Bundle, or Unreal assets.
 from __future__ import annotations
 
 import argparse
+import gzip
 import hashlib
+import io
 import json
 import math
+import os
+import platform
 import sys
+import tempfile
+import zlib
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -26,7 +32,9 @@ except ImportError as error:  # pragma: no cover - exercised by deployment envir
     raise SystemExit(f"visual_coverage_scan.py requires numpy and Pillow: {error}")
 
 
-TOOL_VERSION = "0.1.0"
+TOOL_VERSION = "0.2.0"
+DETECTION_CACHE_FORMAT = "visual-detection-cache-0.1"
+DETECTION_CACHE_KEY_FORMAT = "visual-detection-cache-key-0.1"
 MEDIUM_SCORE = 0.46
 HIGH_SCORE = 0.70
 TERMINAL_DISPOSITIONS = {"mapped", "merged", "excluded", "rejected-noise"}
@@ -78,6 +86,283 @@ def write_json(path: Path, value: Any) -> None:
     with path.open("w", encoding="utf-8", newline="\n") as handle:
         json.dump(value, handle, ensure_ascii=False, indent=2, sort_keys=False)
         handle.write("\n")
+
+
+def canonical_json_bytes(value: Any) -> bytes:
+    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def sha256_bytes(value: bytes) -> str:
+    return hashlib.sha256(value).hexdigest()
+
+
+def decoded_raster_sha256(rgb: "np.ndarray") -> str:
+    digest = hashlib.sha256()
+    digest.update(b"RGB\0")
+    digest.update(str(tuple(int(value) for value in rgb.shape)).encode("ascii"))
+    digest.update(b"\0")
+    digest.update(rgb.tobytes(order="C"))
+    return digest.hexdigest()
+
+
+def candidate_cache_record(candidate: Candidate) -> dict[str, Any]:
+    return {
+        "detector": candidate.detector,
+        "bbox": list(candidate.bbox),
+        "runs": [list(run) for run in candidate.runs],
+        "pixelArea": candidate.pixel_area,
+        "sourceWindow": candidate.source_window,
+        "detectors": sorted(candidate.detectors),
+        "meanRgb": list(candidate.mean_rgb),
+        "saturation": candidate.saturation,
+        "localContrast": candidate.local_contrast,
+        "fillRatio": candidate.fill_ratio,
+        "edgeDensity": candidate.edge_density,
+        "provisionalScore": candidate.provisional_score,
+        "score": candidate.score,
+        "repeatGroup": candidate.repeat_group,
+        "repeatCount": candidate.repeat_count,
+        "candidateId": candidate.candidate_id,
+        "regionId": candidate.region_id,
+    }
+
+
+def candidate_from_cache_record(record: dict[str, Any], *, width: int, height: int) -> Candidate:
+    required = {
+        "detector",
+        "bbox",
+        "runs",
+        "pixelArea",
+        "sourceWindow",
+        "detectors",
+        "meanRgb",
+        "saturation",
+        "localContrast",
+        "fillRatio",
+        "edgeDensity",
+        "provisionalScore",
+        "score",
+        "repeatGroup",
+        "repeatCount",
+        "candidateId",
+        "regionId",
+    }
+    if set(record) != required:
+        raise ValueError("Cached candidate fields do not match the closed cache format.")
+    bbox = record["bbox"]
+    runs = record["runs"]
+    mean_rgb = record["meanRgb"]
+    detectors = record["detectors"]
+    if not (
+        isinstance(bbox, list)
+        and len(bbox) == 4
+        and all(isinstance(value, int) and not isinstance(value, bool) for value in bbox)
+    ):
+        raise ValueError("Cached candidate bbox is invalid.")
+    x, y, box_width, box_height = bbox
+    if x < 0 or y < 0 or box_width <= 0 or box_height <= 0 or x + box_width > width or y + box_height > height:
+        raise ValueError("Cached candidate bbox falls outside the decoded raster.")
+    if not (
+        isinstance(runs, list)
+        and runs
+        and all(
+            isinstance(run, list)
+            and len(run) == 3
+            and all(isinstance(value, int) and not isinstance(value, bool) for value in run)
+            for run in runs
+        )
+    ):
+        raise ValueError("Cached candidate runs are invalid.")
+    for row, start, length in runs:
+        if (
+            row < y
+            or row >= y + box_height
+            or start < x
+            or length <= 0
+            or start + length > x + box_width
+            or row < 0
+            or row >= height
+            or start < 0
+            or start + length > width
+        ):
+            raise ValueError("Cached candidate run falls outside its bbox or decoded raster.")
+    if not (isinstance(mean_rgb, list) and len(mean_rgb) == 3 and all(isinstance(value, (int, float)) for value in mean_rgb)):
+        raise ValueError("Cached candidate meanRgb is invalid.")
+    if not (
+        isinstance(detectors, list)
+        and detectors
+        and detectors == sorted(set(detectors))
+        and all(isinstance(value, str) and value for value in detectors)
+    ):
+        raise ValueError("Cached candidate detectors are invalid.")
+    detector = record["detector"]
+    candidate_id = record["candidateId"]
+    if not isinstance(detector, str) or not detector or not isinstance(candidate_id, str) or not candidate_id:
+        raise ValueError("Cached candidate identity is invalid.")
+    if detector not in {"chromatic-component", "local-contrast", "quantized-color", "horizontal-band"} or detector not in detectors:
+        raise ValueError("Cached candidate detector membership is invalid.")
+    pixel_area = record["pixelArea"]
+    if (
+        not isinstance(pixel_area, int)
+        or isinstance(pixel_area, bool)
+        or pixel_area <= 0
+        or pixel_area > box_width * box_height
+        or sum(run[2] for run in runs) != pixel_area
+    ):
+        raise ValueError("Cached candidate pixel area is invalid.")
+    source_window = record["sourceWindow"]
+    region_id = record["regionId"]
+    repeat_group = record["repeatGroup"]
+    repeat_count = record["repeatCount"]
+    if source_window is not None and (not isinstance(source_window, str) or not source_window):
+        raise ValueError("Cached candidate sourceWindow is invalid.")
+    if region_id is not None and (not isinstance(region_id, str) or not region_id):
+        raise ValueError("Cached candidate regionId is invalid.")
+    if repeat_group is not None and (not isinstance(repeat_group, str) or not repeat_group.startswith("repeat.")):
+        raise ValueError("Cached candidate repeatGroup is invalid.")
+    if not isinstance(repeat_count, int) or isinstance(repeat_count, bool) or repeat_count < 1:
+        raise ValueError("Cached candidate repeatCount is invalid.")
+    if (repeat_group is None) != (repeat_count == 1):
+        raise ValueError("Cached candidate repeat group/count relationship is invalid.")
+    numeric_fields = {
+        "saturation": (0.0, 1.0),
+        "localContrast": (0.0, 1.0),
+        "fillRatio": (0.0, 1.0),
+        "edgeDensity": (0.0, 1.0),
+        "provisionalScore": (0.0, 1.0),
+        "score": (0.0, 1.0),
+    }
+    for field_name, (minimum, maximum) in numeric_fields.items():
+        value = record[field_name]
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or not math.isfinite(float(value)) or not minimum <= float(value) <= maximum:
+            raise ValueError(f"Cached candidate {field_name} is invalid.")
+    if any(not math.isfinite(float(value)) or not 0.0 <= float(value) <= 255.0 for value in mean_rgb):
+        raise ValueError("Cached candidate meanRgb falls outside the valid range.")
+    candidate = Candidate(
+        detector=detector,
+        bbox=tuple(bbox),
+        runs=[tuple(run) for run in runs],
+        pixel_area=pixel_area,
+        source_window=source_window,
+    )
+    candidate.detectors = set(detectors)
+    candidate.mean_rgb = tuple(float(value) for value in mean_rgb)
+    candidate.saturation = float(record["saturation"])
+    candidate.local_contrast = float(record["localContrast"])
+    candidate.fill_ratio = float(record["fillRatio"])
+    candidate.edge_density = float(record["edgeDensity"])
+    candidate.provisional_score = float(record["provisionalScore"])
+    candidate.score = float(record["score"])
+    candidate.repeat_group = repeat_group
+    candidate.repeat_count = repeat_count
+    candidate.candidate_id = candidate_id
+    candidate.region_id = region_id
+    return candidate
+
+
+def detection_cache_identity(rgb: "np.ndarray", windows: Sequence[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "format": DETECTION_CACHE_KEY_FORMAT,
+        "scannerSourceSha256": sha256_file(Path(__file__).resolve()),
+        "decodedRasterSha256": decoded_raster_sha256(rgb),
+        "decodedMode": "RGB",
+        "pixelSize": [int(rgb.shape[1]), int(rgb.shape[0])],
+        "numpyVersion": str(np.__version__),
+        "pillowVersion": str(getattr(Image, "__version__", "unknown")),
+        "pythonRuntime": {
+            "implementation": str(getattr(sys.implementation, "name", "unknown")),
+            "cacheTag": str(getattr(sys.implementation, "cache_tag", "unknown")),
+            "versionInfo": {
+                "major": int(sys.version_info.major),
+                "minor": int(sys.version_info.minor),
+                "micro": int(sys.version_info.micro),
+                "releaseLevel": str(sys.version_info.releaselevel),
+                "serial": int(sys.version_info.serial),
+            },
+            "byteOrder": sys.byteorder,
+            "system": platform.system(),
+            "machine": platform.machine(),
+        },
+        "salienceThresholds": {"medium": MEDIUM_SCORE, "high": HIGH_SCORE},
+        "detectorWindows": [
+            {
+                "id": str(window.get("id", "")),
+                "source": str(window.get("source", "")),
+                "bbox": [int(value) for value in window["bbox"]],
+            }
+            for window in windows
+        ],
+    }
+
+
+def read_detection_cache(path: Path, expected_key: str, expected_identity: dict[str, Any]) -> list[Candidate]:
+    raw = gzip.decompress(path.read_bytes())
+    value = json.loads(raw.decode("utf-8"))
+    if not isinstance(value, dict) or set(value) != {"format", "key", "identity", "candidatePayloadSha256", "candidates"}:
+        raise ValueError("Detection cache entry does not match the closed manifest shape.")
+    if value["format"] != DETECTION_CACHE_FORMAT or value["key"] != expected_key or value["identity"] != expected_identity:
+        raise ValueError("Detection cache identity does not match the current scan.")
+    records = value["candidates"]
+    if not isinstance(records, list):
+        raise ValueError("Detection cache candidates must be an array.")
+    if sha256_bytes(canonical_json_bytes(records)) != value["candidatePayloadSha256"]:
+        raise ValueError("Detection cache candidate payload hash mismatch.")
+    pixel_size = expected_identity.get("pixelSize")
+    if not (isinstance(pixel_size, list) and len(pixel_size) == 2 and all(isinstance(value, int) and value > 0 for value in pixel_size)):
+        raise ValueError("Detection cache identity pixelSize is invalid.")
+    width, height = pixel_size
+    candidates = [
+        candidate_from_cache_record(record, width=width, height=height)
+        for record in records
+        if isinstance(record, dict)
+    ]
+    if len(candidates) != len(records):
+        raise ValueError("Detection cache contains a non-object candidate.")
+    expected_ids = [f"vc.{index:04d}" for index in range(1, len(candidates) + 1)]
+    if [candidate.candidate_id for candidate in candidates] != expected_ids:
+        raise ValueError("Detection cache candidate ordering or identifiers are invalid.")
+    window_ids = {window.get("id") for window in expected_identity.get("detectorWindows", []) if isinstance(window, dict)}
+    region_ids = {
+        window.get("id")
+        for window in expected_identity.get("detectorWindows", [])
+        if isinstance(window, dict) and window.get("source") == "requirement"
+    }
+    if any(candidate.source_window is not None and candidate.source_window not in window_ids for candidate in candidates):
+        raise ValueError("Detection cache candidate references an unknown detector window.")
+    if any(candidate.region_id is not None and candidate.region_id not in region_ids for candidate in candidates):
+        raise ValueError("Detection cache candidate references an unknown Requirement region.")
+    return candidates
+
+
+def write_detection_cache(
+    path: Path,
+    key: str,
+    identity: dict[str, Any],
+    candidates: Sequence[Candidate],
+) -> int:
+    records = [candidate_cache_record(candidate) for candidate in candidates]
+    value = {
+        "format": DETECTION_CACHE_FORMAT,
+        "key": key,
+        "identity": identity,
+        "candidatePayloadSha256": sha256_bytes(canonical_json_bytes(records)),
+        "candidates": records,
+    }
+    compressed = gzip.compress(canonical_json_bytes(value), compresslevel=9, mtime=0)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary: Path | None = None
+    try:
+        with tempfile.NamedTemporaryFile(prefix=f".{key}.", suffix=".tmp", dir=path.parent, delete=False) as handle:
+            temporary = Path(handle.name)
+            handle.write(compressed)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(temporary, path)
+        temporary = None
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
+    return len(compressed)
 
 
 def normalized_bbox(bbox: Sequence[int], width: int, height: int) -> list[float]:
@@ -263,13 +548,28 @@ def rgb_to_hsv(rgb: "np.ndarray") -> tuple["np.ndarray", "np.ndarray", "np.ndarr
     return hue, saturation, maximum
 
 
-def component_candidate(detector: str, component: dict[str, Any], *, scale: int = 1, source_window: str | None = None) -> Candidate:
+def component_candidate(
+    detector: str,
+    component: dict[str, Any],
+    *,
+    scale: int = 1,
+    source_window: str | None = None,
+    source_size: tuple[int, int] | None = None,
+) -> Candidate:
     x, y, w, h = component["bbox"]
-    bbox = (x * scale, y * scale, w * scale, h * scale)
     if scale == 1:
+        bbox = (x, y, w, h)
         runs = list(component["runs"])
         area = int(component["area"])
     else:
+        if source_size is None:
+            raise ValueError("Scaled component candidates require the decoded source size.")
+        source_width, source_height = source_size
+        left = x * scale
+        top = y * scale
+        right = min(source_width, (x + w) * scale)
+        bottom = min(source_height, (y + h) * scale)
+        bbox = (left, top, right - left, bottom - top)
         runs = rectangle_runs(bbox)
         area = bbox_area(bbox)
     return Candidate(detector=detector, bbox=bbox, runs=runs, pixel_area=area, source_window=source_window)
@@ -324,6 +624,7 @@ def add_contrast_candidates(rgb: "np.ndarray") -> list[Candidate]:
 
 def add_quantized_candidates(rgb: "np.ndarray") -> list[Candidate]:
     scale = 2
+    source_height, source_width = rgb.shape[:2]
     sampled = rgb[::scale, ::scale]
     height, width = sampled.shape[:2]
     quantized = sampled // 32
@@ -344,7 +645,14 @@ def add_quantized_candidates(rgb: "np.ndarray") -> list[Candidate]:
                 continue
             if w * h > width * height * 0.55:
                 continue
-            candidates.append(component_candidate("quantized-color", component, scale=scale))
+            candidates.append(
+                component_candidate(
+                    "quantized-color",
+                    component,
+                    scale=scale,
+                    source_size=(source_width, source_height),
+                )
+            )
     return candidates
 
 
@@ -429,7 +737,9 @@ def add_band_candidates(rgb: "np.ndarray", windows: Sequence[dict[str, Any]]) ->
                 column_delta = np.linalg.norm(inside_columns - outside_columns, axis=1)
                 column_threshold = max(3.5, float(np.percentile(column_delta, 55)))
                 column_mask = dilate((column_delta >= column_threshold)[None, :], 2)[0]
-                transitions = np.diff(np.pad(column_mask.astype(np.uint8), (1, 1)))
+                # Signed transitions are required: uint8 would wrap the 1 -> 0
+                # edge to 255 and force every detected band back to full width.
+                transitions = np.diff(np.pad(column_mask.astype(np.int8), (1, 1)))
                 starts = np.flatnonzero(transitions == 1)
                 ends = np.flatnonzero(transitions == -1)
                 runs = [(int(left), int(right)) for left, right in zip(starts, ends) if right - left >= width * 0.23]
@@ -991,8 +1301,53 @@ def bbox_gap(left: Sequence[int], right: Sequence[int]) -> tuple[int, int]:
     return horizontal, vertical
 
 
+def review_cluster_pair_indices(open_candidates: Sequence[Candidate]) -> Iterable[tuple[int, int]]:
+    """Yield a lossless superset of every pair that can satisfy the link rule.
+
+    Every link rule requires horizontal intersection or a horizontal gap of at
+    most ten pixels. A left-to-right sweep therefore avoids the prior quadratic
+    all-pairs walk without changing which pairs reach the exact predicate.
+    """
+
+    ordered = sorted(
+        enumerate(open_candidates),
+        key=lambda item: (item[1].bbox[0], item[1].bbox[0] + item[1].bbox[2], item[1].bbox[1], item[0]),
+    )
+    active: list[tuple[int, Candidate]] = []
+    for current_index, current in ordered:
+        current_left = current.bbox[0]
+        active = [
+            (prior_index, prior)
+            for prior_index, prior in active
+            if prior.bbox[0] + prior.bbox[2] + 10 >= current_left
+        ]
+        for prior_index, prior in active:
+            if prior.region_id == current.region_id:
+                yield (min(prior_index, current_index), max(prior_index, current_index))
+        active.append((current_index, current))
+
+
+def review_cluster_candidates_linked(left: Candidate, right: Candidate) -> bool:
+    intersection = bbox_intersection(left.bbox, right.bbox)
+    smaller_area = min(bbox_area(left.bbox), bbox_area(right.bbox))
+    horizontal_gap, vertical_gap = bbox_gap(left.bbox, right.bbox)
+    lx, ly, lw, lh = left.bbox
+    rx, ry, rw, rh = right.bbox
+    horizontal_overlap = max(0, min(lx + lw, rx + rw) - max(lx, rx)) / max(1, min(lw, rw))
+    vertical_overlap = max(0, min(ly + lh, ry + rh) - max(ly, ry)) / max(1, min(lh, rh))
+    return (
+        (smaller_area > 0 and intersection / smaller_area >= 0.18)
+        or (vertical_gap <= 10 and horizontal_overlap >= 0.42)
+        or (horizontal_gap <= 10 and vertical_overlap >= 0.50)
+    )
+
+
 def uncovered_review_clusters(
-    candidates: Sequence[Candidate], image_width: int, image_height: int
+    candidates: Sequence[Candidate],
+    image_width: int,
+    image_height: int,
+    *,
+    diagnostics: dict[str, int] | None = None,
 ) -> list[dict[str, Any]]:
     """Group open primitives into auditable region-scale review subjects.
 
@@ -1009,25 +1364,20 @@ def uncovered_review_clusters(
     union_find = UnionFind()
     for _ in open_candidates:
         union_find.add()
-    for left_index, left in enumerate(open_candidates):
-        for right_index in range(left_index + 1, len(open_candidates)):
-            right = open_candidates[right_index]
-            if left.region_id != right.region_id:
-                continue
-            intersection = bbox_intersection(left.bbox, right.bbox)
-            smaller_area = min(bbox_area(left.bbox), bbox_area(right.bbox))
-            horizontal_gap, vertical_gap = bbox_gap(left.bbox, right.bbox)
-            lx, ly, lw, lh = left.bbox
-            rx, ry, rw, rh = right.bbox
-            horizontal_overlap = max(0, min(lx + lw, rx + rw) - max(lx, rx)) / max(1, min(lw, rw))
-            vertical_overlap = max(0, min(ly + lh, ry + rh) - max(ly, ry)) / max(1, min(lh, rh))
-            linked = (
-                (smaller_area > 0 and intersection / smaller_area >= 0.18)
-                or (vertical_gap <= 10 and horizontal_overlap >= 0.42)
-                or (horizontal_gap <= 10 and vertical_overlap >= 0.50)
-            )
-            if linked:
-                union_find.union(left_index, right_index)
+    pair_comparisons = 0
+    for left_index, right_index in review_cluster_pair_indices(open_candidates):
+        pair_comparisons += 1
+        if review_cluster_candidates_linked(open_candidates[left_index], open_candidates[right_index]):
+            union_find.union(left_index, right_index)
+
+    if diagnostics is not None:
+        diagnostics.update(
+            {
+                "openCandidateCount": len(open_candidates),
+                "pairComparisons": pair_comparisons,
+                "exhaustivePairCount": len(open_candidates) * max(0, len(open_candidates) - 1) // 2,
+            }
+        )
 
     groups: dict[int, list[Candidate]] = defaultdict(list)
     for index, candidate in enumerate(open_candidates):
@@ -1359,53 +1709,83 @@ def run_scan(
     tile_size: int = 256,
     tile_overlap: int = 32,
     independent_review_path: Path | None = None,
+    cache_dir: Path | None = None,
 ) -> dict[str, Any]:
     if output.exists() and any(output.iterdir()):
         raise FileExistsError(f"Output directory must be absent or empty: {output}")
     output.mkdir(parents=True, exist_ok=True)
-    image = ImageOps.exif_transpose(Image.open(image_path)).convert("RGB")
+    source_bytes = image_path.read_bytes()
+    with Image.open(io.BytesIO(source_bytes)) as source_handle:
+        source_media_type = Image.MIME.get(source_handle.format, "image/unknown")
+        image = ImageOps.exif_transpose(source_handle).convert("RGB")
     rgb = np.asarray(image)
     height, width = rgb.shape[:2]
+    source_sha256 = sha256_bytes(source_bytes)
     requirement = load_json(requirement_path) if requirement_path else None
     resolved_layout_paths = layout_paths(layout_inputs)
     layouts = [(path, load_json(path)) for path in resolved_layout_paths]
     windows = requirement_regions(requirement, width, height)
 
-    _, saturation_map, _ = rgb_to_hsv(rgb)
-    raw_candidates: list[Candidate] = []
-    raw_candidates.extend(add_chromatic_candidates(rgb))
-    raw_candidates.extend(add_contrast_candidates(rgb))
-    raw_candidates.extend(add_quantized_candidates(rgb))
-    raw_candidates.extend(add_band_candidates(rgb, windows))
-    for candidate in raw_candidates:
-        candidate_statistics(candidate, rgb, saturation_map)
-    raw_candidates = [candidate for candidate in raw_candidates if candidate.pixel_area >= 12 and candidate.bbox[2] >= 2 and candidate.bbox[3] >= 2]
-    candidates = deduplicate_candidates(raw_candidates)
-    candidates = suppress_band_fragments(candidates)
-    regions = requirement_regions(requirement, width, height)
-    assign_regions(candidates, regions)
-    assign_repeat_groups(candidates, width, height)
-    candidates = suppress_low_information_candidates(candidates, width, height)
-    # Keep all medium/high proposals plus the strongest low proposals for auditability.
-    high_and_medium = [candidate for candidate in candidates if salience_level(candidate.score) != "low"]
-    low = sorted((candidate for candidate in candidates if salience_level(candidate.score) == "low"), key=lambda item: item.score, reverse=True)[:60]
-    candidates = high_and_medium + low
-    candidates.sort(key=lambda candidate: (candidate.bbox[1], candidate.bbox[0], -candidate.pixel_area, candidate.detector))
-    for index, candidate in enumerate(candidates, 1):
-        candidate.candidate_id = f"vc.{index:04d}"
+    cache_identity = detection_cache_identity(rgb, windows)
+    cache_key = sha256_bytes(canonical_json_bytes(cache_identity))
+    cache_path = cache_dir.resolve() / f"{cache_key}.json.gz" if cache_dir is not None else None
+    cache_status = "disabled"
+    cache_entry_bytes = 0
+    cache_error: str | None = None
+    candidates: list[Candidate] | None = None
+    if cache_path is not None and cache_path.is_file():
+        try:
+            loaded_candidates = read_detection_cache(cache_path, cache_key, cache_identity)
+            loaded_entry_bytes = cache_path.stat().st_size
+            candidates = loaded_candidates
+            cache_status = "hit"
+            cache_entry_bytes = loaded_entry_bytes
+        except (OSError, ValueError, TypeError, KeyError, EOFError, UnicodeDecodeError, zlib.error) as error:
+            candidates = None
+            cache_status = "invalid-recomputed"
+            cache_error = type(error).__name__
+    elif cache_path is not None:
+        cache_status = "miss"
+
+    if candidates is None:
+        _, saturation_map, _ = rgb_to_hsv(rgb)
+        raw_candidates: list[Candidate] = []
+        raw_candidates.extend(add_chromatic_candidates(rgb))
+        raw_candidates.extend(add_contrast_candidates(rgb))
+        raw_candidates.extend(add_quantized_candidates(rgb))
+        raw_candidates.extend(add_band_candidates(rgb, windows))
+        for candidate in raw_candidates:
+            candidate_statistics(candidate, rgb, saturation_map)
+        raw_candidates = [candidate for candidate in raw_candidates if candidate.pixel_area >= 12 and candidate.bbox[2] >= 2 and candidate.bbox[3] >= 2]
+        candidates = deduplicate_candidates(raw_candidates)
+        candidates = suppress_band_fragments(candidates)
+        assign_regions(candidates, windows)
+        assign_repeat_groups(candidates, width, height)
+        candidates = suppress_low_information_candidates(candidates, width, height)
+        # Keep all medium/high proposals plus the strongest low proposals for auditability.
+        high_and_medium = [candidate for candidate in candidates if salience_level(candidate.score) != "low"]
+        low = sorted((candidate for candidate in candidates if salience_level(candidate.score) == "low"), key=lambda item: item.score, reverse=True)[:60]
+        candidates = high_and_medium + low
+        candidates.sort(key=lambda candidate: (candidate.bbox[1], candidate.bbox[0], -candidate.pixel_area, candidate.detector))
+        for index, candidate in enumerate(candidates, 1):
+            candidate.candidate_id = f"vc.{index:04d}"
+        if cache_path is not None:
+            try:
+                cache_entry_bytes = write_detection_cache(cache_path, cache_key, cache_identity, candidates)
+            except OSError as error:
+                cache_status = "write-failed-bypassed"
+                cache_error = type(error).__name__
 
     visuals = declared_visuals(requirement, layouts, width, height)
     exclusions = exclusion_rects(requirement, width, height)
     assign_dispositions(candidates, visuals, exclusions, width, height)
 
-    with Image.open(image_path) as source_handle:
-        source_media_type = Image.MIME.get(source_handle.format, "image/unknown")
     source_raster = {
         "version": "0.1",
         "tool": {"name": "visual_coverage_scan", "version": TOOL_VERSION},
         "source": {
             "path": str(image_path.resolve()),
-            "sha256": sha256_file(image_path),
+            "sha256": source_sha256,
             "mediaType": source_media_type,
             "pixelSize": [width, height],
             "decodedMode": "RGB",
@@ -1450,7 +1830,8 @@ def run_scan(
 
     unresolved = [candidate for candidate in candidates if candidate.disposition.get("status") == "unresolved"]
     unresolved_medium_high = [candidate for candidate in unresolved if salience_level(candidate.score) in {"medium", "high"}]
-    review_clusters = uncovered_review_clusters(candidates, width, height)
+    cluster_diagnostics: dict[str, int] = {}
+    review_clusters = uncovered_review_clusters(candidates, width, height, diagnostics=cluster_diagnostics)
     nonexcluded_medium_high = [candidate for candidate in candidates if salience_level(candidate.score) in {"medium", "high"} and candidate.disposition.get("status") != "excluded"]
     terminal = [candidate for candidate in candidates if candidate.disposition.get("status") in TERMINAL_DISPOSITIONS]
     mapped = [candidate for candidate in nonexcluded_medium_high if candidate.disposition.get("status") in {"mapped", "merged"}]
@@ -1520,6 +1901,30 @@ def run_scan(
         write_json(output / "report.json", report)
     contact_sheet = make_fullscan_contact_sheet(image, output, tile_size=tile_size, overlap=tile_overlap)
     write_json(output / "fullscan-contact-sheet.json", contact_sheet)
+    write_json(
+        output / "cache-telemetry.json",
+        {
+            "version": "0.1",
+            "authoritative": False,
+            "cache": {
+                "enabled": cache_path is not None,
+                "status": cache_status,
+                "key": cache_key,
+                "entryFile": cache_path.name if cache_path is not None else None,
+                "entryBytes": cache_entry_bytes,
+                "fallbackReason": cache_error,
+            },
+            "reuse": {
+                "detectorStageReused": cache_status == "hit",
+                "candidateCount": len(candidates),
+            },
+            "reviewClustering": {
+                "algorithm": "lossless-horizontal-sweep-0.1",
+                **cluster_diagnostics,
+            },
+            "equivalenceBoundary": "All authoritative scan JSON and rendered evidence are produced by the same post-cache code path; this telemetry file is the only cache-status-dependent output.",
+        },
+    )
     return report
 
 
@@ -1540,6 +1945,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional independent visual inventory JSON to reconcile geometrically after blind scanning.",
     )
     parser.add_argument("--output", type=Path, required=True, help="New or empty output directory for the evidence packet.")
+    parser.add_argument(
+        "--cache-dir",
+        type=Path,
+        help="Optional trusted, request-local content-addressed detector cache. Corrupt or mismatched entries are ignored and rebuilt.",
+    )
     parser.add_argument("--tile-size", type=int, default=256, help="Full-screen contact-sheet source tile size (default: 256).")
     parser.add_argument("--tile-overlap", type=int, default=32, help="Full-screen contact-sheet overlap in pixels (default: 32).")
     parser.add_argument(
@@ -1573,6 +1983,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             tile_size=args.tile_size,
             tile_overlap=args.tile_overlap,
             independent_review_path=args.independent_review,
+            cache_dir=args.cache_dir,
         )
     except (OSError, ValueError, json.JSONDecodeError) as error:
         print(json.dumps({"valid": False, "error": str(error)}, ensure_ascii=False), file=sys.stderr)

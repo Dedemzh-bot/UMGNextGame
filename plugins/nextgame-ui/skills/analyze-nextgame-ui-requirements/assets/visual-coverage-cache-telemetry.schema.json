@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/visual-coverage-cache-telemetry-0.1.json",
+  "title": "NextGame visual coverage cache telemetry",
+  "type": "object",
+  "required": ["version", "authoritative", "cache", "reuse", "reviewClustering", "equivalenceBoundary"],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "0.1"},
+    "authoritative": {"const": false},
+    "cache": {
+      "type": "object",
+      "required": ["enabled", "status", "key", "entryFile", "entryBytes", "fallbackReason"],
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "status": {"enum": ["disabled", "miss", "hit", "invalid-recomputed", "write-failed-bypassed"]},
+        "key": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "entryFile": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "pattern": "^[0-9a-f]{64}\\.json\\.gz$"}
+          ]
+        },
+        "entryBytes": {"type": "integer", "minimum": 0},
+        "fallbackReason": {
+          "oneOf": [
+            {"type": "null"},
+            {"type": "string", "minLength": 1}
+          ]
+        }
+      }
+    },
+    "reuse": {
+      "type": "object",
+      "required": ["detectorStageReused", "candidateCount"],
+      "additionalProperties": false,
+      "properties": {
+        "detectorStageReused": {"type": "boolean"},
+        "candidateCount": {"type": "integer", "minimum": 0}
+      }
+    },
+    "reviewClustering": {
+      "type": "object",
+      "required": ["algorithm", "openCandidateCount", "pairComparisons", "exhaustivePairCount"],
+      "additionalProperties": false,
+      "properties": {
+        "algorithm": {"const": "lossless-horizontal-sweep-0.1"},
+        "openCandidateCount": {"type": "integer", "minimum": 0},
+        "pairComparisons": {"type": "integer", "minimum": 0},
+        "exhaustivePairCount": {"type": "integer", "minimum": 0}
+      }
+    },
+    "equivalenceBoundary": {"type": "string", "minLength": 1}
+  }
+}

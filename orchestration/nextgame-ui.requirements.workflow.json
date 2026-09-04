@@ -1,8 +1,8 @@
 {
   "schemaRef": "workflow.schema.json",
-  "contractVersion": "1.0.0",
+  "contractVersion": "2.0.0",
   "workflowId": "nextgame-ui-requirements",
-  "workflowVersion": "1.0.0",
+  "workflowVersion": "2.0.0",
   "requestPacketRef": "request-packet.json",
   "artifactExchange": {
     "authority": "filesystem-artifacts",
@@ -11,16 +11,57 @@
     "integrityAlgorithm": "sha256",
     "failClosedOnMissingOrDigestMismatch": true,
     "provenanceRule": "Every validation record and human-gate artifact binds the exact upstream logical paths and canonical SHA-256 digests; missing or stale evidence blocks dispatch.",
+    "compositeOutputs": [
+      {
+        "id": "planned-layout-specs",
+        "ownerStep": "plan-umg-build",
+        "descriptor": "ui-build-bundle.planned.json",
+        "pathSelector": "assets[].layoutSpecPath",
+        "digestSelector": "assets[].layoutSpecSha256",
+        "identitySelector": "assets[].id",
+        "coverageSelector": "assets[].id",
+        "allowedPathPrefix": "layouts/",
+        "consumerStep": "validate-build-plan",
+        "validator": "ui-layout-spec-0.2",
+        "nullPolicy": "only-reuse-only-assets",
+        "requireRunRootContainment": true,
+        "requireDigestMatch": true,
+        "requireCompleteEnumeration": true
+      },
+      {
+        "id": "deterministic-build-plans",
+        "ownerStep": "validate-build-plan",
+        "descriptor": "status/ui-build-plan.pre-mutation-valid.json",
+        "pathSelector": "plans[].path",
+        "digestSelector": "plans[].sha256",
+        "identitySelector": "plans[].assetId",
+        "coverageSelector": "ui-build-bundle.planned.json:execution.buildOrderAssetIds",
+        "allowedPathPrefix": "plans/",
+        "consumerStep": "build-verified-umg",
+        "validator": "deterministic-mcp-build-plan",
+        "nullPolicy": "only-reuse-only-assets",
+        "requireRunRootContainment": true,
+        "requireDigestMatch": true,
+        "requireCompleteEnumeration": true
+      }
+    ],
     "pathStyle": "artifact-root-relative-posix",
     "allowedOutputPrefixes": [
+      "inputs",
+      "agent-inputs",
       "findings",
       "contexts",
+      "review-views",
+      "layouts",
+      "plans",
       "status"
     ],
     "allowedRootOutputs": [
       "ui-requirement.draft.json",
       "ui-requirement.pending.json",
       "ui-requirement.json",
+      "accepted-build-view.json",
+      "ui-build-bundle.planned.json",
       "ui-build-bundle.json",
       "unreal-widget-readback.json",
       "ui-build-acceptance.json",
@@ -28,6 +69,14 @@
       "program-document-content.json",
       "document-verification.json"
     ]
+  },
+  "agentDispatchPolicy": {
+    "promptContract": "packet-path-only",
+    "historyPolicy": "none",
+    "forkTurns": "none",
+    "inheritsConversation": false,
+    "allowModelOverride": false,
+    "allowReasoningOverride": false
   },
   "requiredFindingsRoles": [
     "visual-structure",
@@ -73,18 +122,26 @@
       "execution": "coordinator",
       "dependsOn": [],
       "inputs": ["request-packet.json"],
-      "outputs": ["status/request-packet.validated.json"],
-      "instruction": "Validate the immutable RequestPacket and record its canonical digest before any evidence is delegated.",
-      "contractValidator": "request-packet"
+      "agentInputs": [],
+      "outputs": [
+        "status/request-packet.validated.json",
+        "inputs/shared-widget-shortlist.json",
+        "agent-inputs/visual-structure.json",
+        "agent-inputs/text-requirements.json",
+        "agent-inputs/project-pattern.json"
+      ],
+      "instruction": "Validate the immutable RequestPacket and its canonical digest. In the same coordinator-owned preparation, create the non-executable complete Registry shortlist and the three validated discovery role packets. Each packet must bind the RequestPacket, its exact isolated source subset, plugin authority, output contract, historyPolicy none, forkTurns none, and the packet-only dispatch policy before any discovery agent is started.",
+      "contractValidator": "request-packet-and-discovery-role-packets"
     },
     {
       "id": "discover-visual-structure",
       "kind": "findings",
       "execution": "worker",
       "dependsOn": ["validate-packet"],
-      "inputs": ["request-packet.json"],
+      "inputs": ["request-packet.json", "agent-inputs/visual-structure.json"],
+      "agentInputs": ["agent-inputs/visual-structure.json"],
       "outputs": ["findings/visual-structure.json"],
-      "instruction": "Use only the packet image sources. Emit one AgentFindings document; do not author requirements or consume another agent's output.",
+      "instruction": "Dispatch with no inherited history and a prompt containing only the visual-structure role-packet path. The agent follows the packet's image-only scope and emits one AgentFindings document; it does not author requirements or consume another agent's output.",
       "agentRole": "visual-structure",
       "parallelGroup": "discovery"
     },
@@ -93,9 +150,10 @@
       "kind": "findings",
       "execution": "worker",
       "dependsOn": ["validate-packet"],
-      "inputs": ["request-packet.json"],
+      "inputs": ["request-packet.json", "agent-inputs/text-requirements.json"],
+      "agentInputs": ["agent-inputs/text-requirements.json"],
       "outputs": ["findings/text-requirements.json"],
-      "instruction": "Use only the packet user-text sources. Emit explicit purpose, scope, exclusions, naming, paths, interactions, and acceptance as AgentFindings without visual inference.",
+      "instruction": "Dispatch with no inherited history and a prompt containing only the text-requirements role-packet path. Emit explicit purpose, scope, exclusions, naming, paths, interactions, and acceptance as AgentFindings without visual inference.",
       "agentRole": "text-requirements",
       "parallelGroup": "discovery"
     },
@@ -104,9 +162,14 @@
       "kind": "findings",
       "execution": "worker",
       "dependsOn": ["validate-packet"],
-      "inputs": ["request-packet.json"],
+      "inputs": [
+        "request-packet.json",
+        "inputs/shared-widget-shortlist.json",
+        "agent-inputs/project-pattern.json"
+      ],
+      "agentInputs": ["agent-inputs/project-pattern.json"],
       "outputs": ["findings/project-pattern.json"],
-      "instruction": "Use only project-rule and project-asset sources, including the shared-widget registry. Emit observed precedent as AgentFindings, not as final authority.",
+      "instruction": "Dispatch with no inherited history and a prompt containing only the project-pattern role-packet path. The packet binds project-rule/project-asset sources and the complete non-executable Registry shortlist. Emit observed precedent as AgentFindings, not as final authority.",
       "agentRole": "project-pattern",
       "parallelGroup": "discovery"
     },
@@ -121,12 +184,16 @@
       ],
       "inputs": [
         "request-packet.json",
+        "agent-inputs/visual-structure.json",
+        "agent-inputs/text-requirements.json",
+        "agent-inputs/project-pattern.json",
         "findings/visual-structure.json",
         "findings/text-requirements.json",
         "findings/project-pattern.json"
       ],
+      "agentInputs": [],
       "outputs": ["status/discovery-findings.validated.json"],
-      "instruction": "Validate all three discovery findings against the same RequestPacket. Reject stale digests and cross-source leakage.",
+      "instruction": "Validate all three discovery findings against the same RequestPacket and their exact no-history role packets. Reject stale digests, source-scope drift, output-path drift, and cross-source leakage.",
       "contractValidator": "agent-findings-batch"
     },
     {
@@ -136,12 +203,26 @@
       "dependsOn": ["validate-discovery"],
       "inputs": [
         "request-packet.json",
+        "inputs/shared-widget-shortlist.json",
+        "agent-inputs/visual-structure.json",
+        "agent-inputs/text-requirements.json",
+        "agent-inputs/project-pattern.json",
         "findings/visual-structure.json",
         "findings/text-requirements.json",
         "findings/project-pattern.json"
       ],
-      "outputs": ["contexts/normalized-context.json"],
-      "instruction": "Assign stable canonical IDs and preserve a complete alias-or-discard outcome for every discovery local ID. The normalizer is not an AgentFindings role."
+      "agentInputs": [],
+      "outputs": [
+        "contexts/normalized-context.json",
+        "contexts/roles/state-modeling.json",
+        "contexts/roles/data-adaptation.json",
+        "contexts/roles/asset-decomposition.json",
+        "agent-inputs/state-modeling.json",
+        "agent-inputs/data-adaptation.json",
+        "agent-inputs/asset-decomposition.json"
+      ],
+      "instruction": "Assign stable canonical IDs and preserve a complete alias-or-discard outcome for every discovery local ID. Then deterministically derive and validate the three role-specific focused context projections or exact full-context fallbacks and their no-history role packets. The complete normalized context remains authoritative and is not an AgentFindings role.",
+      "contractValidator": "normalized-context-and-focused-role-packets"
     },
     {
       "id": "analyze-state-modeling",
@@ -150,10 +231,13 @@
       "dependsOn": ["normalize-identities"],
       "inputs": [
         "request-packet.json",
-        "contexts/normalized-context.json"
+        "contexts/normalized-context.json",
+        "contexts/roles/state-modeling.json",
+        "agent-inputs/state-modeling.json"
       ],
+      "agentInputs": ["agent-inputs/state-modeling.json"],
       "outputs": ["findings/state-modeling.json"],
-      "instruction": "Analyze supported state axes, compositions, deltas, evidence, implementation strategy, and high-level control intent against the shared canonical context.",
+      "instruction": "Dispatch with no inherited history and a prompt containing only the state-modeling role-packet path. Analyze supported state axes, compositions, deltas, evidence, implementation strategy, and high-level control intent against the packet-bound role context.",
       "agentRole": "state-modeling",
       "parallelGroup": "focused-analysis"
     },
@@ -164,10 +248,13 @@
       "dependsOn": ["normalize-identities"],
       "inputs": [
         "request-packet.json",
-        "contexts/normalized-context.json"
+        "contexts/normalized-context.json",
+        "contexts/roles/data-adaptation.json",
+        "agent-inputs/data-adaptation.json"
       ],
+      "agentInputs": ["agent-inputs/data-adaptation.json"],
       "outputs": ["findings/data-adaptation.json"],
-      "instruction": "Analyze runtime collections, overflow, responsive intent, text behavior, and immediate-parent panel Slot intent against the shared canonical context.",
+      "instruction": "Dispatch with no inherited history and a prompt containing only the data-adaptation role-packet path. Analyze runtime collections, overflow, responsive intent, text behavior, and immediate-parent panel Slot intent against the packet-bound role context.",
       "agentRole": "data-adaptation",
       "parallelGroup": "focused-analysis"
     },
@@ -178,10 +265,14 @@
       "dependsOn": ["normalize-identities"],
       "inputs": [
         "request-packet.json",
-        "contexts/normalized-context.json"
+        "inputs/shared-widget-shortlist.json",
+        "contexts/normalized-context.json",
+        "contexts/roles/asset-decomposition.json",
+        "agent-inputs/asset-decomposition.json"
       ],
+      "agentInputs": ["agent-inputs/asset-decomposition.json"],
       "outputs": ["findings/asset-decomposition.json"],
-      "instruction": "Analyze semantic asset boundaries, shared-widget reuse, Parent Class children, SlotDown/SlotUp additions, assetKind, dependencies, and build order against the shared canonical context. Persist the closed designSizeModeDecision fields mode, basis, reason, evidenceIds, and claimId for every in-scope asset. Apply the project basename rule before analysis: umg_* always uses mode FillScreen with basis project-umg-rule and empty decision evidenceIds; bind claimId to that asset's reviewed asset-decomposition claim citing the project rule. Only uw_* is evidence-analyzed: viewport-filling uses FillScreen, positively proven local/content-sized controls may use Desired with non-zero root-size evidence, and unclear cases use fallback-unclear with FillScreen. Nonstandard legacy names also use fallback-unclear with FillScreen. assetKind never decides the mode.",
+      "instruction": "Dispatch with no inherited history and a prompt containing only the asset-decomposition role-packet path. Analyze semantic asset boundaries, shared-widget reuse, Parent Class children, SlotDown/SlotUp additions, assetKind, dependencies, and build order. Persist designSizeModeDecision fields mode, basis, reason, evidenceIds, and claimId for every in-scope asset. Apply the project basename rule: umg_* always uses FillScreen with basis project-umg-rule and empty decision evidenceIds; bind claimId to that asset's reviewed asset-decomposition claim citing the project rule. Only uw_* is evidence-analyzed: viewport-filling uses FillScreen, positively proven local/content-sized controls may use Desired with non-zero root-size evidence, and unclear cases use fallback-unclear with FillScreen. Nonstandard legacy names also use fallback-unclear with FillScreen. assetKind never decides the mode.",
       "agentRole": "asset-decomposition",
       "parallelGroup": "focused-analysis"
     },
@@ -197,12 +288,19 @@
       "inputs": [
         "request-packet.json",
         "contexts/normalized-context.json",
+        "contexts/roles/state-modeling.json",
+        "contexts/roles/data-adaptation.json",
+        "contexts/roles/asset-decomposition.json",
+        "agent-inputs/state-modeling.json",
+        "agent-inputs/data-adaptation.json",
+        "agent-inputs/asset-decomposition.json",
         "findings/state-modeling.json",
         "findings/data-adaptation.json",
         "findings/asset-decomposition.json"
       ],
+      "agentInputs": [],
       "outputs": ["status/focused-findings.validated.json"],
-      "instruction": "Validate the focused findings against both the RequestPacket and the identical canonical context.",
+      "instruction": "Validate the focused findings against the RequestPacket, the complete authoritative normalized context, each deterministic role context, and its exact no-history role packet.",
       "contractValidator": "agent-findings-batch"
     },
     {
@@ -212,7 +310,17 @@
       "dependsOn": ["validate-focused"],
       "inputs": [
         "request-packet.json",
+        "inputs/shared-widget-shortlist.json",
         "contexts/normalized-context.json",
+        "contexts/roles/state-modeling.json",
+        "contexts/roles/data-adaptation.json",
+        "contexts/roles/asset-decomposition.json",
+        "agent-inputs/visual-structure.json",
+        "agent-inputs/text-requirements.json",
+        "agent-inputs/project-pattern.json",
+        "agent-inputs/state-modeling.json",
+        "agent-inputs/data-adaptation.json",
+        "agent-inputs/asset-decomposition.json",
         "findings/visual-structure.json",
         "findings/text-requirements.json",
         "findings/project-pattern.json",
@@ -220,8 +328,21 @@
         "findings/data-adaptation.json",
         "findings/asset-decomposition.json"
       ],
-      "outputs": ["ui-requirement.draft.json"],
-      "instruction": "The sole Requirement Synthesizer creates the draft UIRequirementSpec with provenance, confidence, impact, and pending user-review semantics."
+      "agentInputs": [],
+      "outputs": [
+        "ui-requirement.draft.json",
+        "contexts/roles/state-visual-review.json",
+        "contexts/roles/schema-feasibility-review.json",
+        "contexts/roles/coverage-review.json",
+        "review-views/state-visual-review.review-view.json",
+        "review-views/schema-feasibility-review.review-view.json",
+        "review-views/coverage-review.review-view.json",
+        "agent-inputs/state-visual-review.json",
+        "agent-inputs/schema-feasibility-review.json",
+        "agent-inputs/coverage-review.json"
+      ],
+      "instruction": "The sole Requirement Synthesizer creates and freezes the pending immutable ui-requirement.draft.json with provenance, confidence, impact, and user-review semantics. In the same coordinator-owned preparation, deterministically derive and validate the three reviewer role contexts, exactly three dependency-closed Review Views or exact full-Draft fallbacks, and the three no-history reviewer packets. The complete Draft is validator-only authority and is never an Agent input.",
+      "contractValidator": "draft-and-review-role-packets"
     },
     {
       "id": "review-state-visual",
@@ -231,10 +352,14 @@
       "inputs": [
         "request-packet.json",
         "contexts/normalized-context.json",
-        "ui-requirement.draft.json"
+        "ui-requirement.draft.json",
+        "contexts/roles/state-visual-review.json",
+        "review-views/state-visual-review.review-view.json",
+        "agent-inputs/state-visual-review.json"
       ],
+      "agentInputs": ["agent-inputs/state-visual-review.json"],
       "outputs": ["findings/state-visual-review.json"],
-      "instruction": "Adversarially review state completeness and visual evidence. Emit findings only; do not edit the authoritative draft.",
+      "instruction": "Dispatch with no inherited history and a prompt containing only the state-visual-review role-packet path. Adversarially review state completeness and visual evidence through its validated Review View; do not receive or edit the authoritative Draft.",
       "agentRole": "state-visual-review",
       "parallelGroup": "independent-review"
     },
@@ -246,10 +371,14 @@
       "inputs": [
         "request-packet.json",
         "contexts/normalized-context.json",
-        "ui-requirement.draft.json"
+        "ui-requirement.draft.json",
+        "contexts/roles/schema-feasibility-review.json",
+        "review-views/schema-feasibility-review.review-view.json",
+        "agent-inputs/schema-feasibility-review.json"
       ],
+      "agentInputs": ["agent-inputs/schema-feasibility-review.json"],
       "outputs": ["findings/schema-feasibility-review.json"],
-      "instruction": "Review schema validity, references, and downstream buildability. Emit findings only; do not edit the authoritative draft.",
+      "instruction": "Dispatch with no inherited history and a prompt containing only the schema-feasibility-review role-packet path. Review schema validity, references, and downstream buildability through its validated Review View; do not receive or edit the authoritative Draft.",
       "agentRole": "schema-feasibility-review",
       "parallelGroup": "independent-review"
     },
@@ -261,10 +390,14 @@
       "inputs": [
         "request-packet.json",
         "contexts/normalized-context.json",
-        "ui-requirement.draft.json"
+        "ui-requirement.draft.json",
+        "contexts/roles/coverage-review.json",
+        "review-views/coverage-review.review-view.json",
+        "agent-inputs/coverage-review.json"
       ],
+      "agentInputs": ["agent-inputs/coverage-review.json"],
       "outputs": ["findings/coverage-review.json"],
-      "instruction": "Review raster-to-requirement and requirement-to-node coverage, including static images, families, state branches, and asset coverage. Emit findings only.",
+      "instruction": "Dispatch with no inherited history and a prompt containing only the coverage-review role-packet path. Review raster-to-requirement and requirement-to-node coverage through its validated Review View and any packet-bound coverage evidence; do not receive or edit the authoritative Draft.",
       "agentRole": "coverage-review",
       "parallelGroup": "independent-review"
     },
@@ -281,12 +414,23 @@
         "request-packet.json",
         "contexts/normalized-context.json",
         "ui-requirement.draft.json",
+        "contexts/roles/state-visual-review.json",
+        "contexts/roles/schema-feasibility-review.json",
+        "contexts/roles/coverage-review.json",
+        "review-views/state-visual-review.review-view.json",
+        "review-views/schema-feasibility-review.review-view.json",
+        "review-views/coverage-review.review-view.json",
+        "agent-inputs/state-visual-review.json",
+        "agent-inputs/schema-feasibility-review.json",
+        "agent-inputs/coverage-review.json",
         "findings/state-visual-review.json",
         "findings/schema-feasibility-review.json",
         "findings/coverage-review.json"
       ],
+      "agentInputs": [],
       "outputs": ["ui-requirement.pending.json"],
-      "instruction": "The same sole Requirement Synthesizer adjudicates every review finding, records reviewResolutions, and writes the pending authoritative UIRequirementSpec with exactly nine linked AgentFindings."
+      "instruction": "First validate each review finding against the hidden RequestPacket, complete normalized base, its role context, exact role packet, and immutable Draft used to rebuild its Review View. Then the same sole Requirement Synthesizer adjudicates every finding, records reviewResolutions, and writes the pending authoritative UIRequirementSpec with exactly nine linked AgentFindings.",
+      "contractValidator": "agent-findings-batch"
     },
     {
       "id": "strict-validate-requirement",
@@ -295,8 +439,28 @@
       "dependsOn": ["finalize-review-resolutions"],
       "inputs": [
         "request-packet.json",
+        "inputs/shared-widget-shortlist.json",
         "contexts/normalized-context.json",
+        "ui-requirement.draft.json",
         "ui-requirement.pending.json",
+        "agent-inputs/visual-structure.json",
+        "agent-inputs/text-requirements.json",
+        "agent-inputs/project-pattern.json",
+        "agent-inputs/state-modeling.json",
+        "agent-inputs/data-adaptation.json",
+        "agent-inputs/asset-decomposition.json",
+        "agent-inputs/state-visual-review.json",
+        "agent-inputs/schema-feasibility-review.json",
+        "agent-inputs/coverage-review.json",
+        "contexts/roles/state-modeling.json",
+        "contexts/roles/data-adaptation.json",
+        "contexts/roles/asset-decomposition.json",
+        "contexts/roles/state-visual-review.json",
+        "contexts/roles/schema-feasibility-review.json",
+        "contexts/roles/coverage-review.json",
+        "review-views/state-visual-review.review-view.json",
+        "review-views/schema-feasibility-review.review-view.json",
+        "review-views/coverage-review.review-view.json",
         "findings/visual-structure.json",
         "findings/text-requirements.json",
         "findings/project-pattern.json",
@@ -307,8 +471,9 @@
         "findings/schema-feasibility-review.json",
         "findings/coverage-review.json"
       ],
+      "agentInputs": [],
       "outputs": ["status/ui-requirement.strict-valid.json"],
-      "instruction": "Run strict requirement validation with linked-file rehashing, deep AgentFindings validation, role/context checks, and complete alias-or-discard coverage before presenting the user review.",
+      "instruction": "Run validate_requirement_spec.py ui-requirement.pending.json --request-packet request-packet.json --check-findings-files --review-draft ui-requirement.draft.json. Require noHistoryRolePacketsRequired true, a complete authoritative base-context binding, all nine findings-to-role-packet bindings, all six role contexts, all three deterministically rebuilt Review Views, deep AgentFindings validation, and complete alias-or-discard coverage before presenting the user review.",
       "contractValidator": "requirement-spec-strict"
     },
     {
@@ -320,6 +485,7 @@
         "ui-requirement.pending.json",
         "status/ui-requirement.strict-valid.json"
       ],
+      "agentInputs": [],
       "outputs": [],
       "instruction": "The primary coordinator presents the planned assets, state matrix, assumptions, and up to three high-impact questions, then stops. Only after a later direct user acceptance may the primary write the accepted UIRequirementSpec decision artifact.",
       "gate": {
@@ -334,27 +500,117 @@
   "protectedContinuation": {
     "dispatchByDefault": false,
     "schedulerPolicy": "manual-resume-after-verified-gate-artifact",
+    "agentDispatchPolicy": {
+      "promptContract": "single-validated-artifact-path",
+      "historyPolicy": "none",
+      "forkTurns": "none",
+      "inheritsConversation": false,
+      "allowModelOverride": false,
+      "allowReasoningOverride": false
+    },
+    "preMutationEvidenceContract": {
+      "artifact": "status/ui-build-plan.pre-mutation-valid.json",
+      "schemaRef": "build-plan-pre-mutation.schema.json",
+      "toolRef": "scripts/build_plan_evidence.py",
+      "generationMode": "generate-and-self-validate",
+      "revalidationMode": "--validate-only",
+      "requiredBeforeEditorMutation": true
+    },
     "description": "These stages are intentionally outside the default requirements dispatch. A runtime may resume them only after validating the preceding user-authored gate evidence; it may never infer acceptance from a task request, agent completion, or chat summary.",
     "steps": [
+      {
+        "id": "prepare-accepted-build-view",
+        "kind": "projection",
+        "execution": "coordinator",
+        "dependsOn": ["requirements-confirmation"],
+        "inputs": [
+          "request-packet.json",
+          "contexts/normalized-context.json",
+          "ui-requirement.draft.json",
+          "ui-requirement.json",
+          "status/ui-requirement.strict-valid.json",
+          "agent-inputs/visual-structure.json",
+          "agent-inputs/text-requirements.json",
+          "agent-inputs/project-pattern.json",
+          "agent-inputs/state-modeling.json",
+          "agent-inputs/data-adaptation.json",
+          "agent-inputs/asset-decomposition.json",
+          "agent-inputs/state-visual-review.json",
+          "agent-inputs/schema-feasibility-review.json",
+          "agent-inputs/coverage-review.json",
+          "contexts/roles/state-modeling.json",
+          "contexts/roles/data-adaptation.json",
+          "contexts/roles/asset-decomposition.json",
+          "contexts/roles/state-visual-review.json",
+          "contexts/roles/schema-feasibility-review.json",
+          "contexts/roles/coverage-review.json",
+          "review-views/state-visual-review.review-view.json",
+          "review-views/schema-feasibility-review.review-view.json",
+          "review-views/coverage-review.review-view.json",
+          "findings/visual-structure.json",
+          "findings/text-requirements.json",
+          "findings/project-pattern.json",
+          "findings/state-modeling.json",
+          "findings/data-adaptation.json",
+          "findings/asset-decomposition.json",
+          "findings/state-visual-review.json",
+          "findings/schema-feasibility-review.json",
+          "findings/coverage-review.json"
+        ],
+        "agentInputs": [],
+        "outputs": ["accepted-build-view.json"],
+        "instruction": "After the first user gate, re-run strict linked Requirement validation against the accepted ui-requirement.json with --check-findings-files and --review-draft ui-requirement.draft.json. Deterministically build and validate accepted-build-view.json from that exact complete Requirement. Continue only when the View is mode projected, buildAllowed true, coverage complete, and its Requirement file/canonical SHA, approval digest, request identity, revision, and Schema binding all match. A full-fallback or incomplete View blocks construction.",
+        "contractValidator": "accepted-build-view"
+      },
+      {
+        "id": "plan-umg-build",
+        "kind": "build",
+        "execution": "worker",
+        "dependsOn": ["prepare-accepted-build-view"],
+        "inputs": ["ui-requirement.json", "accepted-build-view.json"],
+        "agentInputs": ["accepted-build-view.json"],
+        "outputs": ["ui-build-bundle.planned.json"],
+        "instruction": "Dispatch one fresh build-planning Agent under the protected continuation dispatch policy. Its complete visible input is only accepted-build-view.json; it must read and obey that View's exact dispatchContract, and it receives no inherited history or model/reasoning overrides. The complete ui-requirement.json remains hidden coordinator and validator authority. The Agent emits the composite ui-build-bundle.planned.json output: every non-null assets[].layoutSpecPath is a uniquely enumerated layouts/ sidecar paired with assets[].layoutSpecSha256; null is allowed only for reuse-only assets. The Agent performs no Unreal Editor connection or mutation and is terminated and replaced by a fresh task from the same validated View after any failed receipt or artifact validation.",
+        "contractValidator": "planned-build-bundle-structure"
+      },
+      {
+        "id": "validate-build-plan",
+        "kind": "validation",
+        "execution": "coordinator",
+        "dependsOn": ["plan-umg-build"],
+        "inputs": [
+          "ui-requirement.json",
+          "accepted-build-view.json",
+          "ui-build-bundle.planned.json"
+        ],
+        "agentInputs": [],
+        "outputs": ["status/ui-build-plan.pre-mutation-valid.json"],
+        "instruction": "Before any Unreal Editor connection or mutation, enumerate every non-null layouts/ sidecar from ui-build-bundle.planned.json, enforce run-root containment and unique complete enumeration, verify each layoutSpecSha256, and run its UILayoutSpec 0.2 validator. Then run validate_build_bundle.py ui-build-bundle.planned.json --accepted-build-view accepted-build-view.json, validate_requirement_coverage.py with the same full Requirement and View, and rule-card routing validation. Generate one deterministic native prepare_build.py v0.2 plans/<asset>.plan.json per buildable asset in exact execution.buildOrderAssetIds order; reuse-only assets receive an explicit null/skip record. Run python -B orchestration/scripts/build_plan_evidence.py <artifact-root> --plugin-root <plugin-root>; that closed builder/validator must re-run the full Requirement/View/Bundle/coverage/layout validators, regenerate and exactly compare every native plan, bind all file SHA-256 identities, and atomically write status/ui-build-plan.pre-mutation-valid.json. Its plans[].assetId/path/sha256 records must exactly and completely enumerate the build order; otherwise stop without mutation.",
+        "contractValidator": "build-plan-pre-mutation"
+      },
       {
         "id": "build-verified-umg",
         "kind": "build",
         "execution": "coordinator",
-        "dependsOn": ["requirements-confirmation"],
-        "inputs": ["ui-requirement.json"],
+        "dependsOn": ["validate-build-plan"],
+        "inputs": [
+          "ui-requirement.json",
+          "accepted-build-view.json",
+          "ui-build-bundle.planned.json",
+          "status/ui-build-plan.pre-mutation-valid.json"
+        ],
+        "agentInputs": [],
         "outputs": ["ui-build-bundle.json"],
-        "instruction": "Only after validating the accepted requirement decision artifact, build, compile, save, and verify the authorized UMG assets. Do not treat this portable scheduler as Unreal mutation authority.",
-        "contractValidator": "build-bundle"
+        "instruction": "Connect to Unreal only after validating the pre-mutation barrier by running python -B orchestration/scripts/build_plan_evidence.py <artifact-root> --plugin-root <plugin-root> --validate-only and proving that status/ui-build-plan.pre-mutation-valid.json binds the unchanged full Requirement, Accepted Build View, planned Bundle, layouts, and deterministic native prepare_build.py v0.2 execution plans. Build, compile, save, and verify only the authorized assets. Then write ui-build-bundle.json with actual execution and verification evidence and rerun validate_build_bundle.py ui-build-bundle.json --accepted-build-view accepted-build-view.json plus the complete Requirement coverage validator. Any identity drift stops before further mutation and any final validation failure blocks readback presentation.",
+        "contractValidator": "build-bundle-final"
       },
       {
         "id": "post-save-unreal-readback",
         "kind": "readback",
         "execution": "coordinator",
         "dependsOn": ["build-verified-umg"],
-        "inputs": [
-          "ui-requirement.json",
-          "ui-build-bundle.json"
-        ],
+        "inputs": ["ui-requirement.json", "ui-build-bundle.json"],
+        "agentInputs": [],
         "outputs": ["unreal-widget-readback.json"],
         "instruction": "After the final save, read the actual Unreal Widget state through the approved Editor tool path and validate the normalized readback.",
         "contractValidator": "unreal-widget-readback"
@@ -364,10 +620,8 @@
         "kind": "presentation",
         "execution": "coordinator",
         "dependsOn": ["post-save-unreal-readback"],
-        "inputs": [
-          "ui-build-bundle.json",
-          "unreal-widget-readback.json"
-        ],
+        "inputs": ["ui-build-bundle.json", "unreal-widget-readback.json"],
+        "agentInputs": [],
         "outputs": ["status/build-results.presented.json"],
         "instruction": "Present asset paths, preview evidence, WidgetTree, key properties, and deviations, then stop for an independent post-build user decision."
       },
@@ -382,6 +636,7 @@
           "unreal-widget-readback.json",
           "status/build-results.presented.json"
         ],
+        "agentInputs": [],
         "outputs": [],
         "instruction": "Stop until a later direct user message accepts the displayed final build. Any asset, Bundle, readback, or preview change invalidates this decision.",
         "gate": {
@@ -402,6 +657,7 @@
           "unreal-widget-readback.json",
           "ui-build-acceptance.json"
         ],
+        "agentInputs": [],
         "outputs": [
           "ui-program-handoff.json",
           "program-document-content.json",

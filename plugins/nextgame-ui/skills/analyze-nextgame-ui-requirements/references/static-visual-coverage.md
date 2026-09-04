@@ -10,10 +10,13 @@ python scripts/visual_coverage_scan.py \
   --requirement <ui-requirement.json> \
   --layouts <layouts-directory-or-json-files> \
   --independent-review <optional-human-first-inventory.json> \
+  --cache-dir <request-root/.visual-coverage-cache> \
   --output <new-or-empty-evidence-directory>
 ```
 
 The implementation requires Pillow and NumPy. The scan is deterministic for the same decoded raster, Requirement, Layouts, and tool version. It contains no system-specific coordinates, named colors, expected candidate count, or business labels.
+
+`--cache-dir` enables a content-addressed detector cache. Place it in trusted, private, same-principal request storage outside every evidence output directory; do not use a cache directory writable by another account or process boundary. The payload digest is an accidental-corruption check, not a signature or hostile-writer trust mechanism. Its key binds the decoded RGB pixels and dimensions, the exact Requirement/blind detector windows, scanner source hash, Python implementation/version/platform/byte order, NumPy/Pillow versions, and salience thresholds. Cache entries are therefore reusable only inside an equivalent detector runtime. It intentionally does not cache Requirement/Layout mapping, exclusions, dispositions, independent-review reconciliation, report metrics, or any rendered evidence: those stages rerun from current inputs on every cold or warm scan. A cache entry has a closed shape, candidate-payload hash, raster/bbox/run/area/range/detector/window/region/repetition invariants, and consecutive candidate-ID checks. Missing, corrupt, truncated, unreadable, mismatched, or invariant-breaking entries are ignored and rebuilt. Therefore cold and warm runs must produce byte-identical authoritative JSON and visual evidence; only non-authoritative `cache-telemetry.json` may differ by hit status.
 
 ## Discovery model
 
@@ -37,6 +40,7 @@ Every run writes:
 - `inventory-draft.json`: the same candidates bound to the exact Requirement/Layout hashes, declared visual projections, and evidence-backed exclusions;
 - `report.json`: draft gate metrics and every unresolved medium/high-salience candidate;
 - `report.json` also groups adjacent/overlapping unresolved primitives into traceable review clusters; clusters reduce review workload but never resolve or discard their member IDs;
+- `cache-telemetry.json`: non-authoritative cache hit/miss/fallback data plus lossless-clustering comparison counts; it is never a coverage source or acceptance signal;
 - `candidate-mask.png` and `coverage-mask.png`: union and disposition masks;
 - `inventory-overlay.png` and `uncovered-overlay.png`: numbered audit overlays;
 - `crops/` and `candidate-contact-sheet.png`: review crops for all medium/high candidates;
@@ -45,6 +49,8 @@ Every run writes:
 - `review-reconciliation.json`, when `--independent-review` is supplied: geometry-only candidate/cluster recall against that human-first inventory, with both inputs hash-bound.
 
 Do not edit the authoritative Requirement from scanner output automatically. A reviewer must classify every open candidate as a mapped complete graphic, an evidenced independent layer, a merge into a more accurate whole-graphic candidate, an evidence-backed exclusion, or documented noise. A merge keeps every primitive ID traceable while allowing those local findings to alias to one canonical complete image with a measured outer bound. Genuinely independent static elements still receive stable Requirement identities and geometry even when they are not runtime variables.
+
+Review-cluster adjacency uses a deterministic horizontal sweep only to remove impossible pair comparisons. The exact historical geometry predicate still decides every proposed pair, and all unresolved medium/high candidates remain cluster members. Tests compare the sweep against an exhaustive all-pairs oracle across randomized layouts; clustering is navigation, never permission to skip a primitive or lower the final completeness gate.
 
 ## Required review and gates
 

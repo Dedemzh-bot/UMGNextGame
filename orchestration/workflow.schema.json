@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "urn:nextgame-ui:portable-workflow:1.0.0",
+  "$id": "urn:nextgame-ui:portable-workflow:2.0.0",
   "title": "NextGame UI portable multi-agent workflow",
   "description": "Vendor-neutral orchestration contract. Runtime messages are advisory; filesystem artifacts are authoritative.",
   "type": "object",
@@ -12,6 +12,7 @@
     "workflowVersion",
     "requestPacketRef",
     "artifactExchange",
+    "agentDispatchPolicy",
     "requiredFindingsRoles",
     "parallelGroups",
     "steps",
@@ -23,15 +24,14 @@
       "const": "workflow.schema.json"
     },
     "contractVersion": {
-      "const": "1.0.0"
+      "const": "2.0.0"
     },
     "workflowId": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9-]+$"
     },
     "workflowVersion": {
-      "type": "string",
-      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+      "const": "2.0.0"
     },
     "requestPacketRef": {
       "$ref": "#/$defs/relativePath"
@@ -46,6 +46,7 @@
         "integrityAlgorithm",
         "failClosedOnMissingOrDigestMismatch",
         "provenanceRule",
+        "compositeOutputs",
         "pathStyle",
         "allowedOutputPrefixes",
         "allowedRootOutputs"
@@ -71,6 +72,15 @@
           "type": "string",
           "minLength": 1
         },
+        "compositeOutputs": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/compositeOutput"
+          }
+        },
         "pathStyle": {
           "const": "artifact-root-relative-posix"
         },
@@ -93,6 +103,9 @@
           }
         }
       }
+    },
+    "agentDispatchPolicy": {
+      "$ref": "#/$defs/agentDispatchPolicy"
     },
     "requiredFindingsRoles": {
       "type": "array",
@@ -128,6 +141,8 @@
       "required": [
         "dispatchByDefault",
         "schedulerPolicy",
+        "agentDispatchPolicy",
+        "preMutationEvidenceContract",
         "description",
         "steps"
       ],
@@ -138,13 +153,19 @@
         "schedulerPolicy": {
           "const": "manual-resume-after-verified-gate-artifact"
         },
+        "agentDispatchPolicy": {
+          "$ref": "#/$defs/buildAgentDispatchPolicy"
+        },
+        "preMutationEvidenceContract": {
+          "$ref": "#/$defs/preMutationEvidenceContract"
+        },
         "description": {
           "type": "string",
           "minLength": 1
         },
         "steps": {
           "type": "array",
-          "minItems": 5,
+          "minItems": 8,
           "items": {
             "$ref": "#/$defs/step"
           }
@@ -153,6 +174,102 @@
     }
   },
   "$defs": {
+    "agentDispatchPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "promptContract",
+        "historyPolicy",
+        "forkTurns",
+        "inheritsConversation",
+        "allowModelOverride",
+        "allowReasoningOverride"
+      ],
+      "properties": {
+        "promptContract": {"const": "packet-path-only"},
+        "historyPolicy": {"const": "none"},
+        "forkTurns": {"const": "none"},
+        "inheritsConversation": {"const": false},
+        "allowModelOverride": {"const": false},
+        "allowReasoningOverride": {"const": false}
+      }
+    },
+    "buildAgentDispatchPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "promptContract",
+        "historyPolicy",
+        "forkTurns",
+        "inheritsConversation",
+        "allowModelOverride",
+        "allowReasoningOverride"
+      ],
+      "properties": {
+        "promptContract": {"const": "single-validated-artifact-path"},
+        "historyPolicy": {"const": "none"},
+        "forkTurns": {"const": "none"},
+        "inheritsConversation": {"const": false},
+        "allowModelOverride": {"const": false},
+        "allowReasoningOverride": {"const": false}
+      }
+    },
+    "preMutationEvidenceContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifact",
+        "schemaRef",
+        "toolRef",
+        "generationMode",
+        "revalidationMode",
+        "requiredBeforeEditorMutation"
+      ],
+      "properties": {
+        "artifact": {"const": "status/ui-build-plan.pre-mutation-valid.json"},
+        "schemaRef": {"const": "build-plan-pre-mutation.schema.json"},
+        "toolRef": {"const": "scripts/build_plan_evidence.py"},
+        "generationMode": {"const": "generate-and-self-validate"},
+        "revalidationMode": {"const": "--validate-only"},
+        "requiredBeforeEditorMutation": {"const": true}
+      }
+    },
+    "compositeOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "ownerStep",
+        "descriptor",
+        "pathSelector",
+        "digestSelector",
+        "identitySelector",
+        "coverageSelector",
+        "allowedPathPrefix",
+        "consumerStep",
+        "validator",
+        "nullPolicy",
+        "requireRunRootContainment",
+        "requireDigestMatch",
+        "requireCompleteEnumeration"
+      ],
+      "properties": {
+        "id": {"enum": ["planned-layout-specs", "deterministic-build-plans"]},
+        "ownerStep": {"enum": ["plan-umg-build", "validate-build-plan"]},
+        "descriptor": {"enum": ["ui-build-bundle.planned.json", "status/ui-build-plan.pre-mutation-valid.json"]},
+        "pathSelector": {"enum": ["assets[].layoutSpecPath", "plans[].path"]},
+        "digestSelector": {"enum": ["assets[].layoutSpecSha256", "plans[].sha256"]},
+        "identitySelector": {"enum": ["assets[].id", "plans[].assetId"]},
+        "coverageSelector": {"enum": ["assets[].id", "ui-build-bundle.planned.json:execution.buildOrderAssetIds"]},
+        "allowedPathPrefix": {"enum": ["layouts/", "plans/"]},
+        "consumerStep": {"enum": ["validate-build-plan", "build-verified-umg"]},
+        "validator": {"enum": ["ui-layout-spec-0.2", "deterministic-mcp-build-plan"]},
+        "nullPolicy": {"const": "only-reuse-only-assets"},
+        "requireRunRootContainment": {"const": true},
+        "requireDigestMatch": {"const": true},
+        "requireCompleteEnumeration": {"const": true}
+      }
+    },
     "relativePath": {
       "type": "string",
       "minLength": 1,
@@ -226,6 +343,7 @@
         "execution",
         "dependsOn",
         "inputs",
+        "agentInputs",
         "outputs",
         "instruction"
       ],
@@ -240,6 +358,7 @@
             "validation",
             "findings",
             "normalization",
+            "projection",
             "synthesis",
             "gate",
             "build",
@@ -261,6 +380,13 @@
           }
         },
         "inputs": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/relativePath"
+          }
+        },
+        "agentInputs": {
           "type": "array",
           "uniqueItems": true,
           "items": {
@@ -289,9 +415,15 @@
           "type": "string",
           "enum": [
             "request-packet",
+            "request-packet-and-discovery-role-packets",
             "agent-findings-batch",
+            "normalized-context-and-focused-role-packets",
+            "draft-and-review-role-packets",
             "requirement-spec-strict",
-            "build-bundle",
+            "accepted-build-view",
+            "planned-build-bundle-structure",
+            "build-plan-pre-mutation",
+            "build-bundle-final",
             "unreal-widget-readback",
             "ui-build-acceptance",
             "program-handoff",

@@ -1,0 +1,235 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/accepted-build-view-0.1.json",
+  "title": "NextGame Accepted Requirement Build View",
+  "description": "A non-authoritative, dependency-closed execution projection of one complete accepted UIRequirementSpec.",
+  "type": "object",
+  "required": [
+    "version",
+    "viewKind",
+    "notice",
+    "requestId",
+    "inputDigest",
+    "revision",
+    "mode",
+    "buildAllowed",
+    "fallbackReason",
+    "dispatchContract",
+    "bindings",
+    "coverage",
+    "requirement"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "version": {"const": "0.1"},
+    "viewKind": {"const": "nextgame-ui-accepted-build-view"},
+    "notice": {
+      "const": "Build-planning projection only; the complete accepted Requirement remains authoritative for every validator."
+    },
+    "requestId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"},
+    "inputDigest": {"$ref": "#/$defs/sha256"},
+    "revision": {"type": "integer", "minimum": 1},
+    "mode": {"enum": ["projected", "full-fallback"]},
+    "buildAllowed": {"type": "boolean"},
+    "fallbackReason": {
+      "anyOf": [
+        {"type": "null"},
+        {
+          "enum": [
+            "unknown-requirement-schema",
+            "unknown-reference-shape",
+            "duplicate-canonical-id",
+            "dangling-reference",
+            "reference-type-mismatch",
+            "scope-classification-incomplete",
+            "closure-incomplete",
+            "projection-coverage-incomplete"
+          ]
+        }
+      ]
+    },
+    "dispatchContract": {
+      "type": "object",
+      "required": [
+        "role",
+        "objective",
+        "inputContract",
+        "outputContract",
+        "forbiddenActions",
+        "completionContract"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "role": {"const": "build-planning"},
+        "objective": {"const": "Create the accepted UILayoutSpec set and staged UIBuildBundle without connecting to or mutating Unreal Editor."},
+        "inputContract": {
+          "type": "object",
+          "required": ["visibleArtifact", "viewKind", "completeRequirementVisible"],
+          "additionalProperties": false,
+          "properties": {
+            "visibleArtifact": {"const": "self"},
+            "viewKind": {"const": "nextgame-ui-accepted-build-view"},
+            "completeRequirementVisible": {"const": false}
+          }
+        },
+        "outputContract": {
+          "type": "object",
+          "required": [
+            "bundlePath",
+            "layoutPathPrefix",
+            "layoutPathSelector",
+            "layoutDigestSelector",
+            "exclusive"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "bundlePath": {"const": "ui-build-bundle.planned.json"},
+            "layoutPathPrefix": {"const": "layouts/"},
+            "layoutPathSelector": {"const": "assets[].layoutSpecPath"},
+            "layoutDigestSelector": {"const": "assets[].layoutSpecSha256"},
+            "exclusive": {"const": true}
+          }
+        },
+        "forbiddenActions": {
+          "const": [
+            "read-complete-requirement",
+            "inherit-conversation-history",
+            "connect-unreal-editor",
+            "mutate-unreal-assets",
+            "write-outside-declared-outputs"
+          ]
+        },
+        "completionContract": {
+          "type": "object",
+          "required": [
+            "requiredMode",
+            "requireBuildAllowed",
+            "requireCompleteCoverage",
+            "receiptAfterFilesWritten",
+            "failurePolicy"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "requiredMode": {"const": "projected"},
+            "requireBuildAllowed": {"const": true},
+            "requireCompleteCoverage": {"const": true},
+            "receiptAfterFilesWritten": {"const": true},
+            "failurePolicy": {"const": "stop-without-editor-mutation"}
+          }
+        }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "required": [
+        "requirementFileSha256",
+        "requirementCanonicalSha256",
+        "approvedContentSha256",
+        "requirementSchemaId",
+        "requirementSchemaSha256",
+        "viewContentCanonicalSha256"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "requirementFileSha256": {"$ref": "#/$defs/sha256"},
+        "requirementCanonicalSha256": {"$ref": "#/$defs/sha256"},
+        "approvedContentSha256": {"$ref": "#/$defs/sha256"},
+        "requirementSchemaId": {"type": "string", "minLength": 1},
+        "requirementSchemaSha256": {"$ref": "#/$defs/sha256"},
+        "viewContentCanonicalSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "coverage": {
+      "type": "object",
+      "required": [
+        "status",
+        "acceptedClaims",
+        "elements",
+        "states",
+        "acceptanceCriteria",
+        "missingCanonicalIds"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "status": {"enum": ["complete", "incomplete", "indeterminate"]},
+        "acceptedClaims": {"$ref": "#/$defs/claimPartition"},
+        "elements": {"$ref": "#/$defs/scopePartition"},
+        "states": {"$ref": "#/$defs/scopePartition"},
+        "acceptanceCriteria": {"$ref": "#/$defs/scopePartition"},
+        "missingCanonicalIds": {"$ref": "#/$defs/idArray"}
+      }
+    },
+    "requirement": {"type": "object", "minProperties": 1}
+  },
+  "oneOf": [
+    {
+      "properties": {
+        "mode": {"const": "projected"},
+        "buildAllowed": {"const": true},
+        "fallbackReason": {"type": "null"},
+        "coverage": {
+          "properties": {
+            "status": {"const": "complete"},
+            "missingCanonicalIds": {"maxItems": 0}
+          }
+        }
+      }
+    },
+    {
+      "properties": {
+        "mode": {"const": "full-fallback"},
+        "buildAllowed": {"const": false},
+        "fallbackReason": {"type": "string"},
+        "coverage": {
+          "properties": {
+            "status": {"enum": ["incomplete", "indeterminate"]}
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9.-]{2,95}$"},
+    "idArray": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/id"},
+      "uniqueItems": true
+    },
+    "nonBuildMarker": {
+      "type": "object",
+      "required": ["canonicalId", "reason"],
+      "additionalProperties": false,
+      "properties": {
+        "canonicalId": {"$ref": "#/$defs/id"},
+        "reason": {"type": "string", "minLength": 1}
+      }
+    },
+    "nonBuildMarkers": {
+      "type": "array",
+      "items": {"$ref": "#/$defs/nonBuildMarker"}
+    },
+    "claimPartition": {
+      "type": "object",
+      "required": ["buildProjected", "explicitNonBuild"],
+      "additionalProperties": false,
+      "properties": {
+        "buildProjected": {"$ref": "#/$defs/idArray"},
+        "explicitNonBuild": {
+          "type": "array",
+          "maxItems": 0,
+          "items": {"$ref": "#/$defs/nonBuildMarker"}
+        }
+      }
+    },
+    "scopePartition": {
+      "type": "object",
+      "required": ["buildProjected", "explicitNonBuild"],
+      "additionalProperties": false,
+      "properties": {
+        "buildProjected": {"$ref": "#/$defs/idArray"},
+        "explicitNonBuild": {"$ref": "#/$defs/nonBuildMarkers"}
+      }
+    }
+  }
+}

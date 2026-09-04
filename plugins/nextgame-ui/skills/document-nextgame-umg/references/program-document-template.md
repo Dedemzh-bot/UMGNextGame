@@ -1,6 +1,6 @@
 # NextGame UMG program-document template contract
 
-Use this contract only after `UIProgramHandoff` and `program-document-content.json` have passed their validators. The packaged DOCX is the presentation authority; the two verified JSON artifacts are the only business-content authority. If presentation and data disagree, preserve the verified data and adapt the layout.
+Use this contract only after `UIProgramHandoff` and `program-document-content.json` have passed their validators. `build_program_docx.py` must also revalidate their current Requirement, Bundle, Unreal Readback, and post-build acceptance bindings before it writes. The packaged DOCX is the presentation authority; the two verified JSON artifacts are the only document business-content authority. If presentation and data disagree, preserve the verified data and adapt the layout.
 
 ## Normative status and authority
 
@@ -65,3 +65,4 @@ Keep `program-document-content.json.requiredSemanticRelationshipStatements`, Rea
 - Never use raw Requirement, Bundle, UILayoutSpec, source prose, or reference-image labels as replacement business data during this stage.
 - The retained DOCX contains presentation placeholders only. Remove all placeholders before verification.
 - The template does not weaken the three-authoritative-source plus post-build-acceptance contract, handoff/schema validators, policy exclusions, machine-side semantic auditing, canonical rendering, or page-by-page visual review. The acceptance authorizes document generation but is not business content to reproduce in the DOCX.
+- Production DOCX authoring is deterministic: the builder fixes the neutral reference and output contract, uses stable asset-order projections and fixed-safe Chinese suffixes, atomically replaces only changed bytes, and canonicalizes OPC part order, timestamps, platform attributes, and storage method. Identical validated inputs must yield identical DOCX bytes; PDF bytes are not required to match, so page rendering and visual review remain mandatory.

@@ -1,0 +1,118 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/analysis-role-packet-0.1.json",
+  "title": "NextGame UI no-history analysis role packet",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "requestId", "agentRole", "round", "historyPolicy", "inputDigest", "requestBinding", "roleCard", "sourceScope", "sources", "sourceBindings", "outputRef", "outputContract", "authority"],
+  "properties": {
+    "version": {"const": "0.1"},
+    "requestId": {"type": "string", "pattern": "^[a-z0-9][a-z0-9-]{2,63}$"},
+    "agentRole": {"enum": ["visual-structure", "text-requirements", "project-pattern", "state-modeling", "data-adaptation", "asset-decomposition", "state-visual-review", "schema-feasibility-review", "coverage-review"]},
+    "round": {"enum": ["discovery", "focused", "review"]},
+    "historyPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "forkTurns", "inheritsConversation"],
+      "properties": {
+        "mode": {"const": "none"},
+        "forkTurns": {"const": "none"},
+        "inheritsConversation": {"const": false}
+      }
+    },
+    "inputDigest": {"$ref": "#/$defs/sha256"},
+    "requestBinding": {"$ref": "#/$defs/hashBinding"},
+    "roleCard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "sha256", "objective", "constraints"],
+      "properties": {
+        "id": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "objective": {"type": "string", "minLength": 1},
+        "constraints": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      }
+    },
+    "sourceScope": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^source-[a-z0-9][a-z0-9-]*$"}},
+    "sources": {"type": "array", "items": {"type": "object"}},
+    "sourceBindings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["sourceKey", "kind"],
+        "properties": {
+          "sourceKey": {"type": "string", "pattern": "^source-[a-z0-9][a-z0-9-]*$"},
+          "kind": {"enum": ["image", "user-text", "project-asset", "project-rule", "other"]},
+          "contentSha256": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    },
+    "context": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "fileSha256", "canonicalSha256", "baseContextCanonicalSha256", "profile", "mode"],
+      "properties": {
+        "ref": {"$ref": "#/$defs/relativePath"},
+        "fileSha256": {"$ref": "#/$defs/sha256"},
+        "canonicalSha256": {"$ref": "#/$defs/sha256"},
+        "baseContextCanonicalSha256": {"$ref": "#/$defs/sha256"},
+        "profile": {"type": "string", "pattern": "^[a-z0-9-]+-v[0-9]+$"},
+        "mode": {"enum": ["projected", "full-fallback"]}
+      }
+    },
+    "additionalInputs": {"type": "array", "items": {"$ref": "#/$defs/namedBinding"}},
+    "attachedInputs": {"type": "array", "items": {"$ref": "#/$defs/namedBinding"}},
+    "outputRef": {"$ref": "#/$defs/relativePath"},
+    "outputContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schemaId", "schemaSha256"],
+      "properties": {
+        "schemaId": {"const": "https://nextgame.local/schemas/ui-agent-findings-0.1.json"},
+        "schemaSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pluginVersion", "pluginManifestSha256", "roleCardsSha256"],
+      "properties": {
+        "pluginVersion": {"type": "string", "minLength": 1},
+        "pluginManifestSha256": {"$ref": "#/$defs/sha256"},
+        "roleCardsSha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "relativePath": {"type": "string", "minLength": 1, "pattern": "^(?![A-Za-z]:)(?!/)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\\\]+$"},
+    "fileBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ref", "sha256"],
+      "properties": {
+        "ref": {"$ref": "#/$defs/relativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "hashBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256"],
+      "properties": {
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "namedBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "ref", "sha256"],
+      "properties": {
+        "kind": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+        "ref": {"$ref": "#/$defs/relativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

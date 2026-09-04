@@ -124,7 +124,7 @@ def error_codes(report: dict) -> set[str]:
 
 class FinalizedSources:
     def __init__(self) -> None:
-        self.root = SKILL_ROOT.parents[5] / "Saved" / "CodexUITests" / "document-nextgame-umg"
+        self.root = SKILL_ROOT.parents[3] / "Saved" / "CodexUITests" / "document-nextgame-umg"
         if self.root.exists():
             shutil.rmtree(self.root)
         self.root.mkdir(parents=True)

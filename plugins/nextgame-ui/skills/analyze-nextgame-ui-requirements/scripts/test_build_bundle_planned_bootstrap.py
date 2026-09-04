@@ -11,11 +11,12 @@ import unittest
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
+from unittest.mock import patch
 
 import test_build_bundle_reuse_relations as reuse_fixtures
+import validate_build_bundle as build_bundle_validator
 from _contract_common import sha256_file
 from validate_build_bundle import (
-    AUTHORITATIVE_SHARED_REGISTRY,
     _is_allowed_bootstrap_source,
     _validate_shared_bootstrap_binding,
 )
@@ -28,10 +29,34 @@ PLUGIN_ROOT = Path(__file__).resolve().parents[3]
 
 @contextmanager
 def project_temporary_directory():
-    path = PLUGIN_ROOT / f".bootstrap-test-{uuid.uuid4().hex}"
+    test_root = PLUGIN_ROOT.parent.parent / "Saved" / "CodexUITestTemp"
+    test_root.mkdir(parents=True, exist_ok=True)
+    path = test_root / f"bootstrap-test-{uuid.uuid4().hex}"
     path.mkdir()
     try:
-        yield path
+        (path / "NextGame.uproject").write_text("{}\n", encoding="utf-8")
+        registry = load_json(build_bundle_validator.AUTHORITATIVE_SHARED_REGISTRY)
+        registry["entries"] = [
+            copy.deepcopy(
+                next(
+                    entry
+                    for entry in registry["entries"]
+                    if entry["id"] == "shared.common.bag-item"
+                )
+            )
+        ]
+        registry_path = path / "authority" / "shared-widget-registry.json"
+        registry_path.parent.mkdir()
+        registry_path.write_text(
+            json.dumps(registry, ensure_ascii=False, indent=2, allow_nan=False) + "\n",
+            encoding="utf-8",
+        )
+        with patch.object(
+            build_bundle_validator,
+            "AUTHORITATIVE_SHARED_REGISTRY",
+            registry_path,
+        ):
+            yield path
     finally:
         shutil.rmtree(path)
 
@@ -175,7 +200,8 @@ class PlannedBootstrapBindingTests(unittest.TestCase):
         layout_path.write_text(json.dumps(layout, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
         layout_hash = sha256_file(layout_path)
 
-        registry = load_json(AUTHORITATIVE_SHARED_REGISTRY)
+        registry_path = build_bundle_validator.AUTHORITATIVE_SHARED_REGISTRY
+        registry = load_json(registry_path)
         entry = {
             "id": "shared.common.bootstrap-test",
             "status": "planned-bootstrap",
@@ -207,7 +233,7 @@ class PlannedBootstrapBindingTests(unittest.TestCase):
                 "registryId": registry["registryId"],
                 "registryVersion": registry["version"],
                 "registryRevision": registry["registryRevision"],
-                "registrySha256": sha256_file(AUTHORITATIVE_SHARED_REGISTRY),
+                "registrySha256": sha256_file(registry_path),
             },
             "entries": [entry],
         }
@@ -271,6 +297,9 @@ class PlannedBootstrapBindingTests(unittest.TestCase):
     def test_existing_common_currency_package_cannot_use_bootstrap(self) -> None:
         with project_temporary_directory() as task_root:
             _, source_asset, binding = self.write_contract(task_root, asset_name="uw_common_currency")
+            package_path = task_root / "Content" / "UI" / "UMG" / "Widgets" / "uw_common_currency.uasset"
+            package_path.parent.mkdir(parents=True)
+            package_path.write_bytes(b"synthetic-existing-package")
             errors = _validate_shared_bootstrap_binding(
                 binding,
                 source_asset=source_asset,

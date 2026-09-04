@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/build-plan-pre-mutation-evidence-0.1.json",
+  "title": "NextGame pre-mutation build-plan evidence",
+  "description": "Fail-closed evidence that binds one accepted Requirement, Accepted Build View, staged Bundle, layout set, and per-asset build-plan set before Unreal mutation.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "artifactPath",
+    "generatedAtUtc",
+    "bindings",
+    "layouts",
+    "plans",
+    "checks"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {"const": "0.1"},
+    "artifactPath": {"const": "status/ui-build-plan.pre-mutation-valid.json"},
+    "generatedAtUtc": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.[0-9]+)?Z$"
+    },
+    "bindings": {"$ref": "#/$defs/bindings"},
+    "layouts": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/layoutRecord"}
+    },
+    "plans": {
+      "type": "array",
+      "minItems": 1,
+      "items": {"$ref": "#/$defs/planRecord"}
+    },
+    "checks": {"$ref": "#/$defs/checks"}
+  },
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "assetId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9.-]{2,95}$"
+    },
+    "artifactRelativePath": {
+      "type": "string",
+      "minLength": 1,
+      "pattern": "^(?!/)(?!.*\\\\)(?!.*(?:^|/)\\.\\.(?:/|$))[^\\u0000]+$"
+    },
+    "boundArtifact": {
+      "type": "object",
+      "required": ["path", "sha256"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {"$ref": "#/$defs/artifactRelativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "requirementBoundArtifact": {
+      "type": "object",
+      "required": ["path", "sha256", "requirementFileSha256"],
+      "additionalProperties": false,
+      "properties": {
+        "path": {"$ref": "#/$defs/artifactRelativePath"},
+        "sha256": {"$ref": "#/$defs/sha256"},
+        "requirementFileSha256": {"$ref": "#/$defs/sha256"}
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "required": ["requirement", "acceptedBuildView", "plannedBundle"],
+      "additionalProperties": false,
+      "properties": {
+        "requirement": {"$ref": "#/$defs/boundArtifact"},
+        "acceptedBuildView": {"$ref": "#/$defs/requirementBoundArtifact"},
+        "plannedBundle": {"$ref": "#/$defs/requirementBoundArtifact"}
+      }
+    },
+    "layoutRecord": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["assetId", "representationKind", "path", "sha256", "skipReason"],
+          "additionalProperties": false,
+          "properties": {
+            "assetId": {"$ref": "#/$defs/assetId"},
+            "representationKind": {"const": "layout-spec"},
+            "path": {"type": "string", "pattern": "^layouts/(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "skipReason": {"type": "null"}
+          }
+        },
+        {
+          "type": "object",
+          "required": ["assetId", "representationKind", "path", "sha256", "skipReason"],
+          "additionalProperties": false,
+          "properties": {
+            "assetId": {"$ref": "#/$defs/assetId"},
+            "representationKind": {"const": "reuse-only"},
+            "path": {"type": "null"},
+            "sha256": {"type": "null"},
+            "skipReason": {"const": "reuse-only"}
+          }
+        }
+      ]
+    },
+    "planRecord": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "assetId",
+            "representationKind",
+            "path",
+            "sha256",
+            "sourceSpec",
+            "assetPath",
+            "layoutSpecSha256",
+            "requirementFileSha256",
+            "acceptedBuildViewFileSha256",
+            "plannedBundleFileSha256",
+            "planCanonicalSha256",
+            "stepCount",
+            "skipReason"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "assetId": {"$ref": "#/$defs/assetId"},
+            "representationKind": {"const": "layout-spec"},
+            "path": {"type": "string", "pattern": "^plans/[a-z][a-z0-9.-]{2,95}\\.plan\\.json$"},
+            "sha256": {"$ref": "#/$defs/sha256"},
+            "sourceSpec": {"type": "string", "pattern": "^layouts/(?!.*(?:^|/)\\.\\.(?:/|$))(?!.*\\\\).+$"},
+            "assetPath": {"type": "string", "pattern": "^/Game/UI/(?:AIPrototype(?:/.*)?|UMG/.+)$"},
+            "layoutSpecSha256": {"$ref": "#/$defs/sha256"},
+            "requirementFileSha256": {"$ref": "#/$defs/sha256"},
+            "acceptedBuildViewFileSha256": {"$ref": "#/$defs/sha256"},
+            "plannedBundleFileSha256": {"$ref": "#/$defs/sha256"},
+            "planCanonicalSha256": {"$ref": "#/$defs/sha256"},
+            "stepCount": {"type": "integer", "minimum": 1},
+            "skipReason": {"type": "null"}
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "assetId",
+            "representationKind",
+            "path",
+            "sha256",
+            "sourceSpec",
+            "assetPath",
+            "layoutSpecSha256",
+            "requirementFileSha256",
+            "acceptedBuildViewFileSha256",
+            "plannedBundleFileSha256",
+            "planCanonicalSha256",
+            "stepCount",
+            "skipReason"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "assetId": {"$ref": "#/$defs/assetId"},
+            "representationKind": {"const": "reuse-only"},
+            "path": {"type": "null"},
+            "sha256": {"type": "null"},
+            "sourceSpec": {"type": "null"},
+            "assetPath": {"type": "string", "pattern": "^/Game/UI/(?:AIPrototype(?:/.*)?|UMG/.+)$"},
+            "layoutSpecSha256": {"type": "null"},
+            "requirementFileSha256": {"$ref": "#/$defs/sha256"},
+            "acceptedBuildViewFileSha256": {"$ref": "#/$defs/sha256"},
+            "plannedBundleFileSha256": {"$ref": "#/$defs/sha256"},
+            "planCanonicalSha256": {"type": "null"},
+            "stepCount": {"const": 0},
+            "skipReason": {"const": "reuse-only"}
+          }
+        }
+      ]
+    },
+    "checks": {
+      "type": "object",
+      "required": [
+        "requirementHashBound",
+        "fullRequirementValid",
+        "acceptedViewBindsRequirement",
+        "acceptedViewValid",
+        "plannedBundleBindsRequirement",
+        "plannedBundleValid",
+        "requirementCoverageValid",
+        "assetCoverageExact",
+        "assetIdsUnique",
+        "assetOrderPreserved",
+        "layoutCoverageExact",
+        "layoutContractsValid",
+        "layoutPathsContained",
+        "layoutHashesValid",
+        "planCoverageExact",
+        "nativePlansDeterministic",
+        "planPathsContained",
+        "planHashesValid"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "requirementHashBound": {"const": true},
+        "fullRequirementValid": {"const": true},
+        "acceptedViewBindsRequirement": {"const": true},
+        "acceptedViewValid": {"const": true},
+        "plannedBundleBindsRequirement": {"const": true},
+        "plannedBundleValid": {"const": true},
+        "requirementCoverageValid": {"const": true},
+        "assetCoverageExact": {"const": true},
+        "assetIdsUnique": {"const": true},
+        "assetOrderPreserved": {"const": true},
+        "layoutCoverageExact": {"const": true},
+        "layoutContractsValid": {"const": true},
+        "layoutPathsContained": {"const": true},
+        "layoutHashesValid": {"const": true},
+        "planCoverageExact": {"const": true},
+        "nativePlansDeterministic": {"const": true},
+        "planPathsContained": {"const": true},
+        "planHashesValid": {"const": true}
+      }
+    }
+  }
+}

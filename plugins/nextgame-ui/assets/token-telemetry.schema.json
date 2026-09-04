@@ -1,0 +1,496 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nextgame.local/schemas/token-telemetry.schema.json",
+  "title": "NextGame UI Token Telemetry Ledger",
+  "description": "A privacy-bounded ledger that separates provider model-call receipts, tokenizer proxies, and local-operation proxies. Version 1.0 ledgers are migrated conservatively by the Python loader but are not valid new 1.1 documents.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "events"],
+  "properties": {
+    "schemaVersion": {"const": "1.1"},
+    "events": {"type": "array", "items": {"$ref": "#/$defs/event"}}
+  },
+  "$defs": {
+    "identifier": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$"
+    },
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,6})?Z$"
+    },
+    "counter": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 9223372036854775807
+    },
+    "metricName": {
+      "enum": [
+        "inputTokens",
+        "cachedInputTokens",
+        "outputTokens",
+        "reasoningTokens",
+        "visionTokens",
+        "instructionBytes",
+        "toolInputBytes",
+        "toolOutputBytes",
+        "artifactBytes",
+        "imageCount",
+        "imagePixels",
+        "agentCount",
+        "toolCallCount",
+        "cacheHitCount",
+        "cacheMissCount",
+        "tokenizerProxyTokens"
+      ]
+    },
+    "tokenMetricName": {
+      "enum": [
+        "inputTokens",
+        "cachedInputTokens",
+        "outputTokens",
+        "reasoningTokens",
+        "visionTokens"
+      ]
+    },
+    "metricMap": {
+      "type": "object",
+      "propertyNames": {"$ref": "#/$defs/metricName"},
+      "additionalProperties": {"$ref": "#/$defs/counter"}
+    },
+    "eventKindCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["local-operation", "model-call", "legacy-unclassified"],
+      "properties": {
+        "local-operation": {"$ref": "#/$defs/counter"},
+        "model-call": {"$ref": "#/$defs/counter"},
+        "legacy-unclassified": {"$ref": "#/$defs/counter"}
+      }
+    },
+    "tokenMeasurementCounts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applicableCallCount",
+        "measuredCallCount",
+        "notApplicableCount",
+        "unmeasuredCallCount"
+      ],
+      "properties": {
+        "applicableCallCount": {"$ref": "#/$defs/counter"},
+        "measuredCallCount": {"$ref": "#/$defs/counter"},
+        "notApplicableCount": {"$ref": "#/$defs/counter"},
+        "unmeasuredCallCount": {"$ref": "#/$defs/counter"}
+      }
+    },
+    "tokenMeasurementMap": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "inputTokens",
+        "cachedInputTokens",
+        "outputTokens",
+        "reasoningTokens",
+        "visionTokens"
+      ],
+      "properties": {
+        "inputTokens": {"$ref": "#/$defs/tokenMeasurementCounts"},
+        "cachedInputTokens": {"$ref": "#/$defs/tokenMeasurementCounts"},
+        "outputTokens": {"$ref": "#/$defs/tokenMeasurementCounts"},
+        "reasoningTokens": {"$ref": "#/$defs/tokenMeasurementCounts"},
+        "visionTokens": {"$ref": "#/$defs/tokenMeasurementCounts"}
+      }
+    },
+    "summaryBucket": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "eventCount",
+        "totals",
+        "metricEventCounts",
+        "metricCoverageCounts",
+        "eventKindCounts",
+        "tokenMeasurement"
+      ],
+      "properties": {
+        "eventCount": {"$ref": "#/$defs/counter"},
+        "totals": {"$ref": "#/$defs/metricMap"},
+        "metricEventCounts": {"$ref": "#/$defs/metricMap"},
+        "metricCoverageCounts": {
+          "description": "Compatibility field: measured plus explicitly not-applicable events. It is not proof of token measurement completeness.",
+          "$ref": "#/$defs/metricMap"
+        },
+        "eventKindCounts": {"$ref": "#/$defs/eventKindCounts"},
+        "tokenMeasurement": {"$ref": "#/$defs/tokenMeasurementMap"}
+      }
+    },
+    "summary": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "ok",
+        "schemaVersion",
+        "eventCount",
+        "totals",
+        "metricEventCounts",
+        "metricCoverageCounts",
+        "eventKindCounts",
+        "tokenMeasurement",
+        "byStage"
+      ],
+      "properties": {
+        "ok": {"const": true},
+        "schemaVersion": {"const": "1.1"},
+        "eventCount": {"$ref": "#/$defs/counter"},
+        "totals": {"$ref": "#/$defs/metricMap"},
+        "metricEventCounts": {"$ref": "#/$defs/metricMap"},
+        "metricCoverageCounts": {"$ref": "#/$defs/metricMap"},
+        "eventKindCounts": {"$ref": "#/$defs/eventKindCounts"},
+        "tokenMeasurement": {"$ref": "#/$defs/tokenMeasurementMap"},
+        "byStage": {
+          "type": "object",
+          "propertyNames": {"$ref": "#/$defs/identifier"},
+          "additionalProperties": {"$ref": "#/$defs/summaryBucket"}
+        }
+      }
+    },
+    "event": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["requestId", "stage", "operation", "timestamp", "eventKind"],
+      "properties": {
+        "requestId": {"$ref": "#/$defs/identifier"},
+        "stage": {"$ref": "#/$defs/identifier"},
+        "operation": {"$ref": "#/$defs/identifier"},
+        "timestamp": {"$ref": "#/$defs/timestamp"},
+        "eventKind": {"enum": ["local-operation", "model-call", "legacy-unclassified"]},
+        "notApplicableMetrics": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/metricName"}
+        },
+        "unmeasuredMetrics": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/metricName"}
+        },
+        "provider": {"$ref": "#/$defs/identifier"},
+        "model": {"$ref": "#/$defs/identifier"},
+        "agentRole": {"$ref": "#/$defs/identifier"},
+        "tokenSource": {"enum": ["provider-receipt", "tokenizer-proxy"]},
+        "measurementBoundaryId": {"$ref": "#/$defs/identifier"},
+        "callIdDigest": {"$ref": "#/$defs/digest"},
+        "runIdDigest": {"$ref": "#/$defs/digest"},
+        "usageReceiptSha256": {"$ref": "#/$defs/digest"},
+        "pluginTreeSha256": {"$ref": "#/$defs/digest"},
+        "qualityReceiptSha256": {"$ref": "#/$defs/digest"},
+        "tokenizerEncoding": {"$ref": "#/$defs/identifier"},
+        "tokenizerVersion": {"$ref": "#/$defs/identifier"},
+        "inputTokens": {"$ref": "#/$defs/counter"},
+        "cachedInputTokens": {"$ref": "#/$defs/counter"},
+        "outputTokens": {"$ref": "#/$defs/counter"},
+        "reasoningTokens": {"$ref": "#/$defs/counter"},
+        "visionTokens": {"$ref": "#/$defs/counter"},
+        "instructionBytes": {"$ref": "#/$defs/counter"},
+        "toolInputBytes": {"$ref": "#/$defs/counter"},
+        "toolOutputBytes": {"$ref": "#/$defs/counter"},
+        "artifactBytes": {"$ref": "#/$defs/counter"},
+        "imageCount": {"$ref": "#/$defs/counter"},
+        "imagePixels": {"$ref": "#/$defs/counter"},
+        "agentCount": {"$ref": "#/$defs/counter"},
+        "toolCallCount": {"$ref": "#/$defs/counter"},
+        "cacheHitCount": {"$ref": "#/$defs/counter"},
+        "cacheMissCount": {"$ref": "#/$defs/counter"},
+        "tokenizerProxyTokens": {"$ref": "#/$defs/counter"}
+      },
+      "anyOf": [
+        {"required": ["inputTokens"]},
+        {"required": ["cachedInputTokens"]},
+        {"required": ["outputTokens"]},
+        {"required": ["reasoningTokens"]},
+        {"required": ["visionTokens"]},
+        {"required": ["instructionBytes"]},
+        {"required": ["toolInputBytes"]},
+        {"required": ["toolOutputBytes"]},
+        {"required": ["artifactBytes"]},
+        {"required": ["imageCount"]},
+        {"required": ["imagePixels"]},
+        {"required": ["agentCount"]},
+        {"required": ["toolCallCount"]},
+        {"required": ["cacheHitCount"]},
+        {"required": ["cacheMissCount"]},
+        {"required": ["tokenizerProxyTokens"]}
+      ],
+      "allOf": [
+        {
+          "if": {"properties": {"eventKind": {"const": "local-operation"}}},
+          "then": {
+            "required": ["notApplicableMetrics"],
+            "properties": {
+              "notApplicableMetrics": {
+                "allOf": [
+                  {"contains": {"const": "inputTokens"}},
+                  {"contains": {"const": "cachedInputTokens"}},
+                  {"contains": {"const": "outputTokens"}},
+                  {"contains": {"const": "reasoningTokens"}},
+                  {"contains": {"const": "visionTokens"}}
+                ]
+              },
+              "unmeasuredMetrics": {"not": {"contains": {"$ref": "#/$defs/tokenMetricName"}}}
+            },
+            "not": {
+              "anyOf": [
+                {"required": ["provider"]},
+                {"required": ["model"]},
+                {"required": ["agentRole"]},
+                {"required": ["tokenSource"]},
+                {"required": ["measurementBoundaryId"]},
+                {"required": ["callIdDigest"]},
+                {"required": ["runIdDigest"]},
+                {"required": ["usageReceiptSha256"]},
+                {"required": ["pluginTreeSha256"]},
+                {"required": ["qualityReceiptSha256"]},
+                {"required": ["tokenizerEncoding"]},
+                {"required": ["tokenizerVersion"]},
+                {"required": ["inputTokens"]},
+                {"required": ["cachedInputTokens"]},
+                {"required": ["outputTokens"]},
+                {"required": ["reasoningTokens"]},
+                {"required": ["visionTokens"]},
+                {"required": ["tokenizerProxyTokens"]}
+              ]
+            }
+          }
+        },
+        {
+          "if": {"properties": {"eventKind": {"const": "model-call"}}},
+          "then": {
+            "required": [
+              "provider",
+              "model",
+              "agentRole",
+              "tokenSource",
+              "measurementBoundaryId",
+              "callIdDigest",
+              "runIdDigest"
+            ],
+            "allOf": [
+              {"$ref": "#/$defs/classifyInputTokens"},
+              {"$ref": "#/$defs/classifyCachedInputTokens"},
+              {"$ref": "#/$defs/classifyOutputTokens"},
+              {"$ref": "#/$defs/classifyReasoningTokens"},
+              {"$ref": "#/$defs/classifyVisionTokens"},
+              {
+                "not": {"anyOf": [
+                  {"required": ["notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "inputTokens"}}}},
+                  {"required": ["notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "outputTokens"}}}}
+                ]}
+              },
+              {
+                "if": {"properties": {"tokenSource": {"const": "provider-receipt"}}},
+                "then": {
+                  "required": ["usageReceiptSha256"],
+                  "anyOf": [
+                    {"required": ["inputTokens"]},
+                    {"required": ["cachedInputTokens"]},
+                    {"required": ["outputTokens"]},
+                    {"required": ["reasoningTokens"]},
+                    {"required": ["visionTokens"]}
+                  ],
+                  "not": {"anyOf": [
+                    {"required": ["tokenizerProxyTokens"]},
+                    {"required": ["tokenizerEncoding"]},
+                    {"required": ["tokenizerVersion"]}
+                  ]}
+                },
+                "else": {
+                  "required": ["tokenizerProxyTokens", "tokenizerEncoding", "tokenizerVersion"],
+                  "not": {"anyOf": [
+                    {"required": ["usageReceiptSha256"]},
+                    {"required": ["inputTokens"]},
+                    {"required": ["cachedInputTokens"]},
+                    {"required": ["outputTokens"]},
+                    {"required": ["reasoningTokens"]},
+                    {"required": ["visionTokens"]}
+                  ]}
+                }
+              }
+            ]
+          }
+        },
+        {"$ref": "#/$defs/noClassificationOverlapInputTokens"},
+        {"$ref": "#/$defs/noClassificationOverlapCachedInputTokens"},
+        {"$ref": "#/$defs/noClassificationOverlapOutputTokens"},
+        {"$ref": "#/$defs/noClassificationOverlapReasoningTokens"},
+        {"$ref": "#/$defs/noClassificationOverlapVisionTokens"},
+        {"$ref": "#/$defs/noClassificationOverlapInstructionBytes"},
+        {"$ref": "#/$defs/noClassificationOverlapToolInputBytes"},
+        {"$ref": "#/$defs/noClassificationOverlapToolOutputBytes"},
+        {"$ref": "#/$defs/noClassificationOverlapArtifactBytes"},
+        {"$ref": "#/$defs/noClassificationOverlapImageCount"},
+        {"$ref": "#/$defs/noClassificationOverlapImagePixels"},
+        {"$ref": "#/$defs/noClassificationOverlapAgentCount"},
+        {"$ref": "#/$defs/noClassificationOverlapToolCallCount"},
+        {"$ref": "#/$defs/noClassificationOverlapCacheHitCount"},
+        {"$ref": "#/$defs/noClassificationOverlapCacheMissCount"},
+        {"$ref": "#/$defs/noClassificationOverlapTokenizerProxyTokens"}
+      ]
+    },
+    "classifyInputTokens": {
+      "oneOf": [
+        {"required": ["inputTokens"]},
+        {"required": ["notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "inputTokens"}}}},
+        {"required": ["unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "inputTokens"}}}}
+      ]
+    },
+    "classifyCachedInputTokens": {
+      "oneOf": [
+        {"required": ["cachedInputTokens"]},
+        {"required": ["notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "cachedInputTokens"}}}},
+        {"required": ["unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "cachedInputTokens"}}}}
+      ]
+    },
+    "classifyOutputTokens": {
+      "oneOf": [
+        {"required": ["outputTokens"]},
+        {"required": ["notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "outputTokens"}}}},
+        {"required": ["unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "outputTokens"}}}}
+      ]
+    },
+    "classifyReasoningTokens": {
+      "oneOf": [
+        {"required": ["reasoningTokens"]},
+        {"required": ["notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "reasoningTokens"}}}},
+        {"required": ["unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "reasoningTokens"}}}}
+      ]
+    },
+    "classifyVisionTokens": {
+      "oneOf": [
+        {"required": ["visionTokens"]},
+        {"required": ["notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "visionTokens"}}}},
+        {"required": ["unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "visionTokens"}}}}
+      ]
+    },
+    "noClassificationOverlapInputTokens": {
+      "not": {"anyOf": [
+        {"required": ["inputTokens", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "inputTokens"}}}},
+        {"required": ["inputTokens", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "inputTokens"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "inputTokens"}}, "unmeasuredMetrics": {"contains": {"const": "inputTokens"}}}}
+      ]}
+    },
+    "noClassificationOverlapCachedInputTokens": {
+      "not": {"anyOf": [
+        {"required": ["cachedInputTokens", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "cachedInputTokens"}}}},
+        {"required": ["cachedInputTokens", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "cachedInputTokens"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "cachedInputTokens"}}, "unmeasuredMetrics": {"contains": {"const": "cachedInputTokens"}}}}
+      ]}
+    },
+    "noClassificationOverlapOutputTokens": {
+      "not": {"anyOf": [
+        {"required": ["outputTokens", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "outputTokens"}}}},
+        {"required": ["outputTokens", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "outputTokens"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "outputTokens"}}, "unmeasuredMetrics": {"contains": {"const": "outputTokens"}}}}
+      ]}
+    },
+    "noClassificationOverlapReasoningTokens": {
+      "not": {"anyOf": [
+        {"required": ["reasoningTokens", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "reasoningTokens"}}}},
+        {"required": ["reasoningTokens", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "reasoningTokens"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "reasoningTokens"}}, "unmeasuredMetrics": {"contains": {"const": "reasoningTokens"}}}}
+      ]}
+    },
+    "noClassificationOverlapVisionTokens": {
+      "not": {"anyOf": [
+        {"required": ["visionTokens", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "visionTokens"}}}},
+        {"required": ["visionTokens", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "visionTokens"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "visionTokens"}}, "unmeasuredMetrics": {"contains": {"const": "visionTokens"}}}}
+      ]}
+    },
+    "noClassificationOverlapInstructionBytes": {
+      "not": {"anyOf": [
+        {"required": ["instructionBytes", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "instructionBytes"}}}},
+        {"required": ["instructionBytes", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "instructionBytes"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "instructionBytes"}}, "unmeasuredMetrics": {"contains": {"const": "instructionBytes"}}}}
+      ]}
+    },
+    "noClassificationOverlapToolInputBytes": {
+      "not": {"anyOf": [
+        {"required": ["toolInputBytes", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "toolInputBytes"}}}},
+        {"required": ["toolInputBytes", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "toolInputBytes"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "toolInputBytes"}}, "unmeasuredMetrics": {"contains": {"const": "toolInputBytes"}}}}
+      ]}
+    },
+    "noClassificationOverlapToolOutputBytes": {
+      "not": {"anyOf": [
+        {"required": ["toolOutputBytes", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "toolOutputBytes"}}}},
+        {"required": ["toolOutputBytes", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "toolOutputBytes"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "toolOutputBytes"}}, "unmeasuredMetrics": {"contains": {"const": "toolOutputBytes"}}}}
+      ]}
+    },
+    "noClassificationOverlapArtifactBytes": {
+      "not": {"anyOf": [
+        {"required": ["artifactBytes", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "artifactBytes"}}}},
+        {"required": ["artifactBytes", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "artifactBytes"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "artifactBytes"}}, "unmeasuredMetrics": {"contains": {"const": "artifactBytes"}}}}
+      ]}
+    },
+    "noClassificationOverlapImageCount": {
+      "not": {"anyOf": [
+        {"required": ["imageCount", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "imageCount"}}}},
+        {"required": ["imageCount", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "imageCount"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "imageCount"}}, "unmeasuredMetrics": {"contains": {"const": "imageCount"}}}}
+      ]}
+    },
+    "noClassificationOverlapImagePixels": {
+      "not": {"anyOf": [
+        {"required": ["imagePixels", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "imagePixels"}}}},
+        {"required": ["imagePixels", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "imagePixels"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "imagePixels"}}, "unmeasuredMetrics": {"contains": {"const": "imagePixels"}}}}
+      ]}
+    },
+    "noClassificationOverlapAgentCount": {
+      "not": {"anyOf": [
+        {"required": ["agentCount", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "agentCount"}}}},
+        {"required": ["agentCount", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "agentCount"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "agentCount"}}, "unmeasuredMetrics": {"contains": {"const": "agentCount"}}}}
+      ]}
+    },
+    "noClassificationOverlapToolCallCount": {
+      "not": {"anyOf": [
+        {"required": ["toolCallCount", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "toolCallCount"}}}},
+        {"required": ["toolCallCount", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "toolCallCount"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "toolCallCount"}}, "unmeasuredMetrics": {"contains": {"const": "toolCallCount"}}}}
+      ]}
+    },
+    "noClassificationOverlapCacheHitCount": {
+      "not": {"anyOf": [
+        {"required": ["cacheHitCount", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "cacheHitCount"}}}},
+        {"required": ["cacheHitCount", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "cacheHitCount"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "cacheHitCount"}}, "unmeasuredMetrics": {"contains": {"const": "cacheHitCount"}}}}
+      ]}
+    },
+    "noClassificationOverlapCacheMissCount": {
+      "not": {"anyOf": [
+        {"required": ["cacheMissCount", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "cacheMissCount"}}}},
+        {"required": ["cacheMissCount", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "cacheMissCount"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "cacheMissCount"}}, "unmeasuredMetrics": {"contains": {"const": "cacheMissCount"}}}}
+      ]}
+    },
+    "noClassificationOverlapTokenizerProxyTokens": {
+      "not": {"anyOf": [
+        {"required": ["tokenizerProxyTokens", "notApplicableMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "tokenizerProxyTokens"}}}},
+        {"required": ["tokenizerProxyTokens", "unmeasuredMetrics"], "properties": {"unmeasuredMetrics": {"contains": {"const": "tokenizerProxyTokens"}}}},
+        {"required": ["notApplicableMetrics", "unmeasuredMetrics"], "properties": {"notApplicableMetrics": {"contains": {"const": "tokenizerProxyTokens"}}, "unmeasuredMetrics": {"contains": {"const": "tokenizerProxyTokens"}}}}
+      ]}
+    }
+  }
+}

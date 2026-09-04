@@ -4,11 +4,12 @@
 
 1. [Handoff boundary](#handoff-boundary)
 2. [Approval gate](#approval-gate)
-3. [UIBuildBundle version routing and semantics](#uibuildbundle-version-routing-and-semantics)
-4. [Requirement-to-build mapping](#requirement-to-build-mapping)
-5. [Build order and integration](#build-order-and-integration)
-6. [Verification and deviation records](#verification-and-deviation-records)
-7. [Documentation handoff](#documentation-handoff)
+3. [Accepted Build View gate](#accepted-build-view-gate)
+4. [UIBuildBundle version routing and semantics](#uibuildbundle-version-routing-and-semantics)
+5. [Requirement-to-build mapping](#requirement-to-build-mapping)
+6. [Build order and integration](#build-order-and-integration)
+7. [Verification and deviation records](#verification-and-deviation-records)
+8. [Documentation handoff](#documentation-handoff)
 
 ## Handoff boundary
 
@@ -21,6 +22,7 @@ The analysis skill owns:
 
 The downstream planning/build workflow owns:
 
+- `accepted-build-view.json`;
 - `ui-build-bundle.json`;
 - files below `layouts/`;
 - Unreal mutation, compilation, saving, preview, and `verification.json`;
@@ -44,6 +46,23 @@ Validate the requirement in strict `--check-findings-files` mode before planning
 An unanswered unresolved claim may remain in the requirement file, but it must be excluded from layouts and operations. If exclusion would make the requested UI materially incomplete, stop instead of silently choosing a default.
 
 This requirement approval is only the pre-build gate. It cannot be reused as the post-build result acceptance and cannot pre-authorize documentation, even if the initial request asks for the complete analysis, construction, and document workflow.
+
+## Accepted Build View gate
+
+Before the build-planning Agent is dispatched, the downstream workflow deterministically creates and validates [Accepted Build View 0.1](../assets/accepted-build-view.schema.json) against the external complete accepted Requirement. Store it as `Saved/CodexUIRequirements/<request-id>/accepted-build-view.json` and use:
+
+```text
+python scripts/accepted_build_view.py <ui-requirement.json> <accepted-build-view.json>
+python scripts/validate_accepted_build_view.py <accepted-build-view.json> --requirement <ui-requirement.json>
+```
+
+The View is non-authoritative execution data. It parses and hashes one immutable snapshot of the complete Requirement bytes and binds its file SHA-256, canonical SHA-256, request identity, revision, accepted approval digest, and Requirement Schema authority. The full validator and View rebuild use the same immutable Requirement Schema bytes snapshot. The planner receives only a validated projected View; the complete Requirement remains outside its Agent context as validator-side authority and stays linked through `bundle.requirement`.
+
+The View retains the complete accepted `request` and ordered `reviewResolutions` as exact copies so request exclusions, completion criteria, and resolved execution gates cannot be lost behind a less-specific linked claim. It carries an exact coverage ledger for every accepted claim, every element, every nested state, and every acceptance criterion. Each ID is either projected or explicitly marked non-build, with no omission, duplicate, overlap, or extra ID. Accepted claims are always projected. Elements, states, and acceptance criteria may be non-build only through the complete Requirement's `inBuildScope: false` plus nonempty `scopedOutReason`. Other in-scope assets, regions, collections, runtime fields, and responsive intents are projection roots. Accepted assumptions and answered questions are also roots because their `affectsClaimIds` references point toward claims; proposed/unresolved assumptions and open questions remain audit-only. Dependency expansion follows canonical typed references to a fixed point and retains every referenced object; selecting any state-owned nested entity retains the complete state-model record while the ledger prevents out-of-scope siblings from becoming executable.
+
+The projected View also embeds a closed `dispatchContract`. Because a fresh no-history build-planning Agent receives only the View path, this contract supplies its role, objective, single visible input boundary, exclusive Bundle/layout outputs, forbidden Editor/history actions, and fail-closed completion rule without relying on unhashed prompt prose. The validator compares the object byte-for-byte with the canonical contract; any unknown, missing, or changed field blocks planning. A retry always terminates the failed task and starts a fresh task from the same validated View.
+
+The complete Requirement first passes its closed Schema, approval, canonical-reference, and semantic validators; an invalid authority is rejected. For a valid authority, an unaudited Schema version or open-payload reference shape, missing non-build reason, incomplete closure, projected owner/value mismatch, or incomplete coverage forces exact `full-fallback` content and `buildAllowed: false`. Full fallback prevents planning and Editor mutation; it is not a license to build from the complete copy. The final `UIRequirementSpec` format and `UIBuildBundle` format remain unchanged.
 
 ## UIBuildBundle version routing and semantics
 
@@ -195,11 +214,11 @@ Displayed passive components use `SelfHitTestInvisible`. Inactive passive state 
 Validate before Editor mutation:
 
 ```text
-python scripts/validate_build_bundle.py <ui-build-bundle.json>
-python scripts/validate_requirement_coverage.py <ui-build-bundle.json>
+python scripts/validate_build_bundle.py <ui-build-bundle.json> --accepted-build-view <accepted-build-view.json>
+python scripts/validate_requirement_coverage.py <ui-build-bundle.json> --accepted-build-view <accepted-build-view.json>
 ```
 
-Use `--requirement <ui-requirement.json>` only to override `bundle.requirement.path`. `validate_build_bundle.py` accepts `--schema`, `--requirement-schema`, and `--skip-linked-files`; the coverage command uses `--bundle-schema`, `--requirement-schema`, and `--skip-linked-files`. Do not use `--skip-linked-files` for a final pre-build or final verification pass because it skips requirement/layout hashes and linked UILayoutSpec checks.
+Use `--requirement <ui-requirement.json>` only to override `bundle.requirement.path`; never pass the View there. `validate_build_bundle.py` accepts `--schema`, `--requirement-schema`, `--accepted-build-view`, and `--skip-linked-files`; the coverage command uses `--bundle-schema`, `--requirement-schema`, `--accepted-build-view`, and `--skip-linked-files`. Even with the View supplied, both validators read and validate the complete Requirement and the coverage command derives semantic coverage from it. Do not use `--skip-linked-files` for a final pre-build or final verification pass because it skips authoritative Requirement/layout hashes and linked UILayoutSpec checks.
 
 ## Documentation handoff
 

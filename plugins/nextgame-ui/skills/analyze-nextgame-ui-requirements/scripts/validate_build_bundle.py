@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from _contract_common import ASSETS_ROOT, issue, load_json, resolve_contract_path, result, sha256_file, validate_schema_instance
+from accepted_build_view import RequirementSnapshot, validate_accepted_build_view as validate_accepted_build_view_contract
 from validate_requirement_spec import (
     DEFAULT_SCHEMA as REQUIREMENT_SCHEMA,
     build_requirement_index,
@@ -1463,6 +1464,25 @@ def _validate_reuse_relations(
     return errors
 
 
+def _json_values_strict_equal(left: Any, right: Any) -> bool:
+    """Compare parsed JSON without Python's bool/int or int/float coercion."""
+
+    if type(left) is not type(right):
+        return False
+    if type(left) is dict:
+        return left.keys() == right.keys() and all(
+            _json_values_strict_equal(left[key], right[key]) for key in left
+        )
+    if type(left) is list:
+        return len(left) == len(right) and all(
+            _json_values_strict_equal(left_item, right_item)
+            for left_item, right_item in zip(left, right)
+        )
+    if type(left) in (str, int, float, bool, type(None)):
+        return left == right
+    return False
+
+
 def validate_build_bundle(
     bundle: Any,
     schema: dict[str, Any],
@@ -1471,6 +1491,9 @@ def validate_build_bundle(
     requirement_spec: dict[str, Any] | None = None,
     requirement_path: Path | None = None,
     requirement_schema: dict[str, Any] | None = None,
+    requirement_schema_path: Path | None = None,
+    accepted_build_view: dict[str, Any] | None = None,
+    accepted_build_view_path: Path | None = None,
     check_linked_files: bool = True,
 ) -> dict[str, Any]:
     errors: list[dict[str, str]] = []
@@ -1487,18 +1510,79 @@ def validate_build_bundle(
     errors.extend(validate_schema_instance(bundle, schema))
 
     requirement_link = bundle.get("requirement") if isinstance(bundle.get("requirement"), dict) else {}
+    accepted_build_view_requested = accepted_build_view is not None or accepted_build_view_path is not None
     if requirement_link.get("reviewStatus") != "accepted":
         errors.append(issue("requirement.review", "$.requirement.reviewStatus", "A build bundle may only use an accepted requirement review."))
 
     if requirement_path is None and isinstance(requirement_link.get("path"), str):
         requirement_path = resolve_contract_path(bundle_path, requirement_link["path"])
-    if requirement_spec is None and requirement_path is not None:
+    requirement_snapshot: RequirementSnapshot | None = None
+    requirement_file_value: Any = None
+    if accepted_build_view_requested and requirement_path is not None:
+        try:
+            requirement_snapshot = RequirementSnapshot.from_path(requirement_path)
+            requirement_file_value = requirement_snapshot.load()
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+            errors.append(issue("requirement.read", "$.requirement.path", str(error)))
+        else:
+            if requirement_spec is None:
+                requirement_spec = requirement_file_value
+    elif requirement_spec is None and requirement_path is not None:
         try:
             requirement_spec = load_json(requirement_path)
         except (OSError, json.JSONDecodeError) as error:
             errors.append(issue("requirement.read", "$.requirement.path", str(error)))
 
-    requirement_schema = requirement_schema or load_json(REQUIREMENT_SCHEMA)
+    requirement_schema_snapshot: RequirementSnapshot | None = None
+    requirement_schema_snapshot_matches = True
+    if accepted_build_view_requested:
+        bound_requirement_schema_path = requirement_schema_path or REQUIREMENT_SCHEMA
+        try:
+            requirement_schema_snapshot = RequirementSnapshot.from_path(bound_requirement_schema_path)
+            requirement_schema_file_value = requirement_schema_snapshot.load()
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+            errors.append(
+                issue(
+                    "accepted-build-view.requirement_schema_read",
+                    "$.acceptedBuildView.bindings.requirementSchemaSha256",
+                    str(error),
+                )
+            )
+            requirement_schema_snapshot_matches = False
+        else:
+            if not isinstance(requirement_schema_file_value, dict):
+                errors.append(
+                    issue(
+                        "accepted-build-view.requirement_schema_type",
+                        "$.acceptedBuildView.bindings.requirementSchemaSha256",
+                        "The bound Requirement Schema must be a JSON object.",
+                    )
+                )
+                requirement_schema_snapshot_matches = False
+            elif requirement_schema is None:
+                requirement_schema = requirement_schema_file_value
+            elif not _json_values_strict_equal(requirement_schema, requirement_schema_file_value):
+                errors.append(
+                    issue(
+                        "accepted-build-view.requirement_schema_value_mismatch",
+                        "$.acceptedBuildView.bindings.requirementSchemaSha256",
+                        "The Requirement Schema used for full validation must be type-strictly identical to the same immutable Schema bytes used to rebuild the Accepted Build View.",
+                    )
+                )
+                requirement_schema_snapshot_matches = False
+    if requirement_schema is None:
+        if accepted_build_view_requested and requirement_schema_snapshot is None:
+            # Preserve the earlier read diagnostic and keep the Bundle blocked;
+            # never silently switch to the default Schema after a requested
+            # authority snapshot failed.
+            requirement_schema = {}
+        else:
+            schema_path = requirement_schema_path or REQUIREMENT_SCHEMA
+            requirement_schema = (
+                load_json(schema_path)
+                if requirement_schema_snapshot is None
+                else requirement_schema_snapshot.load()
+            )
     requirement_index: dict[str, Any] = {"byId": {}, "byKind": {}}
     interactive_button_requirements: dict[str, set[str]] = {}
     design_size_modes_by_plan: dict[str, str] = {}
@@ -1508,8 +1592,12 @@ def validate_build_bundle(
     explicit_panel_slots_policy = False
     explicit_image_owner_intent_policy = False
     design_size_mode_policy = False
+    full_requirement_valid = False
+    actual_requirement_file_sha256: str | None = None
+    requirement_link_sha_checked = False
     if isinstance(requirement_spec, dict):
         requirement_result = validate_requirement_spec(requirement_spec, requirement_schema)
+        full_requirement_valid = bool(requirement_result.get("valid"))
         if not requirement_result["valid"]:
             errors.append(issue("requirement.invalid", "$.requirement", "Linked UIRequirementSpec is invalid."))
         review = requirement_spec.get("reviewGate") if isinstance(requirement_spec.get("reviewGate"), dict) else {}
@@ -1529,10 +1617,21 @@ def validate_build_bundle(
                     "Bundle approval digest does not match UIRequirementSpec reviewGate.",
                 )
             )
-        if check_linked_files and requirement_path is not None and requirement_path.is_file():
-            actual_hash = sha256_file(requirement_path)
-            if requirement_link.get("sha256") != actual_hash:
-                errors.append(issue("requirement.sha256", "$.requirement.sha256", f"Requirement hash mismatch; expected {actual_hash}."))
+        if (check_linked_files or accepted_build_view_requested) and requirement_path is not None and requirement_path.is_file():
+            actual_requirement_file_sha256 = (
+                requirement_snapshot.file_sha256
+                if requirement_snapshot is not None
+                else sha256_file(requirement_path)
+            )
+            requirement_link_sha_checked = True
+            if requirement_link.get("sha256") != actual_requirement_file_sha256:
+                errors.append(
+                    issue(
+                        "requirement.sha256",
+                        "$.requirement.sha256",
+                        f"Requirement hash mismatch; expected {actual_requirement_file_sha256}.",
+                    )
+                )
         requirement_index = build_requirement_index(requirement_spec)
         interactive_button_requirements = required_user_interaction_buttons(requirement_spec, requirement_index)
         design_size_modes_by_plan = required_design_size_modes(requirement_spec, requirement_index)
@@ -1563,6 +1662,171 @@ def validate_build_bundle(
             isinstance(requirement_spec.get("analysisPolicy"), dict)
             and requirement_spec["analysisPolicy"].get("designSizeModeRequired") is True
         )
+
+    # Accepted Build View is an optional execution-context sidecar.  It never
+    # replaces the complete Requirement above: the full document is always read,
+    # validated, indexed, and hash-bound first.  When the sidecar is supplied,
+    # validate it by deterministic reconstruction from that same full file and
+    # require the safe projected/build-allowed state before any Bundle can pass.
+    if accepted_build_view_requested:
+        if accepted_build_view_path is not None:
+            try:
+                accepted_build_view_file_value = load_json(accepted_build_view_path)
+            except (OSError, json.JSONDecodeError, ValueError) as error:
+                errors.append(issue("accepted-build-view.read", "$.acceptedBuildView", str(error)))
+            else:
+                if accepted_build_view is None:
+                    accepted_build_view = accepted_build_view_file_value
+                elif not _json_values_strict_equal(
+                    accepted_build_view, accepted_build_view_file_value
+                ):
+                    errors.append(
+                        issue(
+                            "accepted-build-view.sidecar_value_mismatch",
+                            "$.acceptedBuildView",
+                            "accepted_build_view must exactly equal the JSON value loaded from accepted_build_view_path when both are supplied.",
+                        )
+                    )
+
+        if not isinstance(requirement_spec, dict):
+            errors.append(
+                issue(
+                    "accepted-build-view.full_requirement_required",
+                    "$.requirement.path",
+                    "Accepted Build View validation requires the complete UIRequirementSpec; the View cannot be used as requirement_spec.",
+                )
+            )
+        requirement_file_value_matches_source = False
+        if requirement_path is None or not requirement_path.is_file() or requirement_snapshot is None:
+            errors.append(
+                issue(
+                    "accepted-build-view.requirement_file_required",
+                    "$.requirement.path",
+                    "Accepted Build View validation requires the bound complete Requirement file so its physical SHA-256 can be verified.",
+                )
+            )
+        else:
+            if actual_requirement_file_sha256 is None:
+                actual_requirement_file_sha256 = requirement_snapshot.file_sha256
+            if not requirement_link_sha_checked and requirement_link.get("sha256") != actual_requirement_file_sha256:
+                errors.append(
+                    issue(
+                        "requirement.sha256",
+                        "$.requirement.sha256",
+                        f"Requirement hash mismatch; expected {actual_requirement_file_sha256}.",
+                    )
+                )
+            if isinstance(requirement_spec, dict):
+                requirement_file_value_matches_source = _json_values_strict_equal(
+                    requirement_file_value, requirement_spec
+                )
+                if not requirement_file_value_matches_source:
+                    errors.append(
+                        issue(
+                            "accepted-build-view.requirement_value_mismatch",
+                            "$.requirement.path",
+                            "The complete Requirement JSON value loaded from requirement_path must be type-strictly identical to requirement_spec before validating an Accepted Build View.",
+                        )
+                    )
+
+        if (
+            isinstance(accepted_build_view, dict)
+            and isinstance(requirement_spec, dict)
+            and full_requirement_valid
+            and actual_requirement_file_sha256 is not None
+            and requirement_file_value_matches_source
+            and requirement_schema_snapshot is not None
+            and requirement_schema_snapshot_matches
+        ):
+            view_validation = validate_accepted_build_view_contract(
+                accepted_build_view,
+                source_requirement=requirement_snapshot,
+                requirement_schema_path=requirement_schema_snapshot,
+            )
+            if not view_validation.get("valid"):
+                nested_codes = sorted(
+                    {
+                        entry.get("code")
+                        for entry in view_validation.get("errors", [])
+                        if isinstance(entry, dict) and isinstance(entry.get("code"), str)
+                    }
+                )
+                errors.append(
+                    issue(
+                        "accepted-build-view.invalid",
+                        "$.acceptedBuildView",
+                        f"Accepted Build View failed deterministic validation: {nested_codes}.",
+                    )
+                )
+            if accepted_build_view.get("mode") != "projected" or view_validation.get("mode") != "projected":
+                errors.append(
+                    issue(
+                        "accepted-build-view.mode",
+                        "$.acceptedBuildView.mode",
+                        "Only a projected Accepted Build View may authorize build planning or execution; full fallback is blocked.",
+                    )
+                )
+            if accepted_build_view.get("buildAllowed") is not True or view_validation.get("buildAllowed") is not True:
+                errors.append(
+                    issue(
+                        "accepted-build-view.build_allowed",
+                        "$.acceptedBuildView.buildAllowed",
+                        "Accepted Build View must explicitly set buildAllowed=true.",
+                    )
+                )
+
+            view_bindings = (
+                accepted_build_view.get("bindings")
+                if isinstance(accepted_build_view.get("bindings"), dict)
+                else {}
+            )
+            identity_checks = (
+                (
+                    "request_id",
+                    "$.acceptedBuildView.requestId",
+                    accepted_build_view.get("requestId"),
+                    requirement_link.get("requestId"),
+                    "requestId",
+                ),
+                (
+                    "revision",
+                    "$.acceptedBuildView.revision",
+                    accepted_build_view.get("revision"),
+                    requirement_link.get("revision"),
+                    "revision",
+                ),
+                (
+                    "approval_digest",
+                    "$.acceptedBuildView.bindings.approvedContentSha256",
+                    view_bindings.get("approvedContentSha256"),
+                    requirement_link.get("approvedContentSha256"),
+                    "approvedContentSha256",
+                ),
+                (
+                    "requirement_file_sha",
+                    "$.acceptedBuildView.bindings.requirementFileSha256",
+                    view_bindings.get("requirementFileSha256"),
+                    requirement_link.get("sha256"),
+                    "Requirement file SHA-256",
+                ),
+            )
+            for code_suffix, path, view_value, bundle_value, label in identity_checks:
+                if view_value != bundle_value:
+                    errors.append(
+                        issue(
+                            f"accepted-build-view.{code_suffix}",
+                            path,
+                            f"Accepted Build View {label} does not match the Bundle requirement link.",
+                        )
+                    )
+        elif not isinstance(accepted_build_view, dict):
+            errors.append(
+                issue(
+                    "accepted-build-view.type",
+                    "$.acceptedBuildView",
+                    "Accepted Build View must be a JSON object.",
+                )
+            )
 
     all_bundle_ids: set[str] = set()
     bundle_id = bundle.get("bundleId")
@@ -2603,6 +2867,48 @@ def validate_build_bundle(
     for element_id, assignments in assignments_by_element.items():
         if len(assignments) != 1:
             errors.append(issue("state.assignment_duplicate", "$.requirement", f"Requirement element {element_id} has multiple stateAssignments."))
+
+    assigned_element_ids = set(assignments_by_element)
+
+    def same_screen_assignment_routes(
+        element_id: Any,
+        expected_states: set[str],
+        target_mappings: list[dict[str, Any]],
+    ) -> list[dict[str, Any]]:
+        """Return exact mappings that realize an assignment wholly inside one screen."""
+
+        if not isinstance(element_id, str) or not expected_states:
+            return []
+        if any(state_ref not in state_model_by_state for state_ref in expected_states):
+            return []
+        required_model_ids = {state_model_by_state[state_ref] for state_ref in expected_states}
+        routes: list[dict[str, Any]] = []
+        for mapping in target_mappings:
+            mapping_asset = assets.get(mapping.get("assetId"))
+            if not isinstance(mapping_asset, dict) or mapping_asset.get("assetKind") != "screen":
+                continue
+            requirement_plan = requirement_assets.get(mapping_asset.get("assetPlanId"))
+            if not isinstance(requirement_plan, dict) or requirement_plan.get("assetKind") != "screen":
+                continue
+            if element_id not in set(requirement_plan.get("coversElementIds", [])):
+                continue
+            if not required_model_ids.issubset(set(requirement_plan.get("coversStateModelIds", []))):
+                continue
+            if mapping.get("mappingKind") not in {"direct", "composite-state"}:
+                continue
+            mapping_states = mapping.get("stateRefs", [])
+            if not isinstance(mapping_states, list) or set(mapping_states) != expected_states:
+                continue
+            assigned_target_refs = [
+                requirement_ref
+                for requirement_ref in mapping.get("requirementRefs", [])
+                if requirement_ref in assigned_element_ids
+            ]
+            if assigned_target_refs != [element_id]:
+                continue
+            routes.append(mapping)
+        return routes
+
     for assignment in state_assignments:
         element_id = assignment.get("elementId")
         expected_states = set(assignment.get("axisStateIds", []))
@@ -2611,6 +2917,17 @@ def validate_build_bundle(
             for mapping in bundle.get("nodeMappings", [])
             if isinstance(mapping, dict) and element_id in mapping.get("requirementRefs", [])
         ]
+        direct_routes = same_screen_assignment_routes(element_id, expected_states, target_mappings)
+        if len(direct_routes) == 1:
+            continue
+        if len(direct_routes) > 1:
+            errors.append(
+                issue(
+                    "state.assignment_same_screen_duplicate",
+                    "$.nodeMappings",
+                    f"State assignment for {element_id} has multiple exact same-screen mappings; exactly one is required.",
+                )
+            )
         handling_operations: list[dict[str, Any]] = []
         for mapping in target_mappings:
             handling_operations.extend(
@@ -2964,6 +3281,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("bundle", type=Path, help="Path to UIBuildBundle JSON.")
     parser.add_argument("--requirement", type=Path, help="Override linked UIRequirementSpec path.")
+    parser.add_argument("--accepted-build-view", type=Path, help="Optional Accepted Build View sidecar; the complete Requirement remains mandatory and authoritative.")
     parser.add_argument("--schema", type=Path, default=DEFAULT_SCHEMA)
     parser.add_argument("--requirement-schema", type=Path, default=REQUIREMENT_SCHEMA)
     parser.add_argument("--skip-linked-files", action="store_true", help="Skip hash and UILayoutSpec file checks.")
@@ -2976,7 +3294,8 @@ def main() -> int:
             bundle_path=args.bundle.resolve(),
             requirement_spec=requirement,
             requirement_path=args.requirement.resolve() if args.requirement else None,
-            requirement_schema=load_json(args.requirement_schema),
+            requirement_schema_path=args.requirement_schema.resolve(),
+            accepted_build_view_path=args.accepted_build_view.resolve() if args.accepted_build_view else None,
             check_linked_files=not args.skip_linked_files,
         )
     except (OSError, json.JSONDecodeError, ValueError) as error:

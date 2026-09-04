@@ -31,7 +31,9 @@ def error_codes(validation: dict) -> set[str]:
 
 @contextmanager
 def registry_temporary_directory():
-    path = PLUGIN_ROOT / f".registry-test-{uuid.uuid4().hex}"
+    test_root = PLUGIN_ROOT.parent.parent / "Saved" / "CodexUITestTemp"
+    test_root.mkdir(parents=True, exist_ok=True)
+    path = test_root / f"registry-test-{uuid.uuid4().hex}"
     path.mkdir()
     try:
         yield path
@@ -637,6 +639,7 @@ class BuildBundleReuseRelationsTests(unittest.TestCase):
             )
             entry["knownConsumers"] = []
             entry["reuseContractSha256"] = compute_reuse_contract_sha256(entry)
+            registry["entries"] = [entry]
             registry_bytes = (json.dumps(registry, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
             registry_sha256 = hashlib.sha256(registry_bytes).hexdigest()
             registry_path = task_root / "registry-snapshots" / f"shared-widget-registry.{registry_sha256}.json"
@@ -889,45 +892,58 @@ class BuildBundleReuseRelationsTests(unittest.TestCase):
         self.assertIn("schema.one_of", error_codes(self.validate(bundle)))
 
     def test_v03_registry_binding_uses_actual_validated_snapshot(self) -> None:
-        bundle = copy.deepcopy(self.bundle_v03)
-        relation = bundle["reuseRelations"][0]
-        registry_path = PLUGIN_ROOT / "assets" / "shared-widget-registry.json"
-        registry = load_json(registry_path)
-        entry = registry["entries"][0]
-        relation["registry"].update(
-            {
-                "registryPath": str(registry_path),
-                "registrySha256": sha256_file(registry_path),
-                "registryId": registry["registryId"],
-                "registryVersion": registry["version"],
-                "registryRevision": registry["registryRevision"],
-                "entryId": entry["id"],
-                "entryStatus": entry["status"],
-                "extensionSlotsStatus": entry["extensionSlotsContract"]["status"],
-                "interfaceSha256": entry["interfaceSha256"],
-                "reuseContractSha256": entry["reuseContractSha256"],
-            }
-        )
-        source = bundle["assets"][0]
+        with registry_temporary_directory() as task_root:
+            bundle = copy.deepcopy(self.bundle_v03)
+            relation = bundle["reuseRelations"][0]
+            registry = load_json(PLUGIN_ROOT / "assets" / "shared-widget-registry.json")
+            entry = copy.deepcopy(registry["entries"][0])
+            registry["entries"] = [entry]
+            registry_bytes = (
+                json.dumps(registry, ensure_ascii=False, indent=2, allow_nan=False) + "\n"
+            ).encode("utf-8")
+            registry_sha256 = hashlib.sha256(registry_bytes).hexdigest()
+            registry_path = (
+                task_root
+                / "registry-snapshots"
+                / f"shared-widget-registry.{registry_sha256}.json"
+            )
+            registry_path.parent.mkdir()
+            registry_path.write_bytes(registry_bytes)
+            relation["registry"].update(
+                {
+                    "registryPath": f"registry-snapshots/{registry_path.name}",
+                    "registrySha256": registry_sha256,
+                    "registryId": registry["registryId"],
+                    "registryVersion": registry["version"],
+                    "registryRevision": registry["registryRevision"],
+                    "entryId": entry["id"],
+                    "entryStatus": entry["status"],
+                    "extensionSlotsStatus": entry["extensionSlotsContract"]["status"],
+                    "interfaceSha256": entry["interfaceSha256"],
+                    "reuseContractSha256": entry["reuseContractSha256"],
+                }
+            )
+            source = bundle["assets"][0]
+            bundle_path = task_root / "ui-build-bundle.json"
 
-        def codes() -> set[str]:
-            return {
-                error["code"]
-                for error in _validate_shared_registry_binding(
-                    relation["registry"],
-                    source_asset=source,
-                    bundle_version="0.3",
-                    bundle_path=self.bundle_path,
-                    path="$.reuseRelations[0].registry",
-                )
-            }
+            def codes() -> set[str]:
+                return {
+                    error["code"]
+                    for error in _validate_shared_registry_binding(
+                        relation["registry"],
+                        source_asset=source,
+                        bundle_version="0.3",
+                        bundle_path=bundle_path,
+                        path="$.reuseRelations[0].registry",
+                    )
+                }
 
-        self.assertEqual(set(), codes())
-        relation["registry"]["registrySha256"] = "0" * 64
-        self.assertIn("reuse.registry_sha256", codes())
-        relation["registry"]["registrySha256"] = sha256_file(registry_path)
-        relation["registry"]["entryStatus"] = "active"
-        self.assertIn("reuse.registry_entry_identity", codes())
+            self.assertEqual(set(), codes())
+            registry_path.write_bytes(registry_bytes + b"\n")
+            self.assertIn("reuse.registry_sha256", codes())
+            registry_path.write_bytes(registry_bytes)
+            relation["registry"]["entryStatus"] = "active"
+            self.assertIn("reuse.registry_entry_identity", codes())
 
     def test_v03_registry_binding_rejects_arbitrary_existing_json_path(self) -> None:
         registry_path = PLUGIN_ROOT / "assets" / "shared-widget-registry.json"

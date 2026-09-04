@@ -2,7 +2,7 @@
 
 UMGNextGame 把 NextGame 的 UMG 需求分析、构建验证和程序交接规范封装成一套“文件合同优先”的工作流，并提供 Codex、Hermes、WorkBuddy 三种调度适配。
 
-核心不是某个厂商的 subagent API，而是同一组版本化 Schema、9 份独立 `AgentFindings`、严格哈希/引用校验和两次直接用户确认。运行时只负责派发和等待；通过校验的文件才是权威结果。
+核心不是某个厂商的 subagent API，而是同一组版本化 Schema、9 份独立 `AgentFindings`、9 份无历史角色包、严格哈希/引用校验和两次直接用户确认。运行时只负责派发和等待；通过校验的文件才是权威结果。
 
 ## 能力边界
 
@@ -12,22 +12,25 @@ UMGNextGame 把 NextGame 的 UMG 需求分析、构建验证和程序交接规�
 | Hermes | agentskills.io 风格 Skill + `delegate_task` + 可配置 MCP | 静态合同验证；未声称已在所有 Hermes 部署端到端运行 |
 | WorkBuddy | Workflow Knowledge Unit，使用 `execution: main|subagent`、`depends_on` 和结果 Schema | 静态 DAG/前置依赖验证；未声称已在 WorkBuddy 服务端端到端运行 |
 
-当宿主没有并行 subagent 时，可以按同一组内的角色顺序执行兼容模式，但仍必须保留独立输入、独立文件和全部校验屏障，并明确说明这不是并行 multi-agent 执行。
+当宿主没有并行 subagent 时，可以按同一组内的角色顺序执行兼容模式，但每次仍必须从无历史状态启动、只读取自己的 `agent-inputs/<role>.json`，并保留独立文件和全部校验屏障；同时明确说明这不是并行 multi-agent 执行。
 
 ## 受保护的主链
 
 ```text
-RequestPacket 校验
-  -> discovery 三角色（并行）
-  -> 校验 + canonical normalization
-  -> focused 三角色（并行）
-  -> 校验 + 唯一 synthesizer
-  -> review 三角色（并行）
-  -> adjudication + strict linked-file validation
+RequestPacket 校验 + Registry shortlist + discovery role packets
+  -> discovery 三角色（packet-only / no-history，并行）
+  -> 校验 + canonical normalization + focused context projections/packets
+  -> focused 三角色（packet-only / no-history，并行）
+  -> 校验 + 唯一 synthesizer + 3 个 Review Views/packets
+  -> review 三角色（packet-only / no-history，并行）
+  -> adjudication + Draft-aware strict linked-file validation
   -> 展示 Requirement，停止等待第一次直接用户确认
 
 第一次确认
-  -> UMG 构建 / 编译 / 保存 / 预览 / Unreal 实际读回
+  -> 生成并验证 Accepted Build View（仅 projected + buildAllowed）
+  -> fresh/no-history 构建规划 Agent 只读 View，且不得连接 Unreal
+  -> 完整 Requirement + View 预校验 staged Bundle、布局与确定性执行计划
+  -> 预校验状态绑定后才允许 UMG 构建 / 编译 / 保存 / 最终验证 / Unreal 实际读回
   -> 展示最终制作结果，停止等待第二次直接用户确认
 
 第二次确认
@@ -40,7 +43,7 @@ RequestPacket 校验
 - `state-modeling`、`data-adaptation`、`asset-decomposition`
 - `state-visual-review`、`schema-feasibility-review`、`coverage-review`
 
-任何 adapter 都不能合并这些文件、把 agent 聊天摘要当证据、跳过 linked-file 校验，或复用第一次确认去授权第二次确认。
+任何 adapter 都不能合并这些文件、向角色暴露完整 Request/context/Draft、把 agent 聊天摘要当证据、跳过 linked-file 校验，或复用第一次确认去授权第二次确认。Review View 或 Accepted Build View 覆盖不完整时必须回退或停止，不能以缩减输入换取较弱校验。
 
 ## 仓库结构
 
@@ -71,7 +74,7 @@ python adapters/validate_adapters.py
 python scripts/validate_release.py
 ```
 
-图片覆盖扫描、HTTP MCP 执行和 DOCX 模板测试需要可选依赖：
+图片覆盖扫描、HTTP MCP 执行、DOCX 模板测试和发布期 JSON Schema 交叉校验需要可选依赖：
 
 ```bash
 python -m pip install -r requirements-optional.txt
@@ -105,7 +108,7 @@ Hermes 根 Agent 使用 `delegate_task` 派发九个有界角色；子 Agent 只
 - [`nextgame-ui-requirement-analysis.md`](adapters/workbuddy/nextgame-ui-requirement-analysis.md)
 - [`nextgame-ui-build-acceptance.md`](adapters/workbuddy/nextgame-ui-build-acceptance.md)
 
-第一份负责 9 角色需求分析并在第一次确认门停止；第二份只处理已经构建、保存、验证和读回的结果展示及第二次确认。不要把两份 Workflow 合并成一个自动直通流程。
+第一份负责 9 角色需求分析并在第一次确认门停止；第二份在后续人工恢复时结构化执行 Accepted Build View、仅 View 可见且不触碰 Editor 的构建规划、完整 Requirement + View 的构建前校验、UMG 执行与最终校验、Unreal 读回、持久展示状态和第二次确认。两份 Workflow 之间必须保留第一次人工门，不能配置成自动直通。
 
 ## 生成具体调度清单
 
@@ -119,7 +122,7 @@ python orchestration/scripts/portable_workflow.py plan \
   --output <external-run-directory>/status/dispatch-manifest.json
 ```
 
-adapter 再把该清单翻译成宿主任务。每个 worker 的返回消息只是 receipt；对应 JSON 文件通过插件 validator 后才算完成。
+adapter 再把该清单翻译成宿主任务。清单分别记录协调器/validator 的完整 `inputs` 与 Agent 可见的单一 `agentInputs`；每个 worker 的返回消息只是 receipt，对应 JSON 文件通过插件 validator 后才算完成。
 
 运行目录应放在仓库外。确实需要仓库内的临时试跑时，只能使用已忽略的 `.runs/<request-id>/`；不要把真实图片、findings、context、预览或 Requirement 放进源码目录。发布校验采用顶层源码白名单，并拒绝常见运行工件和 Unreal 资产。
 
